@@ -624,20 +624,128 @@ function renderLeaderboard(){
 function renderSettings(){
   const p = state.prestige;
   const canPrest = canPrestige(state);
-  const ptsOnPrestige = Math.floor(state.level/5) + Math.floor(state.totalGoldEarned/5000);
-  const progressPct = Math.min(100, (state.level / PRESTIGE_LEVEL_REQ) * 100);
   const isGuest = !!(auth && auth.currentUser && auth.currentUser.isAnonymous);
+  
+  // Avatar options
+  const avatarOptions = ['🧙', '⚔️', '🏹', '🔮', '💚', '💰', '🐉', '🐺', '🦅', '🛡️'];
+  const avatarHtml = avatarOptions.map(a => `
+    <button class="mini-btn ${state.avatar === a ? 'buy' : ''}" 
+            onclick="changeAvatar('${a}')" 
+            style="font-size:24px;padding:6px 10px;${state.avatar === a ? 'background:rgba(111,162,133,0.14);border-color:var(--green);' : ''}">
+      ${a}
+    </button>
+  `).join('');
+
+  // Language options
+  const langHtml = `
+    <button class="mini-btn ${state.language === 'ar' ? 'buy' : ''}" 
+            onclick="changeLanguage('ar')" 
+            style="${state.language === 'ar' ? 'background:rgba(111,162,133,0.14);' : ''}">
+      🇸🇦 Arabic
+    </button>
+    <button class="mini-btn ${state.language === 'en' ? 'buy' : ''}" 
+            onclick="changeLanguage('en')"
+            style="${state.language === 'en' ? 'background:rgba(111,162,133,0.14);' : ''}">
+      🇬🇧 English
+    </button>
+  `;
+
   return `
     <div class="grid" style="grid-template-columns:1fr;">
-      <div class="panel" style="padding:20px;">
-        <h2 style="font-size:15px;color:var(--brass-bright);margin-bottom:12px;">👤 Account</h2>
+      
+      <!-- 👤 Profile Section -->
+      <div class="panel">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+          <div style="font-size:48px;width:64px;height:64px;display:flex;align-items:center;justify-content:center;background:var(--panel-light);border-radius:50%;border:2px solid var(--brass);">
+            ${state.avatar || '🧙'}
+          </div>
+          <div>
+            <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:18px;color:var(--text);">
+              ${state.username || 'Player'}
+            </div>
+            <div style="font-size:12px;color:var(--dim);">
+              ${EMAIL || 'Guest Account'}
+            </div>
+            <div style="font-size:11px;color:var(--dim);">
+              Level ${state.level} · ${state.totalGoldEarned > 0 ? 'Active Member' : 'New Player'}
+            </div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom:12px;">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">📷 Choose your avatar:</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">${avatarHtml}</div>
+        </div>
+        
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="act-btn buy" style="width:auto;padding:8px 16px;font-size:12px;" onclick="openNameModal()">✏️ Change Name</button>
+          ${!isGuest ? `<button class="act-btn skill" style="width:auto;padding:8px 16px;font-size:12px;" onclick="changePassword()">🔒 Change Password</button>` : ''}
+        </div>
+        
+        <div style="margin-top:12px;">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:4px;">📝 Bio:</div>
+          <input type="text" class="username-input" value="${state.bio || ''}" 
+                 placeholder="Write something about yourself..." 
+                 onchange="state.bio=this.value;scheduleSave();renderHeader();"
+                 style="padding:8px 12px;font-size:13px;">
+        </div>
+      </div>
+
+      <!-- 🌐 Language Section -->
+      <div class="panel">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">🌐 Language</div>
+        <div style="display:flex;gap:8px;">${langHtml}</div>
+      </div>
+
+      <!-- 🎨 Theme Section (coming soon) -->
+      <div class="panel" style="opacity:0.5;">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">🎨 Theme</div>
+        <div style="font-size:12px;color:var(--dim);">Coming soon...</div>
+      </div>
+
+      <!-- 🔔 Notifications Section (coming soon) -->
+      <div class="panel" style="opacity:0.5;">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">🔔 Notifications</div>
+        <div style="font-size:12px;color:var(--dim);">Coming soon...</div>
+      </div>
+
+      <!-- 🔐 Security Section -->
+      <div class="panel">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">🔐 Security</div>
         ${isGuest ? `
-          <p style="color:var(--dim);font-size:13px;margin-bottom:14px;">You're playing as a guest. Your progress is saved to this device/browser only — link a Google account any time to keep it safe and play from other devices.</p>
-          <button class="act-btn buy" style="width:auto;padding:10px 20px;" onclick="linkGoogleAccount()">🔗 Link Google Account</button>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px;">You are playing as a guest. Link your Google account to save progress and play across devices.</p>
+          <button class="act-btn buy" style="width:auto;padding:8px 16px;font-size:12px;" onclick="linkGoogleAccount()">🔗 Link Google Account</button>
         ` : `
-          <p style="color:var(--dim);font-size:13px;">Signed in${EMAIL ? ' as <b style="color:var(--text);">'+EMAIL+'</b>' : ''}. Your progress is synced to this account.</p>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px;">Account linked to <b style="color:var(--text);">${EMAIL}</b></p>
+          <button class="act-btn red" style="width:auto;padding:8px 16px;font-size:12px;" onclick="if(confirm('Delete your account permanently?'))deleteAccount()">🗑️ Delete Account</button>
         `}
       </div>
+
+      <!-- 📊 Data Section -->
+      <div class="panel">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">📊 Data</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="mini-btn buy" onclick="exportData()">📥 Export Data</button>
+          <button class="mini-btn" onclick="document.getElementById('importInput').click()">📤 Import Data</button>
+          <input type="file" id="importInput" accept=".json" style="display:none;" onchange="importData(this.files[0])">
+          <button class="mini-btn red" onclick="if(confirm('Clear all local data?'))clearLocalData()">🗑️ Clear Local</button>
+        </div>
+      </div>
+
+      <!-- ℹ️ About Section -->
+      <div class="panel">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">ℹ️ About</div>
+        <div style="font-size:12px;color:var(--dim);">
+          <div><b>Version:</b> v1.0.0</div>
+          <div><b>Developer:</b> Arcadia MMO Team</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="mini-btn" onclick="alert('Report a bug: arcadia@email.com')">🐛 Report Bug</button>
+            <button class="mini-btn buy" onclick="alert('Send feedback: arcadia@email.com')">💡 Feedback</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Existing Prestige Section -->
       <div class="panel prestige-panel" style="background:radial-gradient(ellipse at center,rgba(184,160,212,0.06) 0%,transparent 70%);">
         <div style="font-size:42px;margin-bottom:8px;">✨</div>
         <h2>Prestige — Spiritual Renewal</h2>
@@ -646,11 +754,11 @@ function renderSettings(){
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:4px;">
             <span>Progress to Prestige</span><span>${state.level} / ${PRESTIGE_LEVEL_REQ}</span>
           </div>
-          <div class="bar-track" style="height:10px;"><div class="bar-fill" style="width:${progressPct}%;background:var(--prestige);"></div></div>
+          <div class="bar-track" style="height:10px;"><div class="bar-fill" style="width:${Math.min(100,(state.level/PRESTIGE_LEVEL_REQ)*100)}%;background:var(--prestige);"></div></div>
         </div>
         <div class="prestige-stat">Current Prestige Points: <b style="color:var(--prestige);">${p.points}</b></div>
         <div class="prestige-stat">Total Gold Earned: <b>${fmtG(state.totalGoldEarned)}g</b></div>
-        ${canPrest ? `<div class="prestige-stat" style="color:var(--prestige);margin:8px 0;font-size:14px;"><img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAA3BJREFUSEt9Vk1oE1sU/s6d6E6TuHm4KEmKrnQpT31u2k7qD4iCiiAodOPmLYq8hUVQm6oguhDpwo2bgoIgKiiCUhPbjT8Vl7pSyBQX8jYvk27bud/zzmQmNzMTQ0iGuefcc77vfPecKxj4CCA0X7D3XtB7Th4GPRC5JPbJas/e/Fmf6G3ym/J8Xf6+26wd6uz4EjnZUW3f/pbZADaCJDtBq9S+TuByz+GG61ev5CWXwhemkMnFNmpt/fEn1cZDEdkZ8RBnzW/QhbPu2sinYTsYS5NjzHI6OJrl9i2hXMzYWC4U3q53ajPDbKIAKa6bxdVJEdwHWLGjGgAh5Cz1q6Scr69V3qSrPVCDz/i8yS9uuyui/h7kLd5RvkbvuStPNmRwr9T978Ie7Fm3qQ8zam5dPaWE8xRsJ7OZanDOCfjIOAaOnFGQ2XiTCFmiop+amK53q0+SGrRK3gOAZ4eo4j0VziPgURG5ZWyoOYOCeik6pPGvfBrlodupnAspelvylgiMpcgNROQqAnlMFSxAcGBQRXintJqig9MkrwF0bPWLcNntVMeTABoYi2EqyItA8ZJocQHOZ+SVvAjdp6nQUho3CR6LJSvg8oQfByh7S2SI4F/RuAqot5RgHgpHcntAorpIgdR45dCZpugJikEjf2QCaIrnQM+N+zWvVfLiVtRPnviweRNOmoX1dTylYH+MOM7a7VZkqdiuaqhZAasJglapPeX6tYW4Bs2Sx1QPuQI6i5DgWbiZdk5QBQcFct1uc65fTdzMnnW/tpDb7CwESxr8R0Ed/7VRI2kJIUXSCBA8d6DuABg3ayZAql32W4W9YAKQeqbeHb3dKnsfQezNOb0G8Irbqe5rFtsXjYT7AWw9pSUiRrarByY61XcGfkIX8Wo92JgyiRScgpHtkTjrUOplr+eTPU1WO7IHToQpRANeEBY+UIJnIad0TlA29gvUXVPYYUozTEY1GNZQDZotP/ZSBYd/mfVrAJqx1FBavZ5YG1mxB1R6GibtetgUy9bAykZkxe1U9mWba28QZBGkNRBR1GP1OwXTEUWYJ7DDnAPXr/SUk89E7sCx0bSKHjX03GR3tGHfBN4U2w0FNWsC2GVN05WiqA8tno6LxfbYQX90uX8ZSE4DFkvtsclubdkOnL5hpA5adlr97kqS1wTTevkfcNOmMT/oF7gAAAAASUVORK5CYII=" alt="🎉"> You will gain <b>${ptsOnPrestige}</b> prestige points!</div>` : ''}
+        ${canPrest ? `<div class="prestige-stat" style="color:var(--prestige);margin:8px 0;font-size:14px;"><img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAA3BJREFUSEt9Vk1oE1sU/s6d6E6TuHm4KEmKrnQpT31u2k7qD4iCiiAodOPmLYq8hUVQm6oguhDpwo2bgoIgKiiCUhPbjT8Vl7pSyBQX8jYvk27bud/zzmQmNzMTQ0iGuefcc77vfPecKxj4CCA0X7D3XtB7Th4GPRC5JPbJas/e/Fmf6G3ym/J8Xf6+26wd6uz4EjnZUW3f/pbZADaCJDtBq9S+TuByz+GG61ev5CWXwhemkMnFNmpt/fEn1cZDEdkZ8RBnzW/QhbPu2sinYTsYS5NjzHI6OJrl9i2hXMzYWC4U3q53ajPDbKIAKa6bxdVJEdwHWLGjGgAh5Cz1q6Scr69V3qSrPVCDz/i8yS9uuyui/h7kLd5RvkbvuStPNmRwr9T978Ie7Fm3qQ8zam5dPaWE8xRsJ7OZanDOCfjIOAaOnFGQ2XiTCFmiop+amK53q0+SGrRK3gOAZ4eo4j0VziPgURG5ZWyoOYOCeik6pPGvfBrlodupnAspelvylgiMpcgNROQqAnlMFSxAcGBQRXintJqig9MkrwF0bPWLcNntVMeTABoYi2EqyItA8ZJocQHOZ+SVvAjdp6nQUho3CR6LJSvg8oQfByh7S2SI4F/RuAqot5RgHgpHcntAorpIgdR45dCZpugJikEjf2QCaIrnQM+N+zWvVfLiVtRPnviweRNOmoX1dTylYH+MOM7a7VZkqdiuaqhZAasJglapPeX6tYW4Bs2Sx1QPuQI6i5DgWbiZdk5QBQcFct1uc65fTdzMnnW/tpDb7CwESxr8R0Ed/7VRI2kJIUXSCBA8d6DuABg3ayZAql32W4W9YAKQeqbeHb3dKnsfQezNOb0G8Irbqe5rFtsXjYT7AWw9pSUiRrarByY61XcGfkIX8Wo92JgyiRScgpHtkTjrUOplr+eTPU1WO7IHToQpRANeEBY+UIJnIad0TlA29gvUXVPYYUozTEY1GNZQDZotP/ZSBYd/mfVrAJqx1FBavZ5YG1mxB1R6GibtetgUy9bAykZkxe1U9mWba28QZBGkNRBR1GP1OwXTEUWYJ7DDnAPXr/SUk89E7sCx0bSKHjX03GR3tGHfBN4U2w0FNWsC2GVN05WiqA8tno6LxfbYQX90uX8ZSE4DFkvtsclubdkOnL5hpA5adlr97kqS1wTTevkfcNOmMT/oF7gAAAAASUVORK5CYII=" alt="🎉"> You will gain <b>${Math.floor(state.level/5) + Math.floor(state.totalGoldEarned/5000)}</b> prestige points!</div>` : ''}
         <div class="bonus-row" style="margin:16px 0;">
           <div class="bonus-tag">+${p.gatherBonus} gather</div>
           <div class="bonus-tag">+${(p.sellBonus*100).toFixed(0)}% sell</div>
@@ -661,12 +769,16 @@ function renderSettings(){
           ${canPrest ? '✨ Spiritual Renewal' : `<img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAqBJREFUSEuVVjtrFUEYPWd+gZUSK21UiGXsb1ASLBTBB4q2klYLBYkQA9pooa3YGhQfCFolKDe9wSoRY6OVAXvBao47j52dmd2b4MJddpj5vnO+8z3mEns8BCCEt6RDfkXzcy87t++s3C+8NWxipQOE7gA8CeC4PyVsgvgEaJHG/Am2BKjop6MVAPInA5N0EcCrdtv5KQ20DfC0IX9M4Nedz6XwJKVzAN4F544ZV0B8jGCnAFzNgKcN+bUQIwaUCCXiBGS1D9AXgIcjwCXSvE6BhjMpOgFbBGZI/q3FqHIQYGV1GdALyK1xjOT2kIySjgL4FveukHw5pHgvB7K61+iyBOCtIS+0OewXAiFr34A436RnmaSzK6rGU+wKMQoivQd0BuAjkreH6yudfSjgFqEPNOZsTqIr08qDpDGgEcRlGscqSBeqsKxpHy19tOskZ1MEsWSrJAdH1mpMYNR4KwASu6zkpSRnBtAJVfVB6thxw2jU6ZpHUKrsAJrAlhpCZQSRzZ6dnDKUd2n67mcnz2gvB5LTHePUflXrhqVvuljBccS0OoQDs6RZb2dPEYGk53mH+ij9if6Q2KWyVkhzrQfgorbSJoTp0F+Jb/rerVyzvS2SfigW0zQCqCD7X8Q7QqbpuBYwNVoccKsA5tKAy2dnDhbSUE3WZLVmaOYn5WARwv3ceGBEZ94r1AB5lzQP2ruh6ANJcxBWJ1VRHtmg63BgnuRa2/CFRF4mq8cibvRvolbVPPm9tD8heTO/InsAMRefAcxMrM6qfONyg+SJHLJotHyEWWmKwAKE6yIOVtdkneFfAJ4BeErDnXqkD86idtpIdkrAgrutADh2+/2e8BuEi3LDOyZ3JvVIfxZV/zDypaQjvoHI78lhftfWl0Gj3T9vdCwxhL+7FwAAAABJRU5ErkJggg==" alt="🔒"> Requires level ${PRESTIGE_LEVEL_REQ}`}
         </button>
       </div>
+
+      <!-- Danger Zone -->
       <div class="panel" style="text-align:center;padding:24px;">
         <div style="font-size:32px;margin-bottom:8px;"><img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAA8lJREFUSEuNVk2IHGUQfa96xz0ETy5LtmdXonhQg5vuzZqASjQIESSSSCASWNQkiCBGBP+I0VxET0r0pLkYwq4eooccFDTmsIgGxTUzk3gIyMZIphtFPRhUstntKvmme3p7vhnEPvX0V1WvXtWr+oYY8BCA9Xz/P18AEKA53/Kl89YbbvWs76iBifAadGkzkj9K/H53H6Caan+m7vR7TEwGgZ6G8mv3m7SJZZVHptFe9Ln6BXERezP1MBYQjgwJfzPl1hjteWfekHAnwI8yHR6Z5sU/y3pWfYv3HKCKURrltWqynhA4tkGTV6r+TakfhWEkQrKr2jAfo59BhWNL6i+D2J7RDk+tpKer9M8F4w+q2Qkjn4yz9gd9WvEZlDxyGeACRq6/GgxfsUw2UezRSNsHehgw/Azk5yRm7siSaSmakdusWpYl8lvdkPr7ANaQ/EJVd8eWbuu6OfAlGb4CyhNm+jSB4xs0PbLa8Ly8LtdcpkXWXZBzGNuowoWayg3LYt8CVossXdet9XmMT6pYC8AFBnZAM8zWdDhej59+8RMte1DFaAbjX5rZVwCUwCHntKK2ZhrpPx0VBeEOMZ50w0jidShuNdqPkaYHfaF7g0aclbE9Afg2FBst4EWY1Rx1UZncgPZ5F7QR1J+l4Ughv6tDWe2mFVn+ThXbp5A4Zj1z2DMHDamnQr5qZvcBmOlaGuzhWNOT7ndTwncAPlOJMwtYAshorO391TXT0+SmhIdBbkPG5yD2zaoYOsV4PtLkLZdNQ8IWgcnqAJlyEwN7D7SD0Up6qutbAiwgvHFI+LOq3Isge02MW6pUDXg31uSpnEHd+pYKMU/YnCl3RpY81NVOCdCUcA7gNSU/Dcw+NicZclVgylMR2g+0MDpqUvt14NYid8FsN8hPIm3PdUK4jHJZykKgy2szqZ0BcHPvZDo4Lsaa3NLC+GZz5RvwkFjUjPsR6Jtxlt7pgndU1JTwKIC/Ca4Y7IVBzgPGxTPLGRuwl8bbQPshypLZLoBFmrAp9SUQ13m3TR7IMB9ZsrVIqPc+KgyKglyC8h4TOxFrcnenRK5ppriLYmcKo3I1lWAeQHXp+gm5ZBtSvzSlyboSIFO9PRC+CPDx6pR4W2RgWaoABrwRa3qoIeHxKU0e6wC0gnCPGT8EbV+Upce8K6H/fi4WWXVrNjFeNzIUZjMG7ghU7p/E5cVSpmcxsSWgvmTEGIG1BowNbHbxMU+iM4BdszaJy1C0h2xp33r+/lchU0/RA6697i4ZeORl4fdm4Lr+rwb2/dXwrnSf9b/W/LowO5cxbAAAAABJRU5ErkJggg==" alt="⚠️"></div>
         <h2 style="color:var(--red);font-size:16px;margin-bottom:10px;">Danger Zone</h2>
         <p style="color:var(--dim);font-size:13px;margin-bottom:16px;">Permanently erase all saved data. This cannot be undone.</p>
         <button class="danger-btn" onclick="hardReset()"><img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAApVJREFUSEuNlS9sFEEUxn/fCIIBQT2uhIBD4XqECkqCxbSC4BAFUUtyPYGrAQyOEFqBwBGKgPSqwJAqEpIqNCHBVrAfN7uzf253runmstnbnXnv+/PeGzF3CTDV/fSru/K0XfEbbcSzhK4SNyuHDwPIndU91GfPl90Yt1cMuoiapUPi3Xxd4PJiSXsSZTNhe9RCjO6kbQrTfOgWSsOgy7GP3S4OOmRbjtKtdl+WX18igRx/c1Vk+2AGeyJpGgO68AgxVkqQD11BynpQ2CPhcfzcCNJ7aIWqOXgihWm/LiLkEnUFuXouEcIovnO1Yv7qRm/XTBU07bPvMWjVL1xs46hXit0EGmKPyKSw3QrbNzlT73axAXrrqH0l1Hh2306E4vOkzG3GiIeSXve7L3nQi57+2r4JfAVeAseYFzO5mgTAY2AZ2ARWpfClL3WUqydvm8wuLmP9QuyB97F2EZMk2BjYAK9hrSOuSOE4V4GJ8XC02T4HnAD7icXHWfCoc9wTE9wFb2KtIc5LOsnNtGGjdRRz4b8WPwVPgG9VgjJMTBAlfA5cD9KFRTN4oURlDxTFd8RFYK30oU5QGRv1j+z+Sbq6YKCVhd/p3nnDbb+LBiYz/8Ru7niwBD4GHQVpdSByCtV4kKnUOOR2DFtBQXbhpmStsYLKd6A3QXpQ92l3xrSjIl+pMcEWsDMzeQlzjGLJlj0RSzNKFFk9k/S0lijTyb1R0YFgex3YBS+Dot57SaL4vvblUZBe1SZnZtHiU8yFbyM+1xVj+JSq4g51ZZl7CvowH2XheTAw+RrwI5m7AhwmiVYMh+XEtW4o6Kg/D+tTsgKUc7gq00sW79PMmev7auSV9/uSfueO3vwsGh5tp5zYi+RtEf8HRbEjL695gbYAAAAASUVORK5CYII=" alt="🗑️"> Erase All Progress</button>
       </div>
+
+      <!-- Session Stats -->
       <div class="panel" style="padding:20px;">
         <h2 style="font-size:15px;color:var(--brass-bright);margin-bottom:12px;"><img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAmlJREFUSEuFVr2KVDEYPedr7F0ZmEIQLEQQrLaxWgutt3EtRLQQFPcN1sLGzhdYC5tlQZ1tFhQbC7dRfAIbFUQ7YWQLK4scTXKTySa5M4EZQm5uvuT85RK+EYBCr2jdwfg8PyrnEKCGdeK4//c/SBLJ0D9RrHq/3MRiiWZnYRE5t0njYS5gpK/ftG6NJRuX0xTADoAfJJ9WJyiPWaExhl4Bl5y7+3/zjwGcA/DAyGexgJPM+ifI63Zxb2mT0wcA3yG8ofGF3zIkN8pB5i1ydRXAGZIHmYNigqQdAZeNvCnpPMlvLckVFFWBXQD3hylbvlDShZO7BPETiOskP6ZlWogyDaVOYl/SnOSapBsCZvSyErdoPJD0DsAXkg9ruk7KNCu19YGkXyQnaQFfCMJsEPsxxLM0/im13lVRCUvSkuQ2BVwzcrs2ZigErdFst/ZKRXKr+jQiaV/AcyPfL/zYureXBwGiaLQKllLjcnPz+I/O6bi0GxWdeZJOQfhpxsm42/vhsTIqhqy6BeEKjdspryJPrfNrY3Z94KR7BL6SPPITnLQP4RWNr/tADKOd4Mo+oPk0Da5+Ke9W4AKA20YeOWkOYErybxO3nrmU0p28ygVArAPYA/AWwBMAFwF4R/p4mNE4ae+M5ek7qC1mEYDPgB6RdlhofwOAl+UeyTvdQF1BQ5eDUg+SNgBNSfPJuPwQnWIRd+cUOeiHvqTTNP6Oq68s06wS7oNcYMk1Oaag8qqoruUg5OI+iGfMGs+AjO26wmQUokhy2/xoAi4kc9hO6gyMhJFyWu77D4nwSvrEaHKmiu7xKFwYrYboHw4CaSz/QJEYAAAAAElFTkSuQmCC" alt="📊"> Session Stats</h2>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px;color:var(--dim);">
@@ -683,6 +795,217 @@ function renderSettings(){
     </div>`;
 }
 
+// ===== PROFILE FUNCTIONS =====
+
+function changeAvatar(avatarEmoji) {
+    state.avatar = avatarEmoji;
+    scheduleSave();
+    renderHeader();
+    renderBody();
+    showToast('Success', 'Avatar updated', 'win');
+}
+
+function changeLanguage(lang) {
+    state.language = lang;
+    localStorage.setItem('arcadia_language', lang);
+    showToast('Updated', lang === 'ar' ? 'Language: Arabic' : 'Language: English', 'win');
+    renderBody();
+    scheduleSave();
+}
+
+async function changeUsername(newName) {
+    newName = newName.trim();
+    if (newName.length < 3) {
+        showToast('Error', 'Username must be at least 3 characters', 'lose');
+        return;
+    }
+    if (!/^[a-zA-Z0-9_\u0600-\u06FF]+$/.test(newName)) {
+        showToast('Error', 'Contains invalid characters', 'lose');
+        return;
+    }
+    try {
+        if (db) {
+            const doc = await db.collection('usernames').doc(newName).get();
+            if (doc.exists) {
+                showToast('Error', 'Username already taken', 'lose');
+                return;
+            }
+            if (state.username) {
+                await db.collection('usernames').doc(state.username).delete();
+            }
+            await db.collection('usernames').doc(newName).set({ uid: UID });
+            await db.collection('players').doc(UID).update({ username: newName });
+        }
+        state.username = newName;
+        window.__playerUsername = newName;
+        showToast('Success', `Username changed to ${newName}`, 'win');
+        renderHeader();
+        renderBody();
+        scheduleSave();
+    } catch (e) {
+        showToast('Error', 'Failed to change username', 'lose');
+        console.error(e);
+    }
+}
+
+function openNameModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>✏️ Change Username</h3>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:13px;color:var(--dim);">Current name: <b style="color:var(--text);">${state.username}</b></label>
+                </div>
+                <input type="text" id="newUsernameInput" class="username-input" 
+                       placeholder="Enter new username..." maxlength="15"
+                       style="margin-bottom:8px;">
+                <div id="nameError" style="color:var(--red);font-size:12px;display:none;"></div>
+                <div id="nameSuccess" style="color:var(--green);font-size:12px;display:none;">✓ Username available!</div>
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                    <button class="btn btn-primary" id="confirmNameBtn" onclick="confirmNameChange()">Confirm Change</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const input = document.getElementById('newUsernameInput');
+    input.addEventListener('input', async function() {
+        const val = this.value.trim();
+        const errorEl = document.getElementById('nameError');
+        const successEl = document.getElementById('nameSuccess');
+        const confirmBtn = document.getElementById('confirmNameBtn');
+        
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+        confirmBtn.disabled = true;
+        
+        if (val.length < 3) {
+            errorEl.textContent = 'Username must be at least 3 characters';
+            errorEl.style.display = 'block';
+            return;
+        }
+        if (!/^[a-zA-Z0-9_\u0600-\u06FF]+$/.test(val)) {
+            errorEl.textContent = 'Contains invalid characters';
+            errorEl.style.display = 'block';
+            return;
+        }
+        if (val === state.username) {
+            errorEl.textContent = 'This is your current username';
+            errorEl.style.display = 'block';
+            return;
+        }
+        
+        try {
+            if (db) {
+                const doc = await db.collection('usernames').doc(val).get();
+                if (doc.exists) {
+                    errorEl.textContent = '❌ Username already taken';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+            }
+            successEl.style.display = 'block';
+            confirmBtn.disabled = false;
+        } catch(e) {
+            errorEl.textContent = 'Connection error, try again';
+            errorEl.style.display = 'block';
+        }
+    });
+}
+
+async function confirmNameChange() {
+    const input = document.getElementById('newUsernameInput');
+    const newName = input.value.trim();
+    if (!newName) return;
+    const modal = document.querySelector('.modal-overlay');
+    await changeUsername(newName);
+    if (modal) modal.remove();
+}
+
+// ===== DATA FUNCTIONS =====
+
+function exportData() {
+    const data = JSON.stringify(state, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'arcadia_save.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Success', 'Data exported!', 'win');
+}
+
+function importData(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (confirm('This will replace your current progress. Continue?')) {
+                state = migrateState(data);
+                scheduleSave();
+                render();
+                showToast('Success', 'Data imported!', 'win');
+            }
+        } catch(err) {
+            showToast('Error', 'Invalid file format', 'lose');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function clearLocalData() {
+    localStorage.removeItem(STORAGE_KEY);
+    state = defaultState();
+    render();
+    scheduleSave();
+    showToast('Cleared', 'Local data cleared', 'win');
+}
+
+// ===== SECURITY FUNCTIONS =====
+
+function changePassword() {
+    if (!auth || !auth.currentUser || auth.currentUser.isAnonymous) {
+        showToast('Error', 'Guest accounts cannot change password. Link Google account first.', 'lose');
+        return;
+    }
+    try {
+        auth.sendPasswordResetEmail(auth.currentUser.email);
+        showToast('Sent', `Password reset email sent to ${auth.currentUser.email}`, 'win');
+    } catch(e) {
+        showToast('Error', 'Failed to send reset email', 'lose');
+    }
+}
+
+async function deleteAccount() {
+    if (!auth || !auth.currentUser) return;
+    if (!confirm('Are you sure? This will permanently delete your account and all progress!')) return;
+    if (!confirm('This cannot be undone. Are you absolutely sure?')) return;
+    
+    try {
+        // Delete Firestore data
+        if (db) {
+            await db.collection('players').doc(UID).delete();
+            if (state.username) {
+                await db.collection('usernames').doc(state.username).delete();
+            }
+        }
+        // Delete auth account
+        await auth.currentUser.delete();
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+    } catch(e) {
+        showToast('Error', 'Failed to delete account: ' + e.message, 'lose');
+    }
+}
 function renderLog(){
   const el = document.getElementById('log-panel');
   if(el) el.innerHTML = renderLogHTML();
