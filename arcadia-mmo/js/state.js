@@ -326,4 +326,14 @@ const ZONE_RESOURCES = {
   plains: ['cotton','food','herbs','water'],
   volcano: ['gold_ore','silver','magic_stones','coal'],
   tundra: ['water','salt','zinc','iron'],
+    function defaultState() {
+    // ... existing properties ...
+    return {
+        // ... existing properties ...
+        language: 'en',        // 'ar' or 'en'
+        avatar: '🧙',          // Default avatar emoji
+        bio: '',               // User bio
+        username: 'Player',    // Display name
+        // ... rest of properties ...
+    };
 };
