@@ -362,3 +362,7 @@ const ZONE_RESOURCES = {
     volcano: ['gold_ore','silver','magic_stones','coal'],
     tundra: ['water','salt','zinc','iron'],
 };
+// بعد تحميل state (مثلاً في نهاية loadState)
+applyTheme(state.theme);
+applyFontSize(state.fontSize);
+applyAccentColor(state.accentColor);
