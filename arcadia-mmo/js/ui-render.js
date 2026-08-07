@@ -697,6 +697,56 @@ function renderSettings(){
         <div style="display:flex;gap:8px;">${langHtml}</div>
       </div>
 
+// ===== Theme Section =====
+const themeOptions = `
+  <button class="mini-btn ${state.theme === 'dark' ? 'buy' : ''}" 
+          onclick="changeTheme('dark')" 
+          style="${state.theme === 'dark' ? 'background:rgba(111,162,133,0.14);' : ''}">
+    🌙 Dark
+  </button>
+  <button class="mini-btn ${state.theme === 'light' ? 'buy' : ''}" 
+          onclick="changeTheme('light')"
+          style="${state.theme === 'light' ? 'background:rgba(111,162,133,0.14);' : ''}">
+    ☀️ Light
+  </button>
+`;
+
+const fontSizeOptions = ['small', 'medium', 'large'];
+const fontSizeHtml = fontSizeOptions.map(size => `
+  <button class="mini-btn ${state.fontSize === size ? 'buy' : ''}" 
+          onclick="changeFontSize('${size}')"
+          style="${state.fontSize === size ? 'background:rgba(111,162,133,0.14);' : ''}">
+    ${size.charAt(0).toUpperCase() + size.slice(1)}
+  </button>
+`).join('');
+
+const accentColors = ['#d4a24c', '#4a8cc4', '#6fa285', '#c44c4c', '#b8a0d4'];
+const accentHtml = accentColors.map(color => `
+  <button class="mini-btn ${state.accentColor === color ? 'buy' : ''}" 
+          onclick="changeAccentColor('${color}')"
+          style="background:${color};width:32px;height:32px;border-radius:50%;border:2px solid ${state.accentColor === color ? 'var(--brass)' : 'var(--border)'};padding:0;${state.accentColor === color ? 'box-shadow: 0 0 8px '+color : ''}"
+          title="${color}">
+  </button>
+`).join('');
+
+// أضف هذا القسم داخل الـ HTML المرتجع
+`
+  <div class="panel">
+    <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">🎨 Theme</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      ${themeOptions}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--dim);margin-right:4px;">Font Size:</span>
+      ${fontSizeHtml}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--dim);margin-right:4px;">Accent Color:</span>
+      ${accentHtml}
+    </div>
+  </div>
+`
+
       <!-- 🎨 Theme Section (coming soon) -->
       <div class="panel" style="opacity:0.5;">
         <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">🎨 Theme</div>
@@ -1162,4 +1212,61 @@ function renderZoneView(){
     `}
   </div>`;
 }
-/* ===== BATTLE HELPERS ===== */
+// ===== THEME FUNCTIONS =====
+
+function changeTheme(theme) {
+    state.theme = theme;
+    applyTheme(theme);
+    scheduleSave();
+    showToast('Updated', `Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`, 'win');
+    renderBody();
+}
+
+function applyTheme(theme) {
+    const root = document.documentElement;
+    if (theme === 'light') {
+        root.style.setProperty('--bg', '#f0ece4');
+        root.style.setProperty('--panel', '#e8e0d5');
+        root.style.setProperty('--panel-light', '#f5f0e8');
+        root.style.setProperty('--text', '#1a1522');
+        root.style.setProperty('--dim', '#5a5068');
+        root.style.setProperty('--border', '#c8bdb0');
+        // يمكنك إضافة المزيد من المتغيرات حسب الحاجة
+    } else {
+        // العودة إلى القيم الافتراضية (الموجودة في :root)
+        root.style.setProperty('--bg', '#0f1b1a');
+        root.style.setProperty('--panel', '#16302b');
+        root.style.setProperty('--panel-light', '#1e3d36');
+        root.style.setProperty('--text', '#e5ddc8');
+        root.style.setProperty('--dim', '#9fb0a8');
+        root.style.setProperty('--border', '#2c4a42');
+    }
+    applyAccentColor(state.accentColor);
+}
+
+function changeFontSize(size) {
+    state.fontSize = size;
+    applyFontSize(size);
+    scheduleSave();
+    showToast('Updated', `Font size: ${size}`, 'win');
+}
+
+function applyFontSize(size) {
+    const root = document.documentElement;
+    const sizes = { small: '12px', medium: '15px', large: '18px' };
+    root.style.fontSize = sizes[size] || '15px';
+}
+
+function changeAccentColor(color) {
+    state.accentColor = color;
+    applyAccentColor(color);
+    scheduleSave();
+    showToast('Updated', 'Accent color changed', 'win');
+}
+
+function applyAccentColor(color) {
+    const root = document.documentElement;
+    root.style.setProperty('--brass', color);
+    root.style.setProperty('--brass-bright', color);
+    // يمكنك تعديل الألوان المشتقة حسب الرغبة
+}
