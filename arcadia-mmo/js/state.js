@@ -53,6 +53,10 @@ function defaultState(){
         avatar: '🧙',          // Default avatar emoji
         bio: '',               // User bio
         username: 'Player',    // Display name
+        // ===== THEME SETTINGS (NEW) =====
+theme: 'dark',         // 'dark' or 'light'
+fontSize: 'medium',    // 'small', 'medium', 'large'
+accentColor: '#d4a24c', // Hex color code
     };
 }
 
@@ -86,6 +90,11 @@ function migrateState(s){
     if(!s.gearBag) s.gearBag = [];
     if(typeof s.shards !== 'number') s.shards = 0;
     if(typeof s.gems !== 'number') s.gems = 0;
+    
+    // ===== THEME MIGRATION =====
+if (typeof s.theme !== 'string') s.theme = 'dark';
+if (typeof s.fontSize !== 'string') s.fontSize = 'medium';
+if (typeof s.accentColor !== 'string') s.accentColor = '#d4a24c';
     
     // Resources migration
     if(typeof s.inv['magic_stones'] !== 'number') s.inv['magic_stones'] = 0;
