@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCADIA MMO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="view-login" lang="en" dir="ltr">
+<div class="login-card">
+  <div class="logo"><img src="logo.jpg" alt="ARCADIA MMO" style="width:180px;height:auto;border-radius:8px;margin-bottom:8px;"></div>
+  <div class="subtitle">Log in to start your adventure in the world of Arcadia</div>
+
+  <button class="google-btn" id="googleBtn" onclick="signInWithGoogle()">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+    <span>Sign in with Gmail</span>
+  </button>
+
+  <div class="divider">or</div>
+
+  <button class="google-btn guest-btn" id="guestBtn" onclick="continueAsGuest()">
+    <span style="font-size:20px;">🎮</span>
+    <span>Continue as Guest</span>
+  </button>
+  <div style="font-size:11px;color:var(--dim);margin-top:10px;">You can link your account later from the in-game settings</div>
+
+  <div class="login-loading" id="loadingBox">
+    <div class="spinner"></div>
+    <span>Logging in...</span>
+  </div>
+
+  <div class="login-error-box" id="errorBox"></div>
+
+  <div class="footer">© 2026 ARCADIA MMO · Role-playing and trading MMO game</div>
+</div>
+</div>
+
+<div id="view-setup" class="hidden" lang="en" dir="ltr">
+<div class="setup-card">
+  <!-- Step 1: Username -->
+  <div id="step1">
+    <div class="step-badge">Step 1 of 2</div>
+    <div class="step-title">Choose your name</div>
+    <div class="step-desc">A unique name that distinguishes you among all traders (3 to 15 characters)</div>
+
+    <input type="text" class="username-input" id="usernameInput" maxlength="15" 
+           placeholder="Type your name here..." oninput="checkUsername()">
+    <div class="input-hint" id="inputHint">Allowed characters: English letters, numbers, and underscore</div>
+    <div class="input-error" id="inputError"></div>
+    <div class="input-success" id="inputSuccess">✓ Name is available!</div>
+
+    <div class="nav-buttons">
+      <button class="btn btn-secondary" onclick="logoutDuringSetup()">Back</button>
+      <button class="btn btn-primary" id="nextBtn" disabled onclick="goToStep2()">Next</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Class -->
+  <div id="step2" class="hidden">
+    <div class="step-badge">Step 2 of 2</div>
+    <div class="step-title">Choose your character</div>
+    <div class="step-desc">Each character has unique stats and skills</div>
+
+    <div class="class-grid">
+      <div class="class-card" data-class="warrior" onclick="selectSetupClass('warrior')">
+        <div class="icon">⚔️</div>
+        <div class="name" style="color:var(--warrior);">Warrior</div>
+        <div class="desc">Balanced damage and defense<br>High health</div>
+        <div class="stats">HP 160% · ATK 120%<br>DEF 140% · SPD 85%</div>
+      </div>
+      <div class="class-card" data-class="archer" onclick="selectSetupClass('archer')">
+        <div class="icon">🏹</div>
+        <div class="name" style="color:var(--archer);">Archer</div>
+        <div class="desc">High damage and speed<br>Low health</div>
+        <div class="stats">HP 85% · ATK 145%<br>DEF 75% · SPD 150%</div>
+      </div>
+      <div class="class-card" data-class="mage" onclick="selectSetupClass('mage')">
+        <div class="icon">🔮</div>
+        <div class="name" style="color:var(--mage);">Mage</div>
+        <div class="desc">Massive damage that pierces defense<br>Very weak health</div>
+        <div class="stats">HP 65% · ATK 165%<br>DEF 65% · SPD 100%</div>
+      </div>
+      <div class="class-card" data-class="support" onclick="selectSetupClass('support')">
+        <div class="icon">💚</div>
+        <div class="name" style="color:var(--support);">Support</div>
+        <div class="desc">Healing and buffing<br>High survivability</div>
+        <div class="stats">HP 130% · ATK 75%<br>DEF 115% · SPD 95%</div>
+      </div>
+      <div class="class-card" data-class="merchant" onclick="selectSetupClass('merchant')">
+        <div class="icon">💰</div>
+        <div class="name" style="color:var(--merchant);">Merchant</div>
+        <div class="desc">Economic gains<br>Balanced stats</div>
+        <div class="stats">HP 110% · ATK 105%<br>DEF 105% · SPD 105%</div>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn btn-secondary" onclick="goToStep1()">Back</button>
+      <button class="btn btn-primary" id="finishBtn" disabled onclick="finishSetup()">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Creating your account...</div>
+</div>
+</div>
+
+<div id="view-game" class="hidden">
+<div id="header"></div>
+<div id="app"><div class="loading">Opening the ledger...</div></div>
+</div>
+
+
+<script src="js/firebase-config.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/state.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/gear.js"></script>
+<script src="js/ui-render.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
