@@ -1,25 +1,20 @@
 /* ═══════════════════════════════════════════════════════════════
    ARCADIA MMO — Login (Google Sign-In)
    ═══════════════════════════════════════════════════════════════ */
-// ═══════════════════════════════════════════════════════════════
-// ARCADIA MMO — Login Page
-// ═══════════════════════════════════════════════════════════════
-// 1. Replace the firebaseConfig below with your project credentials
-// 2. No other changes needed for basic auth
-// ═══════════════════════════════════════════════════════════════
 const googleBtn = document.getElementById('googleBtn');
 const guestBtn = document.getElementById('guestBtn');
 const loadingBox = document.getElementById('loadingBox');
 const errorBox = document.getElementById('errorBox');
 
 function showError(msg){
+  console.error('[Arcadia Auth]', msg);
+  if(!errorBox){ alert(msg); return; }
   errorBox.textContent = msg;
   errorBox.style.display = 'block';
   loadingBox.style.display = 'none';
   googleBtn.disabled = false;
   guestBtn.disabled = false;
 }
-
 
 /* ===== MARKET FILTER FUNCTIONS ===== */
 function setMarketTab(tab){
@@ -57,25 +52,44 @@ function setLoading(isLoading){
 }
 
 async function signInWithGoogle(){
+  console.log('[Arcadia Auth] Sign-in button clicked');
+
+  if (typeof firebase === 'undefined') {
+    showError('⚠️ لم يتم تحميل مكتبة Firebase. تأكد أن متصفحك أو أي أداة حجب إعلانات (مثل Brave Shields أو AdBlock) لا تمنع gstatic.com، ثم أعد تحميل الصفحة.');
+    return;
+  }
+
   if (!auth) {
     showError('Firebase not configured. Please set up Firebase credentials in the code.');
     return;
   }
+
   setLoading(true);
-  const provider = new firebase.auth.GoogleAuthProvider();
-  provider.addScope('email');
 
   try{
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('email');
     await auth.signInWithPopup(provider);
+    console.log('[Arcadia Auth] Sign-in succeeded');
   } catch(err){
-    console.error(err);
-    showError('Login failed: ' + (err.message || 'Unknown error'));
+    console.error('[Arcadia Auth] Sign-in failed:', err.code, err.message);
+    let friendly = err.message || 'Unknown error';
+    if(err.code === 'auth/popup-blocked'){
+      friendly = 'المتصفح منع النافذة المنبثقة (popup). فعّل popups لهذا الموقع وحاول من جديد.';
+    } else if(err.code === 'auth/unauthorized-domain'){
+      friendly = 'هذا الدومين غير مصرح به في Firebase. زد الدومين ديالك في Authentication > Settings > Authorized domains.';
+    } else if(err.code === 'auth/popup-closed-by-user'){
+      friendly = 'تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية.';
+    }
+    showError('Login failed: ' + friendly);
     setLoading(false);
   }
 }
 
 async function continueAsGuest(){
-  if (!auth) {
+  console.log('[Arcadia Auth] Guest button clicked');
+
+  if (typeof firebase === 'undefined' || !auth) {
     // Offline demo: skip auth and go straight to setup
     showView('setup');
     return;
@@ -84,7 +98,7 @@ async function continueAsGuest(){
   try{
     await auth.signInAnonymously();
   } catch(err){
-    console.error(err);
+    console.error('[Arcadia Auth] Guest sign-in failed:', err.code, err.message);
     showError('Guest login failed: ' + (err.message || 'Unknown error'));
     setLoading(false);
   }
@@ -93,12 +107,6 @@ async function continueAsGuest(){
 /* ═══════════════════════════════════════════════════════════════
    ARCADIA MMO — Account Setup (username + class)
    ═══════════════════════════════════════════════════════════════ */
-// ═══════════════════════════════════════════════════════════════
-// ARCADIA MMO — Account Setup
-// ═══════════════════════════════════════════════════════════════
-// 1. Replace the firebaseConfig below with your project credentials
-// 2. This page handles: username selection + class selection
-// ═══════════════════════════════════════════════════════════════
 function logoutDuringSetup(){
   if(auth){ auth.signOut().then(()=>location.reload()); } else { location.reload(); }
 }
@@ -111,24 +119,24 @@ let checkTimeout = null;
 function checkUsername(){
   const input = document.getElementById('usernameInput');
   const val = input.value.trim();
-  const errorBox = document.getElementById('inputError');
+  const errorBox2 = document.getElementById('inputError');
   const successBox = document.getElementById('inputSuccess');
   const nextBtn = document.getElementById('nextBtn');
 
-  errorBox.style.display = 'none';
+  errorBox2.style.display = 'none';
   successBox.style.display = 'none';
   nextBtn.disabled = true;
   usernameAvailable = false;
 
   if(!val) return;
   if(val.length < 3){
-    errorBox.textContent = 'Name must be at least 3 characters';
-    errorBox.style.display = 'block';
+    errorBox2.textContent = 'Name must be at least 3 characters';
+    errorBox2.style.display = 'block';
     return;
   }
   if(!/^[a-zA-Z0-9_]+$/.test(val)){
-    errorBox.textContent = 'Contains disallowed symbols';
-    errorBox.style.display = 'block';
+    errorBox2.textContent = 'Contains disallowed symbols';
+    errorBox2.style.display = 'block';
     return;
   }
 
@@ -138,8 +146,8 @@ function checkUsername(){
       if (db) {
         const doc = await db.collection('usernames').doc(val).get();
         if(doc.exists){
-          errorBox.textContent = '❌ This name is already taken';
-          errorBox.style.display = 'block';
+          errorBox2.textContent = '❌ This name is already taken';
+          errorBox2.style.display = 'block';
           return;
         }
       }
@@ -148,8 +156,8 @@ function checkUsername(){
       selectedUsername = val;
       nextBtn.disabled = false;
     } catch(e){
-      errorBox.textContent = 'Connection error, try again';
-      errorBox.style.display = 'block';
+      errorBox2.textContent = 'Connection error, try again';
+      errorBox2.style.display = 'block';
     }
   }, 400);
 }
