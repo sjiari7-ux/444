@@ -8,12 +8,12 @@
    Progress will NOT be saved to the cloud.
    ═══════════════════════════════════════════════════════════════ */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDaZVxynpwb2lkHuCCJuQ4ICZfVAvjHmuU",
+  authDomain: "arcadaimmo.firebaseapp.com",
+  projectId: "arcadaimmo",
+  storageBucket: "arcadaimmo.firebasestorage.app",
+  messagingSenderId: "302453347843",
+  appId: "1:302453347843:web:0c96be2b644f89b4aee036"
 };
 // ═══════════════════════════════════════════════
 
