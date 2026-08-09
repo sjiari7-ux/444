@@ -8,7 +8,7 @@
    Progress will NOT be saved to the cloud.
    ═══════════════════════════════════════════════════════════════ */
 const firebaseConfig = {
-  apiKey: "AIzaSyDaZVxynpwb2lkHuCCJuQ4ICZfVAvjHmuU,
+  apiKey: "AIzaSyDaZVxynpwb2lkHuCCJuQ4ICZfVAvjHmuU",
   authDomain: "arcadaimmo.firebaseapp.com",
   projectId: "arcadaimmo",
   storageBucket: "arcadaimmo.firebasestorage.app",
@@ -23,10 +23,14 @@ let firebaseReady = false;
 
 try {
   if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('YOUR_')) {
-    firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db = firebase.firestore();
-    firebaseReady = true;
+    if (typeof firebase !== 'undefined' && firebase.initializeApp) {
+      firebase.initializeApp(firebaseConfig);
+      if (firebase.auth) auth = firebase.auth();
+      if (firebase.firestore) db = firebase.firestore();
+      firebaseReady = true;
+    } else {
+      console.warn('Firebase SDK not loaded or incompatible version detected.');
+    }
   } else {
     console.warn('Firebase not configured. Using offline demo mode.');
   }
@@ -37,16 +41,27 @@ try {
 let UID = null;
 let EMAIL = null;
 
+function toggleViewElement(id, visible) {
+  const el = document.getElementById(id);
+  if (el && el.classList && typeof el.classList.toggle === 'function') {
+    el.classList.toggle('hidden', !visible);
+  }
+}
+
 function showView(name){
-  document.getElementById('view-login').classList.toggle('hidden', name !== 'login');
-  document.getElementById('view-setup').classList.toggle('hidden', name !== 'setup');
-  document.getElementById('view-game').classList.toggle('hidden', name !== 'game');
+  toggleViewElement('view-login', name === 'login');
+  toggleViewElement('view-setup', name === 'setup');
+  toggleViewElement('view-game', name === 'game');
 }
 
 async function enterGame(){
   showView('game');
-  await startGame();
-  loadUsername();
+  if (typeof startGame === 'function') {
+    try { await startGame(); } catch(e){ console.error('startGame failed:', e); }
+  }
+  if (typeof loadUsername === 'function') {
+    try { loadUsername(); } catch(e){ console.error('loadUsername failed:', e); }
+  }
 }
 
 if (auth) {
