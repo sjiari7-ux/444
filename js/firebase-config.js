@@ -8,7 +8,7 @@
    Progress will NOT be saved to the cloud.
    ═══════════════════════════════════════════════════════════════ */
 const firebaseConfig = {
-  apiKey: "AIzaSyDaZVxynpwb2lkHuCCJuQ4ICZfVAvjHmuU",
+  apiKey: "",
   authDomain: "arcadaimmo.firebaseapp.com",
   projectId: "arcadaimmo",
   storageBucket: "arcadaimmo.firebasestorage.app",
