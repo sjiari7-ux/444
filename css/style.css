@@ -686,6 +686,33 @@
   .upgrade-table{background:rgba(0,0,0,0.15);border-radius:8px;}
   .upgrade-table th{color:var(--forge-ember-hot);}
 
+  /* --- paperdoll layout (character centered, gear slots radiating out) --- */
+  .paperdoll{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:26px;margin-bottom:14px;}
+  .pd-col{display:flex;flex-direction:column;gap:12px;}
+  .pd-col.left{align-items:flex-end;}
+  .pd-col.right{align-items:flex-start;}
+  .pd-slot{position:relative;width:100%;max-width:210px;}
+  .pd-col.left .pd-slot::after{content:'';position:absolute;top:50%;right:-26px;width:26px;height:2px;background:linear-gradient(90deg,var(--tc,var(--forge-ember)) 0%,rgba(255,122,60,0.15) 100%);box-shadow:0 0 6px -1px var(--tc,var(--forge-glow));}
+  .pd-col.right .pd-slot::after{content:'';position:absolute;top:50%;left:-26px;width:26px;height:2px;background:linear-gradient(270deg,var(--tc,var(--forge-ember)) 0%,rgba(255,122,60,0.15) 100%);box-shadow:0 0 6px -1px var(--tc,var(--forge-glow));}
+  .pd-center{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 4px;}
+  .pd-ring-wrap{position:relative;width:158px;height:158px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+  .pd-ring-wrap::before{content:'';position:absolute;inset:0;border-radius:50%;border:1px dashed rgba(255,122,60,0.35);animation:pdSpin 40s linear infinite;}
+  .pd-ring-wrap::after{content:'';position:absolute;inset:14px;border-radius:50%;border:1px solid rgba(224,164,88,0.25);}
+  @keyframes pdSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .pd-char{position:relative;width:118px;height:118px;border-radius:50%;background:radial-gradient(circle at 35% 28%,var(--forge-ember-hot),var(--forge-ember) 55%,#5c2410 100%);border:2px solid #5c2c14;box-shadow:0 0 0 4px var(--forge-coal),0 0 30px -2px var(--forge-glow),inset 0 -8px 14px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:52px;animation:forgeGlowPulse 3.5s ease-in-out infinite;}
+  .pd-name{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:.02em;color:var(--text);}
+  .pd-sub{font-family:var(--font-mono);font-size:11px;color:var(--dim);margin-top:3px;}
+  .pd-sub b{color:var(--forge-ember-hot);}
+
+  @media (max-width:700px){
+    .paperdoll{display:flex;flex-direction:column;}
+    .pd-col{width:100%;flex-direction:row;flex-wrap:wrap;align-items:stretch;justify-content:center;}
+    .pd-col.left,.pd-col.right{align-items:stretch;}
+    .pd-slot{max-width:none;flex:1 1 140px;}
+    .pd-col .pd-slot::after{display:none;}
+    .pd-center{order:-1;margin-bottom:6px;}
+  }
+
   @media (max-width:480px){
     .gear-equip-grid-v2{grid-template-columns:repeat(3,1fr);}
     .gear-inv-grid-v2{grid-template-columns:repeat(4,1fr);}
