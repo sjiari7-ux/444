@@ -18,12 +18,19 @@ function showError(msg){
 
 /* ===== MARKET FILTER FUNCTIONS ===== */
 function setMarketTab(tab){
-  if(!state) return;
+  if(!state) {
+    console.warn('[Arcadia Market] State not initialized when setting market tab');
+    return;
+  }
   state.marketTab = tab;
   renderBody(); scheduleSave();
 }
+
 function setMarketSearch(val){
-  if(!state) return;
+  if(!state) {
+    console.warn('[Arcadia Market] State not initialized when setting market search');
+    return;
+  }
   state.marketSearch = val;
   const activeInput = document.querySelector('.market-search');
   const selStart = activeInput ? activeInput.selectionStart : null;
@@ -33,17 +40,24 @@ function setMarketSearch(val){
   if(newInput){
     newInput.focus();
     if(selStart !== null){
-      try{ newInput.setSelectionRange(selStart, selEnd); }catch(e){}
+      try{ newInput.setSelectionRange(selStart, selEnd); }catch(e){
+        console.debug('[Arcadia Market] Could not restore selection range:', e.message);
+      }
     }
   }
 }
+
 function clearMarketFilters(){
-  if(!state) return;
+  if(!state) {
+    console.warn('[Arcadia Market] State not initialized when clearing filters');
+    return;
+  }
   state.marketTab = 'all';
   state.marketSearch = '';
   state.marketLevelFilter = 0;
   renderBody(); scheduleSave();
 }
+
 function setLoading(isLoading){
   googleBtn.disabled = isLoading;
   guestBtn.disabled = isLoading;
@@ -55,7 +69,7 @@ async function signInWithGoogle(){
   console.log('[Arcadia Auth] Sign-in button clicked');
 
   if (typeof firebase === 'undefined') {
-    showError('⚠️ لم يتم تحميل مكتبة Firebase. تأكد أن متصفحك أو أي أداة حجب إعلانات (مثل Brave Shields أو AdBlock) لا تمنع gstatic.com، ثم أعد تحميل الصفحة.');
+    showError('⚠️ لم يتم تحميل مكتبة Firebase. تأكد أن متصفحك أو أي أداة حجب إعلانات (مثل Brave Shields أو AdBlock) لا تمنع gstatic.com');
     return;
   }
 
@@ -89,18 +103,27 @@ async function signInWithGoogle(){
 async function continueAsGuest(){
   console.log('[Arcadia Auth] Guest button clicked');
 
-  if (typeof firebase === 'undefined' || !auth) {
-    // Offline demo: skip auth and go straight to setup
+  if (typeof firebase === 'undefined') {
+    console.log('[Arcadia Auth] Firebase not loaded, entering offline demo mode');
     showView('setup');
     return;
   }
+  
+  if (!auth) {
+    console.log('[Arcadia Auth] Auth not configured, entering offline demo mode');
+    showView('setup');
+    return;
+  }
+  
   setLoading(true);
   try{
+    console.log('[Arcadia Auth] Attempting anonymous sign-in...');
     await auth.signInAnonymously();
     console.log('[Arcadia Auth] Guest sign-in succeeded');
   } catch(err){
     console.error('[Arcadia Auth] Guest sign-in failed:', err.code, err.message);
-    showError('Guest login failed: ' + (err.message || 'Unknown error'));
+    const errorMsg = err.message || 'Unknown error';
+    showError('Guest login failed: ' + errorMsg);
     setLoading(false);
   }
 }
@@ -109,7 +132,18 @@ async function continueAsGuest(){
    ARCADIA MMO — Account Setup (username + class)
    ═══════════════════════════════════════════════════════════════ */
 function logoutDuringSetup(){
-  if(auth){ auth.signOut().then(()=>location.reload()); } else { location.reload(); }
+  console.log('[Arcadia Setup] Logout initiated during setup');
+  if(auth){ 
+    auth.signOut().then(()=>{
+      console.log('[Arcadia Setup] Sign-out successful, reloading page');
+      location.reload();
+    }).catch(err => {
+      console.error('[Arcadia Setup] Sign-out failed:', err.message);
+      location.reload();
+    });
+  } else { 
+    location.reload(); 
+  }
 }
 
 let selectedUsername = '';
@@ -124,31 +158,45 @@ function checkUsername(){
   const successBox = document.getElementById('inputSuccess');
   const nextBtn = document.getElementById('nextBtn');
 
+  if(!errorBox2 || !successBox || !nextBtn) {
+    console.error('[Arcadia Setup] Required DOM elements not found for username check');
+    return;
+  }
+
   errorBox2.style.display = 'none';
   successBox.style.display = 'none';
   nextBtn.disabled = true;
   usernameAvailable = false;
 
-  if(!val) return;
+  if(!val) {
+    console.debug('[Arcadia Setup] Username input empty');
+    return;
+  }
+
   if(val.length < 3){
     errorBox2.textContent = 'Name must be at least 3 characters';
     errorBox2.style.display = 'block';
+    console.debug('[Arcadia Setup] Username too short:', val.length, 'characters');
     return;
   }
+
   if(!/^[a-zA-Z0-9_]+$/.test(val)){
     errorBox2.textContent = 'Contains disallowed symbols';
     errorBox2.style.display = 'block';
+    console.debug('[Arcadia Setup] Username contains invalid characters');
     return;
   }
 
   clearTimeout(checkTimeout);
   checkTimeout = setTimeout(async () => {
     try{
+      console.log('[Arcadia Setup] Checking username availability:', val);
       if (db) {
         const doc = await db.collection('usernames').doc(val).get();
         if(doc.exists){
           errorBox2.textContent = '❌ This name is already taken';
           errorBox2.style.display = 'block';
+          console.warn('[Arcadia Setup] Username already taken:', val);
           return;
         }
       }
@@ -156,7 +204,9 @@ function checkUsername(){
       usernameAvailable = true;
       selectedUsername = val;
       nextBtn.disabled = false;
+      console.log('[Arcadia Setup] Username available:', val);
     } catch(e){
+      console.error('[Arcadia Setup] Username availability check failed:', e.message);
       errorBox2.textContent = 'Connection error, try again';
       errorBox2.style.display = 'block';
     }
@@ -164,36 +214,72 @@ function checkUsername(){
 }
 
 function goToStep2(){
-  if(!usernameAvailable) return;
-  document.getElementById('step1').classList.add('hidden');
-  document.getElementById('step2').classList.remove('hidden');
+  if(!usernameAvailable) {
+    console.warn('[Arcadia Setup] Attempted to advance to step 2 with unavailable username');
+    return;
+  }
+  const step1 = document.getElementById('step1');
+  const step2 = document.getElementById('step2');
+  if(!step1 || !step2) {
+    console.error('[Arcadia Setup] Step elements not found');
+    return;
+  }
+  step1.classList.add('hidden');
+  step2.classList.remove('hidden');
+  console.log('[Arcadia Setup] Progressed to step 2');
 }
 
 function goToStep1(){
-  document.getElementById('step2').classList.add('hidden');
-  document.getElementById('step1').classList.remove('hidden');
+  const step1 = document.getElementById('step1');
+  const step2 = document.getElementById('step2');
+  if(!step1 || !step2) {
+    console.error('[Arcadia Setup] Step elements not found');
+    return;
+  }
+  step2.classList.add('hidden');
+  step1.classList.remove('hidden');
+  console.log('[Arcadia Setup] Returned to step 1');
 }
 
 function selectSetupClass(cls){
+  const classCard = document.querySelector(`.class-card[data-class="${cls}"]`);
+  if(!classCard) {
+    console.error('[Arcadia Setup] Class card not found for class:', cls);
+    return;
+  }
   selectedClass = cls;
   document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
-  document.querySelector(`.class-card[data-class="${cls}"]`).classList.add('selected');
-  document.getElementById('finishBtn').disabled = false;
+  classCard.classList.add('selected');
+  const finishBtn = document.getElementById('finishBtn');
+  if(finishBtn) {
+    finishBtn.disabled = false;
+  }
+  console.log('[Arcadia Setup] Selected class:', cls);
 }
 
 async function finishSetup(){
-  if(!selectedClass || !usernameAvailable) return;
+  if(!selectedClass || !usernameAvailable) {
+    console.warn('[Arcadia Setup] Attempted to finish setup with invalid state', { selectedClass, usernameAvailable });
+    return;
+  }
 
   const overlay = document.getElementById('loadingOverlay');
+  if(!overlay) {
+    console.error('[Arcadia Setup] Loading overlay not found');
+    return;
+  }
   overlay.classList.add('active');
+  console.log('[Arcadia Setup] Starting account creation for username:', selectedUsername, 'class:', selectedClass);
 
   try{
     if (db) {
       // Reserve username FIRST (atomic)
+      console.log('[Arcadia Setup] Reserving username...');
       await db.collection('usernames').doc(selectedUsername).set({
         uid: UID,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      console.log('[Arcadia Setup] Username reserved successfully');
 
       // Create player document
       const now = firebase.firestore.FieldValue.serverTimestamp();
@@ -260,15 +346,21 @@ async function finishSetup(){
         lastLogin: now
       };
 
+      console.log('[Arcadia Setup] Creating player document for UID:', UID);
       await db.collection('players').doc(UID).set(playerData);
+      console.log('[Arcadia Setup] Player document created successfully');
+    } else {
+      console.warn('[Arcadia Setup] Database not available, skipping data persistence');
     }
 
     // Go to game (works even without db)
+    console.log('[Arcadia Setup] Setup complete, entering game');
     await enterGame();
 
   } catch(err){
-    console.error(err);
+    console.error('[Arcadia Setup] Account creation failed:', err.code || err.name, err.message);
     overlay.classList.remove('active');
-    alert('Account creation failed: ' + err.message);
+    const errorMsg = err.message || 'Unknown error occurred';
+    alert('Account creation failed: ' + errorMsg);
   }
 }
