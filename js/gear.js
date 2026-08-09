@@ -149,11 +149,11 @@ function renderGear(){
       </div>`;
   }
 
-  const equipped = Object.keys(GEAR_SLOTS).map(slot=>{
+  function renderSlotBox(slot){
     const info = GEAR_SLOTS[slot];
     const item = state.equipped[slot];
     if(!item){
-      return `<div class="gear-equip-box empty">
+      return `<div class="pd-slot gear-equip-box empty">
         <div class="ge-icon">${info.icon}</div>
         <div class="ge-slot">${info.name}</div>
         <div class="ge-name" style="color:var(--dim);">Empty</div>
@@ -164,14 +164,18 @@ function renderGear(){
     const topStatKey = Object.keys(effStats)[0];
     const topStatVal = effStats[topStatKey];
     const topStatDisplay = topStatKey==='defense'||topStatKey==='profit' ? `+${(topStatVal*100).toFixed(0)}%` : `+${topStatVal}`;
-    return `<div class="gear-equip-box" style="--tc:${t.color};">
+    return `<div class="pd-slot gear-equip-box" style="--tc:${t.color};">
       <div class="ge-icon">${info.icon}</div>
       <div class="ge-slot">${info.name}</div>
       <div class="ge-name">[${t.symbol}] ${item.name} +${item.upgradeLevel}</div>
       <div class="ge-stat">${topStatDisplay} ${SKILLS[topStatKey].name}</div>
       <button class="ge-unequip" onclick="unequipGear('${slot}')">Unequip</button>
     </div>`;
-  }).join('');
+  }
+  const leftSlots = ['helmet','armor','gloves'];
+  const rightSlots = ['weapon','boots','accessory'];
+  const leftHtml = leftSlots.map(renderSlotBox).join('');
+  const rightHtml = rightSlots.map(renderSlotBox).join('');
 
   const bagTiles = state.gearBag.map(item=>{
     const t = GEAR_TIERS[item.tier];
@@ -244,13 +248,16 @@ function renderGear(){
 
   return `
     ${forgeModal}
-    <div class="gear-hero-card">
-      <div class="gh-icon">${cls ? cls.icon : '🧙'}</div>
-      <div class="gh-name">${window.__playerUsername || 'Player'}</div>
-      <div class="gh-sub">Level: ${state.level} ${cls ? '· '+cls.nameAr : ''} · Power: <b>${fmtG(powerScore)}</b></div>
-    </div>
     <div class="section-title"><h2>🛡️ Equipped Gear</h2></div>
-    <div class="gear-equip-grid-v2">${equipped}</div>
+    <div class="paperdoll">
+      <div class="pd-col left">${leftHtml}</div>
+      <div class="pd-center">
+        <div class="pd-ring-wrap"><div class="pd-char">${cls ? cls.icon : '🧙'}</div></div>
+        <div class="pd-name">${window.__playerUsername || 'Player'}</div>
+        <div class="pd-sub">Lv.${state.level} ${cls ? '· '+cls.nameAr : ''} · Power: <b>${fmtG(powerScore)}</b></div>
+      </div>
+      <div class="pd-col right">${rightHtml}</div>
+    </div>
     <div class="panel" style="margin-top:12px;">
       <div style="font-size:13px;color:var(--dim);margin-bottom:8px;">Total equipped gear bonuses:</div>
       <div class="bonus-row" style="justify-content:flex-start;">${totalStatsHtml}</div>
