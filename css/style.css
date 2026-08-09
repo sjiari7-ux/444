@@ -1,4 +1,4 @@
-  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&display=swap');
 
   :root{
     --bg:#0b1614;--bg-deep:#060d0c;--panel:#132924;--panel-light:#1d3c35;--panel-inset:#0d211c;
@@ -637,5 +637,3 @@
     .gear-inv-grid-v2{grid-template-columns:repeat(4,1fr);}
     .class-select-grid{grid-template-columns:repeat(2,1fr);}
   }
-
-  
