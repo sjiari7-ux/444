@@ -97,6 +97,7 @@ async function continueAsGuest(){
   setLoading(true);
   try{
     await auth.signInAnonymously();
+    console.log('[Arcadia Auth] Guest sign-in succeeded');
   } catch(err){
     console.error('[Arcadia Auth] Guest sign-in failed:', err.code, err.message);
     showError('Guest login failed: ' + (err.message || 'Unknown error'));
