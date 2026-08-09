@@ -80,12 +80,12 @@ function selectBagItem(id){
 // ─── Gear Rendering ───
 function renderGear(){
   const forgeButton = `
-    <div class="panel" style="text-align:center;padding:28px;background:radial-gradient(ellipse at center,rgba(212,162,76,0.06) 0%,transparent 70%);">
-      <div style="font-size:42px;margin-bottom:8px;">⚒️</div>
-      <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:18px;color:var(--brass-bright);margin-bottom:6px;">The Forge</div>
-      <div style="font-size:13px;color:var(--dim);margin-bottom:16px;max-width:320px;margin-left:auto;margin-right:auto;">Craft powerful gear from gathered materials. 36 recipes across 6 tiers.</div>
-      <button class="act-btn" style="width:auto;padding:12px 32px;font-size:14px;" onclick="openForge()">Open Forge</button>
-      <div style="font-size:11px;color:var(--dim);margin-top:12px;">Bag: <b>${state.gearBag.length}</b> / ${GEAR_BAG_LIMIT}</div>
+    <div class="forge-cta">
+      <div class="forge-anvil">⚒️</div>
+      <div class="forge-title">The Forge</div>
+      <div class="forge-desc">Craft powerful gear from gathered materials. 36 recipes across 6 tiers.</div>
+      <button class="forge-open-btn" onclick="openForge()">Open Forge</button>
+      <div class="forge-bag-count">Bag: <b>${state.gearBag.length}</b> / ${GEAR_BAG_LIMIT}</div>
     </div>`;
 
   let forgeModal = '';
@@ -119,7 +119,7 @@ function renderGear(){
 
     forgeModal = `
       <div class="modal-overlay" onclick="if(event.target===this)closeForge()">
-        <div class="modal-box">
+        <div class="modal-box forge-modal">
           <div class="modal-header">
             <h3>⚒️ Forge — ${slotInfo.icon} ${slotInfo.name}</h3>
             <button class="modal-close" onclick="closeForge()">✕</button>
@@ -129,7 +129,7 @@ function renderGear(){
               <div style="font-size:11px;color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Select Tier</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">${tierButtons}</div>
             </div>
-            <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px;">
+            <div class="forge-recipe-box">
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
                 <div style="font-size:36px;">${recipe.icon}</div>
                 <div>
