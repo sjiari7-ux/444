@@ -71,6 +71,8 @@ let forgeOpen = false;
 let forgeSlot = null;
 let forgeTier = null;
 let forgeReqOpen = false;
+let forgeSearch = '';
+let forgeFilterSlot = 'all';
 let customWeaponName = '';
 let bagSelected = null;
 
@@ -93,10 +95,19 @@ function renderGear(){
 
   let forgeModal = '';
   if(forgeOpen && forgeSlot === null){
-    // Grid of every craftable piece of gear, across all slots and tiers.
-    const allTiles = Object.keys(CRAFTABLE_GEAR).map(slot=>{
+    // Grid of every craftable piece of gear, across all slots and tiers — filterable by category and name.
+    const searchLower = forgeSearch.trim().toLowerCase();
+    const filterButtons = ['all', ...Object.keys(GEAR_SLOTS)].map(slot=>{
+      const active = forgeFilterSlot === slot;
+      const label = slot === 'all' ? 'All' : GEAR_SLOTS[slot].name;
+      const icon = slot === 'all' ? '🗂️' : GEAR_SLOTS[slot].icon;
+      return `<button class="mini-btn ${active?'buy':''}" onclick="setForgeFilterSlot('${slot}')">${icon} ${label}</button>`;
+    }).join('');
+
+    const allTiles = Object.keys(CRAFTABLE_GEAR).filter(slot=> forgeFilterSlot==='all' || forgeFilterSlot===slot).map(slot=>{
       const info = GEAR_SLOTS[slot];
       return CRAFTABLE_GEAR[slot].map((r, idx)=>{
+        if(searchLower && !r.name.toLowerCase().includes(searchLower)) return '';
         const t = GEAR_TIERS[idx];
         const locked = state.level < r.levelReq;
         return `<div class="gear-inv-tile" style="--tc:${t.color};${locked?'opacity:0.45;':''}" onclick="selectForgeItem('${slot}',${idx})" title="${locked?'Requires level '+r.levelReq:r.name}">
@@ -106,6 +117,7 @@ function renderGear(){
         </div>`;
       }).join('');
     }).join('');
+    const hasResults = allTiles.trim().length > 0;
 
     forgeModal = `
       <div class="modal-overlay" onclick="if(event.target===this)closeForge()">
@@ -115,8 +127,10 @@ function renderGear(){
             <button class="modal-close" onclick="closeForge()">✕</button>
           </div>
           <div class="modal-body">
+            <input type="text" class="market-search" placeholder="Search gear by name..." value="${forgeSearch}" oninput="setForgeSearch(this.value)" style="width:100%;margin-bottom:10px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">${filterButtons}</div>
             <div style="font-size:11px;color:var(--dim);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em;">Tap any piece of gear to craft it</div>
-            <div class="gear-inv-grid-v2">${allTiles}</div>
+            ${hasResults ? `<div class="gear-inv-grid-v2">${allTiles}</div>` : `<div style="text-align:center;color:var(--dim);padding:20px;">No gear matches your search.</div>`}
           </div>
         </div>
       </div>`;
@@ -335,11 +349,26 @@ function renderGear(){
 
 
 // ─── Gear Actions (forge, equip, upgrade, sell, destroy) ───
-function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
-function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
+function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeFilterSlot='all'; renderBody(); }
+function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeFilterSlot='all'; renderBody(); }
 function backToForgeGrid(){ forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
 function selectForgeItem(slot, idx){ forgeSlot=slot; forgeTier=idx; forgeReqOpen=false; customWeaponName=''; renderBody(); }
 function selectForgeTier(idx){ forgeTier=idx; forgeReqOpen=false; renderBody(); }
+function setForgeFilterSlot(slot){ forgeFilterSlot=slot; renderBody(); }
+function setForgeSearch(val){
+  forgeSearch = val;
+  const activeInput = document.querySelector('.modal-box.forge-modal .market-search');
+  const selStart = activeInput ? activeInput.selectionStart : null;
+  const selEnd = activeInput ? activeInput.selectionEnd : null;
+  renderBody();
+  const newInput = document.querySelector('.modal-box.forge-modal .market-search');
+  if(newInput){
+    newInput.focus();
+    if(selStart !== null){
+      try{ newInput.setSelectionRange(selStart, selEnd); }catch(e){}
+    }
+  }
+}
 function toggleForgeReq(){ forgeReqOpen = !forgeReqOpen; renderBody(); }
 function setCustomWeaponName(val){ customWeaponName = val; }
 function craftGear(slot, tier){
