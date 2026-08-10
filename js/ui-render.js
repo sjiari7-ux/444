@@ -409,8 +409,10 @@ function renderCompanies(){
 
 
 function renderClass(){
+  const backLink = `<button class="mini-btn" style="margin-bottom:12px;" onclick="stopAllianceChatListener();activeTab='settings';renderBody();">← Back to Settings</button>`;
   if(!state.playerClass){
     return `
+      ${backLink}
       <div class="section-title"><h2>🧙 Select Your Class</h2><div class="sub">Each class has unique stats and 3 exclusive skills. You can change later for a gold cost.</div></div>
       <div class="class-select-grid">${Object.keys(CLASS_DATA).map(key=>{
         const c = CLASS_DATA[key];
@@ -487,6 +489,7 @@ function renderClass(){
   }).join('');
 
   return `
+    ${backLink}
     <div class="gear-hero-card" style="--tc:${cls.color};border-color:${cls.color}40;">
       <div class="gh-icon" style="background:linear-gradient(135deg,${cls.color},${cls.color}99);border-color:${cls.color};">${cls.icon}</div>
       <div class="gh-name" style="color:${cls.color};">${cls.nameAr}</div>
@@ -591,6 +594,7 @@ function renderSkills(){
   }).join('');
 
   return `
+    <button class="mini-btn" style="margin-bottom:12px;" onclick="stopAllianceChatListener();activeTab='settings';renderBody();">← Back to Settings</button>
     <div class="stat-overview-grid">${overview}</div>
     <div class="sp-banner">
       <div class="sp-label">🎯 Skill Points</div>
@@ -689,6 +693,15 @@ function renderSettings(){
           ${settingsRow('👤','Personal Details','Avatar, name & bio','openPersonalDetailsModal()')}
           ${settingsRow('🎨','Appearance','Theme, language & accent','openPreferencesModal()')}
           ${settingsRow('🏆','Stats & Achievements','Session totals','openAchievementsModal()')}
+        </div>
+      </div>
+
+      <!-- CHARACTER -->
+      <div>
+        <div class="settings-group-label">Character</div>
+        <div class="settings-list">
+          ${settingsRow(classIcon,'Class',`${className} · Unique skills`,`stopAllianceChatListener();activeTab='class';renderBody();`)}
+          ${settingsRow('🎯','Skills','Spend skill points',`stopAllianceChatListener();activeTab='skills';renderBody();`)}
         </div>
       </div>
 
