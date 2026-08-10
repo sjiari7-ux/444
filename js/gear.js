@@ -69,6 +69,8 @@ let saveTimer = null;
 let activeTab = 'production';
 let forgeSlot = null;
 let forgeTier = null;
+let forgeReqOpen = false;
+let customWeaponName = '';
 let bagSelected = null;
 
 function selectBagItem(id){
@@ -129,21 +131,35 @@ function renderGear(){
               <div style="font-size:11px;color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Select Tier</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">${tierButtons}</div>
             </div>
+
+            <div class="forge-weapon-plate ${forgeReqOpen?'open':''}" style="--tc:${tier.color};" onclick="toggleForgeReq()">
+              <div class="fwp-icon">${recipe.icon}</div>
+              <div class="fwp-name" style="color:${tier.color};">[${tier.symbol}] ${recipe.name}</div>
+              <div class="fwp-hint">${forgeReqOpen ? 'Tap to hide requirements ▲' : 'Tap the weapon to view crafting requirements ▼'}</div>
+            </div>
+
+            <div style="margin:12px 0;">
+              <div style="font-size:11px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Name your weapon</div>
+              <input type="text" class="market-search" maxlength="24" placeholder="${recipe.name}" value="${customWeaponName}" oninput="setCustomWeaponName(this.value)" style="width:100%;">
+            </div>
+
+            ${forgeReqOpen ? `
             <div class="forge-recipe-box">
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
                 <div style="font-size:36px;">${recipe.icon}</div>
                 <div>
-                  <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:${tier.color};">[${tier.symbol}] ${recipe.name}</div>
+                  <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:${tier.color};">[${tier.symbol}] ${customWeaponName.trim() || recipe.name}</div>
                   <div style="font-size:11px;color:var(--dim);margin-top:3px;">Lv.${recipe.levelReq} required · <img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAyNJREFUSEuFVT1oFEEU/t4aL3tJEwtzP7sXJAQR6wgGSaGixaUxRUBMQERRCwlYpBIlAbGQIIYgKioERDGNIARt1SqNmEpQECS3t3fxBwUht3vx9slk/2bn9nSr3dk37837ft4QQAAY8uOvtK/7MQQQB1vk9/QMIgsaVXNW08CeRwRmv2bwiNLbn8FL1rBmO9aOdvmFxTn8VAS4dXOKPTxOtCJvCHpqgWZ6CpX5qEu5GwWJIHXUOJobxkjLo7cAutIL+atalzac2b3+LglvOqRRB+FBftdz/Rne+YaBfXERmRUCg1d7CtZIkrkAy+3FuJgASyItTunUSisAj8nnit5FEo1u6PnKlThXaqRMp3pewLHNBRCmO8NFY3qx8tKHXoEo+JT0EgfJoW7dnGbGQloRAj5uNroO7hr88qvTIXyIItWne6JRM8bAtJLar4YHes46n8yTQCPJwWbVMKHRkKz9MJyAZQD9AhKi2J4a6EymUFlK80cEkXp2p2beBDCTTp1UkhlM+E4tPqSXqp8iK6gcpKnYsY2LAAmiM22SJbzwWrQW90HIGpVZlYs2HyQCCHDqpeNosSgi+SKKmtGL1nxkZiW7SK6oKHZ1qDyxufHVHEILCwSUE+Yi/NHAo5l8dTUcOeq0aJMp1woDLrS7AMrhgPvPSHitF6zDYQG1m3aIAjJCkv+h75hP4uvd+erVpDj9kd5RReKXaxuTTLgPoFcEM2Mu6oYwRITJKOkOlPV+65UygFUO4jkeXjjuxsCg5/EzAh8AYa1b145Q3/pPkahRK10j5rntcQa8b7ja0b49/r/QE4qT2wEJ5evYpXsgvgCi23qhcjmcP65dnABhkUE5MO7oReuSMk3Tx2wa9s2acdoDLXkenew1Ksuhorwfhtls0lMAo9AwpeesJ5IVlXEdOS79AnG+GXtpi5578MrZor0ujwfHLt0C8Qls0TF9oPK5ow9Uoto0Lq7Yqvmwu2idU5Xj2saExzSeLVqnAirS57jUYspN66O8WTfPZvPWIxlOsS4gc7doXM9bi6lO7ky1emcIKZf268X1DyEf8nGbdmn4LzwhQV11Lo8iAAAAAElFTkSuQmCC" alt="⚡">${cost} energy · +${recipe.xp} XP</div>
                 </div>
               </div>
               <div style="margin-bottom:12px;">${resourceRows}</div>
               ${locked ? `<div class="locked-tag" style="text-align:center;padding:10px;"><img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAqBJREFUSEuVVjtrFUEYPWd+gZUSK21UiGXsb1ASLBTBB4q2klYLBYkQA9pooa3YGhQfCFolKDe9wSoRY6OVAXvBao47j52dmd2b4MJddpj5vnO+8z3mEns8BCCEt6RDfkXzcy87t++s3C+8NWxipQOE7gA8CeC4PyVsgvgEaJHG/Am2BKjop6MVAPInA5N0EcCrdtv5KQ20DfC0IX9M4Nedz6XwJKVzAN4F544ZV0B8jGCnAFzNgKcN+bUQIwaUCCXiBGS1D9AXgIcjwCXSvE6BhjMpOgFbBGZI/q3FqHIQYGV1GdALyK1xjOT2kIySjgL4FveukHw5pHgvB7K61+iyBOCtIS+0OewXAiFr34A436RnmaSzK6rGU+wKMQoivQd0BuAjkreH6yudfSjgFqEPNOZsTqIr08qDpDGgEcRlGscqSBeqsKxpHy19tOskZ1MEsWSrJAdH1mpMYNR4KwASu6zkpSRnBtAJVfVB6thxw2jU6ZpHUKrsAJrAlhpCZQSRzZ6dnDKUd2n67mcnz2gvB5LTHePUflXrhqVvuljBccS0OoQDs6RZb2dPEYGk53mH+ij9if6Q2KWyVkhzrQfgorbSJoTp0F+Jb/rerVyzvS2SfigW0zQCqCD7X8Q7QqbpuBYwNVoccKsA5tKAy2dnDhbSUE3WZLVmaOYn5WARwv3ceGBEZ94r1AB5lzQP2ruh6ANJcxBWJ1VRHtmg63BgnuRa2/CFRF4mq8cibvRvolbVPPm9tD8heTO/InsAMRefAcxMrM6qfONyg+SJHLJotHyEWWmKwAKE6yIOVtdkneFfAJ4BeErDnXqkD86idtpIdkrAgrutADh2+/2e8BuEi3LDOyZ3JvVIfxZV/zDypaQjvoHI78lhftfWl0Gj3T9vdCwxhL+7FwAAAABJRU5ErkJggg==" alt="🔒"> Requires player level ${recipe.levelReq}</div>` :
                 `<button class="act-btn ${(!hasInputs||!hasEnergy||bagFull)?'':'buy'}" style="width:100%;padding:12px;" ${(!hasInputs||!hasEnergy||bagFull)?'disabled':''} onclick="craftGear('${forgeSlot}',${forgeTier})">
-                  ${bagFull ? '<img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAA/FJREFUSEuNlltoXUUYhb+1NRIjJl6qaBRTpdZixBveDbWColjRoASrIEULebBK8daiKLRRvFJENGAfvD21tdqb4IME2yreHgSLtWIrGpGomJQabWq1zVnuf+85yTkntrhhH2bmzMw//1rrX7NFPAIZHA1cDFUHy/FDPA1LysmTg9Gq7U/p2l4G3Aj8GWtV7FD8tgo2KNOy2jM1nqYMMBGj9jjlYKXiiwRfKdPftVlW7GZBp6QvDpVxgFMHi115EvgI/DxoGjAN3FTOm3zKPDgAjADD4CVYFytTX+28ulU5HNFfB3wAvAhsAj4GfwYaS5sW6w1HCy4FrgCuBh4GLpR0x9QAieSK3YZ5CfEdBPZqBx4FOjCtZRLBepH4H+BBrGcQQ8DTwMlAr6T9VdhLiORCRRV7BvCAYUzwEKYT8S5wBtBtGE0ktxnWC34Brge2powPA56Q9FsV+TqSK/a5mAVJKouADw1PCS4HXgN+TPh0WNwt/DnW/RbXCl7B7EX0S/r+YAFOBR4B/spl+WDC8gD4faz5iHvLqtDLhtcF1wFNad4LwJHA45JGqrXVmEFMWJWTtgVY3lBenwD7EwdNqCA3xSsai0GzDd2ZsvFqeTbUAdgOPO+pWSrwcZOSLZIfNowoJGpGLPYJt4NWSDpvaiXHbvYxQLy353iflpN2bPRTxWaYCmIc2AP8nt49mBMRR6T+oGG1YLcyjYZwChW5UmlBvAfcmQMc1rARPAaKQtoG7kzSbDSlbXmtXJXXwBjQDMwNFQFvRlvS3lLZdgtwCrALM4R4Ne3UlTK6DBisd0Kmgz8FvQ0MAIdj5iFmgo8HDWU1AUIJm4EFwDdAfyKwCxVZRf9KIEuBK0kI9wGrDQOKANBrmCG8EmtOlml/NYPwnGHgbGB7TYDZFn3CawKisoDrHOlWrD4U1uIMayEqkIjKPiHk2hhgFvBO6S0TuA+Bb4HCxILMeP4BHgPWJ2gDva9B4V03pIKsCxAcLAZWpgBLi0IzX1qMC54FdgPnJOEHuaGyJTmpYQ/ng5fn+cW6ueC7QM/VktwGrA0MMRtQ4Y4nhfQMzcKLQAvTiSNGd1hC8p99pbz9K9YmxDXgVaCbJY1WIQqSg8RQyg+Jgx3AdMNGwRtRGyHrxIENPwnmY26yGBShHuIQRwGXhM2HqzZycHoEMPSrtN+OXKbfAq2Yny1mFmox2y3aRVg2Z5kiQNh6b8p8V5Cc1ZDcYtgp6MLsQKxISrjA8Fahogn91F07PaAew9ZkFfPKC8gDWLOUFYU28UlRSt9ea9giOBMzJ/87iFszec/U3jn05ONLLTYLdsbmkm476JVZ/eM/v0QaTeJ/9v8Fy5uWLrMnW18AAAAASUVORK5CYII=" alt="🎒"> Bag Full' : (!hasInputs ? '❌ Missing Materials' : (!hasEnergy ? '<img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAyNJREFUSEuFVT1oFEEU/t4aL3tJEwtzP7sXJAQR6wgGSaGixaUxRUBMQERRCwlYpBIlAbGQIIYgKioERDGNIARt1SqNmEpQECS3t3fxBwUht3vx9slk/2bn9nSr3dk37837ft4QQAAY8uOvtK/7MQQQB1vk9/QMIgsaVXNW08CeRwRmv2bwiNLbn8FL1rBmO9aOdvmFxTn8VAS4dXOKPTxOtCJvCHpqgWZ6CpX5qEu5GwWJIHXUOJobxkjLo7cAutIL+atalzac2b3+LglvOqRRB+FBftdz/Rne+YaBfXERmRUCg1d7CtZIkrkAy+3FuJgASyItTunUSisAj8nnit5FEo1u6PnKlThXaqRMp3pewLHNBRCmO8NFY3qx8tKHXoEo+JT0EgfJoW7dnGbGQloRAj5uNroO7hr88qvTIXyIItWne6JRM8bAtJLar4YHes46n8yTQCPJwWbVMKHRkKz9MJyAZQD9AhKi2J4a6EymUFlK80cEkXp2p2beBDCTTp1UkhlM+E4tPqSXqp8iK6gcpKnYsY2LAAmiM22SJbzwWrQW90HIGpVZlYs2HyQCCHDqpeNosSgi+SKKmtGL1nxkZiW7SK6oKHZ1qDyxufHVHEILCwSUE+Yi/NHAo5l8dTUcOeq0aJMp1woDLrS7AMrhgPvPSHitF6zDYQG1m3aIAjJCkv+h75hP4uvd+erVpDj9kd5RReKXaxuTTLgPoFcEM2Mu6oYwRITJKOkOlPV+65UygFUO4jkeXjjuxsCg5/EzAh8AYa1b145Q3/pPkahRK10j5rntcQa8b7ja0b49/r/QE4qT2wEJ5evYpXsgvgCi23qhcjmcP65dnABhkUE5MO7oReuSMk3Tx2wa9s2acdoDLXkenew1Ksuhorwfhtls0lMAo9AwpeesJ5IVlXEdOS79AnG+GXtpi5578MrZor0ujwfHLt0C8Qls0TF9oPK5ow9Uoto0Lq7Yqvmwu2idU5Xj2saExzSeLVqnAirS57jUYspN66O8WTfPZvPWIxlOsS4gc7doXM9bi6lO7ky1emcIKZf268X1DyEf8nGbdmn4LzwhQV11Lo8iAAAAAElFTkSuQmCC" alt="⚡"> Not Enough Energy' : `🔨 Forge ${recipe.name}`))}
+                  ${bagFull ? '<img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAA/FJREFUSEuNlltoXUUYhb+1NRIjJl6qaBRTpdZixBveDbWColjRoASrIEULebBK8daiKLRRvFJENGAfvD21tdqb4IME2yreHgSLtWIrGpGomJQabWq1zVnuf+85yTkntrhhH2bmzMw//1rrX7NFPAIZHA1cDFUHy/FDPA1LysmTg9Gq7U/p2l4G3Aj8GWtV7FD8tgo2KNOy2jM1nqYMMBGj9jjlYKXiiwRfKdPftVlW7GZBp6QvDpVxgFMHi115EvgI/DxoGjAN3FTOm3zKPDgAjADD4CVYFytTX+28ulU5HNFfB3wAvAhsAj4GfwYaS5sW6w1HCy4FrgCuBh4GLpR0x9QAieSK3YZ5CfEdBPZqBx4FOjCtZRLBepH4H+BBrGcQQ8DTwMlAr6T9VdhLiORCRRV7BvCAYUzwEKYT8S5wBtBtGE0ktxnWC34Brge2powPA56Q9FsV+TqSK/a5mAVJKouADw1PCS4HXgN+TPh0WNwt/DnW/RbXCl7B7EX0S/r+YAFOBR4B/spl+WDC8gD4faz5iHvLqtDLhtcF1wFNad4LwJHA45JGqrXVmEFMWJWTtgVY3lBenwD7EwdNqCA3xSsai0GzDd2ZsvFqeTbUAdgOPO+pWSrwcZOSLZIfNowoJGpGLPYJt4NWSDpvaiXHbvYxQLy353iflpN2bPRTxWaYCmIc2AP8nt49mBMRR6T+oGG1YLcyjYZwChW5UmlBvAfcmQMc1rARPAaKQtoG7kzSbDSlbXmtXJXXwBjQDMwNFQFvRlvS3lLZdgtwCrALM4R4Ne3UlTK6DBisd0Kmgz8FvQ0MAIdj5iFmgo8HDWU1AUIJm4EFwDdAfyKwCxVZRf9KIEuBK0kI9wGrDQOKANBrmCG8EmtOlml/NYPwnGHgbGB7TYDZFn3CawKisoDrHOlWrD4U1uIMayEqkIjKPiHk2hhgFvBO6S0TuA+Bb4HCxILMeP4BHgPWJ2gDva9B4V03pIKsCxAcLAZWpgBLi0IzX1qMC54FdgPnJOEHuaGyJTmpYQ/ng5fn+cW6ueC7QM/VktwGrA0MMRtQ4Y4nhfQMzcKLQAvTiSNGd1hC8p99pbz9K9YmxDXgVaCbJY1WIQqSg8RQyg+Jgx3AdMNGwRtRGyHrxIENPwnmY26yGBShHuIQRwGXhM2HqzZycHoEMPSrtN+OXKbfAq2Yny1mFmox2y3aRVg2Z5kiQNh6b8p8V5Cc1ZDcYtgp6MLsQKxISrjA8Fahogn91F07PaAew9ZkFfPKC8gDWLOUFYU28UlRSt9ea9giOBMzJ/87iFszec/U3jn05ONLLTYLdsbmkm476JVZ/eM/v0QaTeJ/9v8Fy5uWLrMnW18AAAAASUVORK5CYII=" alt="🎒"> Bag Full' : (!hasInputs ? '❌ Missing Materials' : (!hasEnergy ? '<img class="ui-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAyNJREFUSEuFVT1oFEEU/t4aL3tJEwtzP7sXJAQR6wgGSaGixaUxRUBMQERRCwlYpBIlAbGQIIYgKioERDGNIARt1SqNmEpQECS3t3fxBwUht3vx9slk/2bn9nSr3dk37837ft4QQAAY8uOvtK/7MQQQB1vk9/QMIgsaVXNW08CeRwRmv2bwiNLbn8FL1rBmO9aOdvmFxTn8VAS4dXOKPTxOtCJvCHpqgWZ6CpX5qEu5GwWJIHXUOJobxkjLo7cAutIL+atalzac2b3+LglvOqRRB+FBftdz/Rne+YaBfXERmRUCg1d7CtZIkrkAy+3FuJgASyItTunUSisAj8nnit5FEo1u6PnKlThXaqRMp3pewLHNBRCmO8NFY3qx8tKHXoEo+JT0EgfJoW7dnGbGQloRAj5uNroO7hr88qvTIXyIItWne6JRM8bAtJLar4YHes46n8yTQCPJwWbVMKHRkKz9MJyAZQD9AhKi2J4a6EymUFlK80cEkXp2p2beBDCTTp1UkhlM+E4tPqSXqp8iK6gcpKnYsY2LAAmiM22SJbzwWrQW90HIGpVZlYs2HyQCCHDqpeNosSgi+SKKmtGL1nxkZiW7SK6oKHZ1qDyxufHVHEILCwSUE+Yi/NHAo5l8dTUcOeq0aJMp1woDLrS7AMrhgPvPSHitF6zDYQG1m3aIAjJCkv+h75hP4uvd+erVpDj9kd5RReKXaxuTTLgPoFcEM2Mu6oYwRITJKOkOlPV+65UygFUO4jkeXjjuxsCg5/EzAh8AYa1b145Q3/pPkahRK10j5rntcQa8b7ja0b49/r/QE4qT2wEJ5evYpXsgvgCi23qhcjmcP65dnABhkUE5MO7oReuSMk3Tx2wa9s2acdoDLXkenew1Ksuhorwfhtls0lMAo9AwpeesJ5IVlXEdOS79AnG+GXtpi5578MrZor0ujwfHLt0C8Qls0TF9oPK5ow9Uoto0Lq7Yqvmwu2idU5Xj2saExzSeLVqnAirS57jUYspN66O8WTfPZvPWIxlOsS4gc7doXM9bi6lO7ky1emcIKZf268X1DyEf8nGbdmn4LzwhQV11Lo8iAAAAAElFTkSuQmCC" alt="⚡"> Not Enough Energy' : `🔨 Forge ${customWeaponName.trim() || recipe.name}`))}
                 </button>`}
             </div>
             <div style="font-size:11px;color:var(--dim);text-align:center;">Bag: <b>${state.gearBag.length}</b> / ${GEAR_BAG_LIMIT}</div>
+            ` : ''}
           </div>
         </div>
       </div>`;
@@ -286,9 +302,11 @@ function renderGear(){
 
 
 // ─── Gear Actions (forge, equip, upgrade, sell, destroy) ───
-function openForge(){ forgeSlot='weapon'; forgeTier=0; renderBody(); }
-function closeForge(){ forgeSlot=null; forgeTier=null; renderBody(); }
-function selectForgeTier(idx){ forgeTier=idx; renderBody(); }
+function openForge(){ forgeSlot='weapon'; forgeTier=0; forgeReqOpen=false; customWeaponName=''; renderBody(); }
+function closeForge(){ forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
+function selectForgeTier(idx){ forgeTier=idx; forgeReqOpen=false; renderBody(); }
+function toggleForgeReq(){ forgeReqOpen = !forgeReqOpen; renderBody(); }
+function setCustomWeaponName(val){ customWeaponName = val; }
 function craftGear(slot, tier){
   const recipe = CRAFTABLE_GEAR[slot][tier];
   if(state.level < recipe.levelReq) return;
@@ -298,7 +316,8 @@ function craftGear(slot, tier){
   for(const inp in recipe.inputs){ if(state.inv[inp] < recipe.inputs[inp]){ pushLog(state, `Missing ${ITEMS[inp].name}!`, 'lose'); return; } }
   for(const inp in recipe.inputs){ state.inv[inp] -= recipe.inputs[inp]; }
   state.energy -= cost;
-  const gear = { ...recipe, id: Date.now()+Math.random(), slot, tier, upgradeLevel: 0, stats: {} };
+  const finalName = customWeaponName.trim() || recipe.name;
+  const gear = { ...recipe, name: finalName, id: Date.now()+Math.random(), slot, tier, upgradeLevel: 0, stats: {} };
   // Generate stats based on tier
   const t = GEAR_TIERS[tier];
   const chosen = [...STAT_POOL].sort(()=>Math.random()-0.5).slice(0, t.numStats);
@@ -309,8 +328,10 @@ function craftGear(slot, tier){
   gear.sellValue = t.sellMin + Math.floor(Math.random()*(t.sellMax-t.sellMin));
   state.gearBag.push(gear);
   const leveled = grantXp(state, recipe.xp);
-  pushLog(state, `Forged [${t.symbol}] ${recipe.name}!`, 'gear');
+  pushLog(state, `Forged [${t.symbol}] ${finalName}!`, 'gear');
   if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast('Level Up!', `Level ${state.level}`, 'levelup'); }
+  customWeaponName = '';
+  forgeReqOpen = false;
   renderBody(); scheduleSave();
 }
 function equipGear(id){
