@@ -67,6 +67,7 @@ function getGearScrapValue(gear){
 let state = null;
 let saveTimer = null;
 let activeTab = 'production';
+let forgeOpen = false;
 let forgeSlot = null;
 let forgeTier = null;
 let forgeReqOpen = false;
@@ -91,7 +92,36 @@ function renderGear(){
     </div>`;
 
   let forgeModal = '';
-  if(forgeSlot !== null){
+  if(forgeOpen && forgeSlot === null){
+    // Grid of every craftable piece of gear, across all slots and tiers.
+    const allTiles = Object.keys(CRAFTABLE_GEAR).map(slot=>{
+      const info = GEAR_SLOTS[slot];
+      return CRAFTABLE_GEAR[slot].map((r, idx)=>{
+        const t = GEAR_TIERS[idx];
+        const locked = state.level < r.levelReq;
+        return `<div class="gear-inv-tile" style="--tc:${t.color};${locked?'opacity:0.45;':''}" onclick="selectForgeItem('${slot}',${idx})" title="${locked?'Requires level '+r.levelReq:r.name}">
+          <div class="it-icon">${r.icon}</div>
+          <div class="it-name">${r.name}</div>
+          <div class="it-badge">${t.symbol} ${info.icon}${locked?' 🔒':''}</div>
+        </div>`;
+      }).join('');
+    }).join('');
+
+    forgeModal = `
+      <div class="modal-overlay" onclick="if(event.target===this)closeForge()">
+        <div class="modal-box forge-modal">
+          <div class="modal-header">
+            <h3>⚒️ The Forge</h3>
+            <button class="modal-close" onclick="closeForge()">✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em;">Tap any piece of gear to craft it</div>
+            <div class="gear-inv-grid-v2">${allTiles}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+  if(forgeOpen && forgeSlot !== null){
     const slotInfo = GEAR_SLOTS[forgeSlot];
     const recipe = CRAFTABLE_GEAR[forgeSlot][forgeTier];
     const tier = GEAR_TIERS[forgeTier];
@@ -124,7 +154,10 @@ function renderGear(){
         <div class="modal-box forge-modal">
           <div class="modal-header">
             <h3>⚒️ Forge — ${slotInfo.icon} ${slotInfo.name}</h3>
-            <button class="modal-close" onclick="closeForge()">✕</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="mini-btn" onclick="backToForgeGrid()">← All Gear</button>
+              <button class="modal-close" onclick="closeForge()">✕</button>
+            </div>
           </div>
           <div class="modal-body">
             <div style="margin-bottom:14px;">
@@ -139,7 +172,7 @@ function renderGear(){
             </div>
 
             <div style="margin:12px 0;">
-              <div style="font-size:11px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Name your weapon</div>
+              <div style="font-size:11px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Name your item</div>
               <input type="text" class="market-search" maxlength="24" placeholder="${recipe.name}" value="${customWeaponName}" oninput="setCustomWeaponName(this.value)" style="width:100%;">
             </div>
 
@@ -302,8 +335,10 @@ function renderGear(){
 
 
 // ─── Gear Actions (forge, equip, upgrade, sell, destroy) ───
-function openForge(){ forgeSlot='weapon'; forgeTier=0; forgeReqOpen=false; customWeaponName=''; renderBody(); }
-function closeForge(){ forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
+function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
+function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
+function backToForgeGrid(){ forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
+function selectForgeItem(slot, idx){ forgeSlot=slot; forgeTier=idx; forgeReqOpen=false; customWeaponName=''; renderBody(); }
 function selectForgeTier(idx){ forgeTier=idx; forgeReqOpen=false; renderBody(); }
 function toggleForgeReq(){ forgeReqOpen = !forgeReqOpen; renderBody(); }
 function setCustomWeaponName(val){ customWeaponName = val; }
