@@ -273,15 +273,13 @@ async function finishSetup(){
 
   try{
     if (db) {
-      // Reserve username FIRST (atomic)
-      console.log('[Arcadia Setup] Reserving username...');
-      await db.collection('usernames').doc(selectedUsername).set({
-        uid: UID,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      console.log('[Arcadia Setup] Username reserved successfully');
-
-      // Create player document
+      // Reserve the username AND create the player document in a single
+      // atomic transaction. This closes the race condition where two
+      // players who pass the availability check around the same time
+      // could both end up writing the same username.
+      console.log('[Arcadia Setup] Reserving username + creating player (atomic)...');
+      const nameRef = db.collection('usernames').doc(selectedUsername);
+      const playerRef = db.collection('players').doc(UID);
       const now = firebase.firestore.FieldValue.serverTimestamp();
       const playerData = {
         uid: UID,
@@ -346,9 +344,17 @@ async function finishSetup(){
         lastLogin: now
       };
 
-      console.log('[Arcadia Setup] Creating player document for UID:', UID);
-      await db.collection('players').doc(UID).set(playerData);
-      console.log('[Arcadia Setup] Player document created successfully');
+      await db.runTransaction(async (tx) => {
+        const nameDoc = await tx.get(nameRef);
+        if (nameDoc.exists) {
+          const err = new Error('This name was just taken by another player. Please pick a different one.');
+          err.code = 'username-taken';
+          throw err;
+        }
+        tx.set(nameRef, { uid: UID, createdAt: now });
+        tx.set(playerRef, playerData);
+      });
+      console.log('[Arcadia Setup] Account created successfully (atomic transaction)');
     } else {
       console.warn('[Arcadia Setup] Database not available, skipping data persistence');
     }
@@ -360,6 +366,19 @@ async function finishSetup(){
   } catch(err){
     console.error('[Arcadia Setup] Account creation failed:', err.code || err.name, err.message);
     overlay.classList.remove('active');
+    if (err.code === 'username-taken') {
+      usernameAvailable = false;
+      const step1 = document.getElementById('step1');
+      const step2 = document.getElementById('step2');
+      if (step1 && step2) { step2.classList.add('hidden'); step1.classList.remove('hidden'); }
+      const errorBox2 = document.getElementById('inputError');
+      const successBox = document.getElementById('inputSuccess');
+      const nextBtn = document.getElementById('nextBtn');
+      if (errorBox2) { errorBox2.textContent = '❌ ' + err.message; errorBox2.style.display = 'block'; }
+      if (successBox) successBox.style.display = 'none';
+      if (nextBtn) nextBtn.disabled = true;
+      return;
+    }
     const errorMsg = err.message || 'Unknown error occurred';
     alert('Account creation failed: ' + errorMsg);
   }
