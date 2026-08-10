@@ -219,51 +219,63 @@ function renderGlobalChatMsgsHTML(){
   }).join('') : `<div style="text-align:center;color:var(--dim);font-size:12px;padding:20px;">No messages yet. Say hello to Arcadia!</div>`;
 }
 
-function renderGlobalChatModalHTML(){
+function renderGlobalChatDrawerHTML(){
   if(!db || !UID){
     return `
-      <div class="modal-overlay" id="globalChatOverlay" onclick="if(event.target===this)closeGlobalChat()">
-        <div class="modal-box" style="max-width:400px;">
-          <div class="modal-header"><h3>🌐 Global Chat</h3><button class="modal-close" onclick="closeGlobalChat()">✕</button></div>
-          <div style="text-align:center;padding:30px 20px;color:var(--dim);font-size:13px;">Global Chat needs a cloud connection. Sign in to chat with other players.</div>
-        </div>
-      </div>`;
+      <div class="chat-drawer-header">
+        <h3>🌐 Global Chat</h3>
+        <button class="modal-close" onclick="closeGlobalChat()">✕</button>
+      </div>
+      <div style="text-align:center;padding:30px 20px;color:var(--dim);font-size:13px;">Global Chat needs a cloud connection. Sign in to chat with other players.</div>`;
   }
   return `
-    <div class="modal-overlay" id="globalChatOverlay" onclick="if(event.target===this)closeGlobalChat()">
-      <div class="modal-box" style="max-width:420px;">
-        <div class="modal-header"><h3>🌐 Global Chat</h3><button class="modal-close" onclick="closeGlobalChat()">✕</button></div>
-        <div class="modal-body">
-          <div id="globalChatMsgs" style="max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-right:2px;">${renderGlobalChatMsgsHTML()}</div>
-          <div style="display:flex;gap:6px;">
-            <input id="globalChatInput" class="username-input" style="margin-bottom:0;flex:1;" maxlength="300" placeholder="Message everyone…" onkeydown="globalChatKeydown(event)">
-            <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="sendGlobalChatMsg()">Send</button>
-          </div>
-        </div>
-      </div>
+    <div class="chat-drawer-header">
+      <h3>🌐 Global Chat</h3>
+      <button class="modal-close" onclick="closeGlobalChat()">✕</button>
+    </div>
+    <div id="globalChatMsgs" class="chat-drawer-msgs">${renderGlobalChatMsgsHTML()}</div>
+    <div class="chat-drawer-input-row">
+      <input id="globalChatInput" class="username-input" style="margin-bottom:0;flex:1;" maxlength="300" placeholder="Message everyone…" onkeydown="globalChatKeydown(event)">
+      <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="sendGlobalChatMsg()">Send</button>
     </div>`;
 }
+
+function globalChatOutsideClick(ev){
+  const drawer = document.getElementById('globalChatDrawer');
+  const fab = document.getElementById('globalChatFab');
+  if(!drawer) return;
+  if(drawer.contains(ev.target) || (fab && fab.contains(ev.target))) return;
+  closeGlobalChat();
+}
+function globalChatEscClose(ev){ if(ev.key === 'Escape') closeGlobalChat(); }
 
 function openGlobalChat(){
   globalChatOpen = true;
   globalChatUnread = 0;
   renderGlobalChatFab();
-  if(!document.getElementById('globalChatOverlay')){
-    const root = document.createElement('div');
-    root.id = 'globalChatModalRoot';
-    root.innerHTML = renderGlobalChatModalHTML();
-    document.body.appendChild(root);
-    const el = document.getElementById('globalChatMsgs');
-    if(el) el.scrollTop = el.scrollHeight;
-    const input = document.getElementById('globalChatInput');
-    if(input) input.focus();
+  let drawer = document.getElementById('globalChatDrawer');
+  if(!drawer){
+    drawer = document.createElement('div');
+    drawer.id = 'globalChatDrawer';
+    drawer.className = 'chat-drawer';
+    document.body.appendChild(drawer);
   }
+  drawer.innerHTML = renderGlobalChatDrawerHTML();
+  requestAnimationFrame(()=> drawer.classList.add('open'));
+  const el = document.getElementById('globalChatMsgs');
+  if(el) el.scrollTop = el.scrollHeight;
+  const input = document.getElementById('globalChatInput');
+  if(input) input.focus();
+  document.addEventListener('click', globalChatOutsideClick, true);
+  document.addEventListener('keydown', globalChatEscClose);
   startGlobalChatListener();
 }
 function closeGlobalChat(){
   globalChatOpen = false;
-  const root = document.getElementById('globalChatModalRoot');
-  if(root) root.remove();
+  const drawer = document.getElementById('globalChatDrawer');
+  if(drawer) drawer.classList.remove('open');
+  document.removeEventListener('click', globalChatOutsideClick, true);
+  document.removeEventListener('keydown', globalChatEscClose);
 }
 async function sendGlobalChatMsg(){
   const input = document.getElementById('globalChatInput');
