@@ -132,6 +132,7 @@ async function loadUsername(){
 
 function logout(){
   if(confirm('Do you want to log out? Your progress will be saved.')){
+    stopGlobalChatListener();
     syncToFirestore().then(()=>{
       if (auth) auth.signOut().then(()=>{ location.reload(); });
       else location.reload();
@@ -159,3 +160,124 @@ async function linkGoogleAccount(){
     }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ARCADIA MMO — Global Chat (server-wide, floating button + modal)
+   ═══════════════════════════════════════════════════════════════ */
+let globalChatMsgs = [];
+let globalChatUnsub = null;
+let globalChatOpen = false;
+let globalChatUnread = 0;
+let globalChatFirstLoad = true;
+let lastGlobalChatSendTs = 0;
+const GLOBAL_CHAT_COOLDOWN_MS = 1500;
+
+function startGlobalChatListener(){
+  if(!db || globalChatUnsub) return;
+  globalChatFirstLoad = true;
+  globalChatUnsub = db.collection('globalChat')
+    .orderBy('ts','desc').limit(50)
+    .onSnapshot(snap=>{
+      const msgs = snap.docs.map(d=>({ id:d.id, ...d.data() })).reverse();
+      const grew = !globalChatFirstLoad && msgs.length > globalChatMsgs.length;
+      globalChatFirstLoad = false;
+      globalChatMsgs = msgs;
+      if(globalChatOpen){
+        const el = document.getElementById('globalChatMsgs');
+        if(el){ el.innerHTML = renderGlobalChatMsgsHTML(); el.scrollTop = el.scrollHeight; }
+      } else if(grew){
+        globalChatUnread++;
+        renderGlobalChatFab();
+      }
+    }, err=> console.error('Global chat listener error', err));
+}
+function stopGlobalChatListener(){
+  if(globalChatUnsub){ globalChatUnsub(); globalChatUnsub = null; }
+}
+
+function renderGlobalChatFab(){
+  let btn = document.getElementById('globalChatFab');
+  if(!btn){
+    btn = document.createElement('button');
+    btn.id = 'globalChatFab';
+    btn.className = 'chat-fab';
+    btn.title = 'Global Chat';
+    btn.onclick = openGlobalChat;
+    document.body.appendChild(btn);
+  }
+  btn.innerHTML = `💬${globalChatUnread>0?`<span class="chat-fab-badge">${globalChatUnread>99?'99+':globalChatUnread}</span>`:''}`;
+}
+
+function renderGlobalChatMsgsHTML(){
+  return globalChatMsgs.length ? globalChatMsgs.map(m=>{
+    const name = (m.username || 'Player').replace(/</g,'&lt;');
+    const text = (m.text || '').replace(/</g,'&lt;');
+    return `<div style="background:${m.uid===UID?'rgba(212,162,76,0.12)':'var(--bg)'};border:1px solid var(--border);border-radius:8px;padding:6px 10px;">
+      <div style="font-size:11px;color:var(--brass-bright);font-weight:700;">${name} <span style="color:var(--dim);font-weight:400;">${allianceTimeAgo(m.ts)}</span></div>
+      <div style="font-size:12px;color:var(--text);">${text}</div>
+    </div>`;
+  }).join('') : `<div style="text-align:center;color:var(--dim);font-size:12px;padding:20px;">No messages yet. Say hello to Arcadia!</div>`;
+}
+
+function renderGlobalChatModalHTML(){
+  if(!db || !UID){
+    return `
+      <div class="modal-overlay" id="globalChatOverlay" onclick="if(event.target===this)closeGlobalChat()">
+        <div class="modal-box" style="max-width:400px;">
+          <div class="modal-header"><h3>🌐 Global Chat</h3><button class="modal-close" onclick="closeGlobalChat()">✕</button></div>
+          <div style="text-align:center;padding:30px 20px;color:var(--dim);font-size:13px;">Global Chat needs a cloud connection. Sign in to chat with other players.</div>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="modal-overlay" id="globalChatOverlay" onclick="if(event.target===this)closeGlobalChat()">
+      <div class="modal-box" style="max-width:420px;">
+        <div class="modal-header"><h3>🌐 Global Chat</h3><button class="modal-close" onclick="closeGlobalChat()">✕</button></div>
+        <div class="modal-body">
+          <div id="globalChatMsgs" style="max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-right:2px;">${renderGlobalChatMsgsHTML()}</div>
+          <div style="display:flex;gap:6px;">
+            <input id="globalChatInput" class="username-input" style="margin-bottom:0;flex:1;" maxlength="300" placeholder="Message everyone…" onkeydown="globalChatKeydown(event)">
+            <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="sendGlobalChatMsg()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openGlobalChat(){
+  globalChatOpen = true;
+  globalChatUnread = 0;
+  renderGlobalChatFab();
+  if(!document.getElementById('globalChatOverlay')){
+    const root = document.createElement('div');
+    root.id = 'globalChatModalRoot';
+    root.innerHTML = renderGlobalChatModalHTML();
+    document.body.appendChild(root);
+    const el = document.getElementById('globalChatMsgs');
+    if(el) el.scrollTop = el.scrollHeight;
+    const input = document.getElementById('globalChatInput');
+    if(input) input.focus();
+  }
+  startGlobalChatListener();
+}
+function closeGlobalChat(){
+  globalChatOpen = false;
+  const root = document.getElementById('globalChatModalRoot');
+  if(root) root.remove();
+}
+async function sendGlobalChatMsg(){
+  const input = document.getElementById('globalChatInput');
+  let text = input ? input.value.trim() : '';
+  if(!text || !db || !UID) return;
+  if(Date.now() - lastGlobalChatSendTs < GLOBAL_CHAT_COOLDOWN_MS) return;
+  if(text.length > 300) text = text.slice(0, 300);
+  if(input) input.value = '';
+  lastGlobalChatSendTs = Date.now();
+  try{
+    await db.collection('globalChat').add({
+      uid: UID, username: window.__playerUsername || 'Player', text,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }catch(e){ console.error(e); }
+}
+function globalChatKeydown(ev){ if(ev.key === 'Enter') sendGlobalChatMsg(); }
