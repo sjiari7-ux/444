@@ -212,11 +212,71 @@ function renderGlobalChatMsgsHTML(){
   return globalChatMsgs.length ? globalChatMsgs.map(m=>{
     const name = (m.username || 'Player').replace(/</g,'&lt;');
     const text = (m.text || '').replace(/</g,'&lt;');
-    return `<div style="background:${m.uid===UID?'rgba(212,162,76,0.12)':'var(--bg)'};border:1px solid var(--border);border-radius:8px;padding:6px 10px;">
-      <div style="font-size:11px;color:var(--brass-bright);font-weight:700;">${name} <span style="color:var(--dim);font-weight:400;">${allianceTimeAgo(m.ts)}</span></div>
-      <div style="font-size:12px;color:var(--text);">${text}</div>
+    const avatar = (m.avatar || '🧙').replace(/</g,'&lt;');
+    const mine = m.uid === UID;
+    return `
+    <div class="chat-msg-row ${mine?'mine':''}">
+      <div class="chat-msg-avatar" onclick="viewChatProfile('${m.uid}')" title="View profile">${avatar}</div>
+      <div class="chat-msg-bubble">
+        <div class="chat-msg-meta">
+          <span class="chat-msg-name" onclick="viewChatProfile('${m.uid}')">${name}</span>
+          <span class="chat-msg-time">${allianceTimeAgo(m.ts)}</span>
+        </div>
+        <div class="chat-msg-text">${text}</div>
+      </div>
     </div>`;
   }).join('') : `<div style="text-align:center;color:var(--dim);font-size:12px;padding:20px;">No messages yet. Say hello to Arcadia!</div>`;
+}
+
+async function viewChatProfile(uid){
+  if(!db || !uid) return;
+  let modal = document.getElementById('chatProfileModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'chatProfileModal';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div class="modal-overlay" style="z-index:120;" onclick="if(event.target===this)closeChatProfile()">
+      <div class="modal-box" style="max-width:300px;">
+        <div class="modal-header"><h3>Player Profile</h3><button class="modal-close" onclick="closeChatProfile()">✕</button></div>
+        <div style="padding:30px 20px;text-align:center;color:var(--dim);font-size:13px;">Loading…</div>
+      </div>
+    </div>`;
+  try{
+    const doc = await db.collection('players').doc(uid).get();
+    const box = modal.querySelector('.modal-box');
+    if(!doc.exists){
+      box.innerHTML = `<div class="modal-header"><h3>Player Profile</h3><button class="modal-close" onclick="closeChatProfile()">✕</button></div>
+        <div style="padding:30px 20px;text-align:center;color:var(--dim);font-size:13px;">This player no longer exists.</div>`;
+      return;
+    }
+    const d = doc.data();
+    const cls = (d.class || 'adventurer').replace(/</g,'&lt;');
+    const clsColor = `var(--${d.class||'brass'},var(--brass))`;
+    box.innerHTML = `
+      <div class="modal-header"><h3>Player Profile</h3><button class="modal-close" onclick="closeChatProfile()">✕</button></div>
+      <div style="padding:24px 20px;text-align:center;">
+        <div class="profile-hero-avatar" style="margin:0 auto 12px;">${d.avatar || '🧙'}</div>
+        <div class="profile-hero-name">${(d.username||'Player').replace(/</g,'&lt;')}</div>
+        <div style="color:${clsColor};font-size:12px;font-weight:600;text-transform:capitalize;margin:4px 0 2px;">${cls}</div>
+        <div style="color:var(--dim);font-size:11px;margin-bottom:14px;">Level ${d.level||1}</div>
+        <div style="display:flex;justify-content:center;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);">
+          <div>⚔️ <b style="color:var(--green);">${(d.combat&&d.combat.wins)||0}</b>W</div>
+          <div>💀 <b style="color:var(--red);">${(d.combat&&d.combat.losses)||0}</b>L</div>
+          <div>💰 <b style="color:var(--brass-bright);">${d.gold||0}</b></div>
+        </div>
+      </div>`;
+  }catch(e){
+    console.error('[Arcadia Chat] Failed to load profile:', e);
+    const box = modal.querySelector('.modal-box');
+    if(box) box.innerHTML = `<div class="modal-header"><h3>Player Profile</h3><button class="modal-close" onclick="closeChatProfile()">✕</button></div>
+      <div style="padding:30px 20px;text-align:center;color:var(--dim);font-size:13px;">Couldn't load this profile.</div>`;
+  }
+}
+function closeChatProfile(){
+  const modal = document.getElementById('chatProfileModal');
+  if(modal) modal.remove();
 }
 
 function renderGlobalChatDrawerHTML(){
@@ -287,8 +347,9 @@ async function sendGlobalChatMsg(){
   lastGlobalChatSendTs = Date.now();
   try{
     await db.collection('globalChat').add({
-      uid: UID, username: window.__playerUsername || 'Player', text,
-      ts: firebase.firestore.FieldValue.serverTimestamp(),
+      uid: UID, username: window.__playerUsername || 'Player',
+      avatar: (typeof state !== 'undefined' && state && state.avatar) || '🧙',
+      text, ts: firebase.firestore.FieldValue.serverTimestamp(),
     });
   }catch(e){ console.error(e); }
 }
