@@ -433,6 +433,18 @@
   .chat-fab:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,0.45);}
   .chat-fab-badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--bg);box-shadow:0 2px 6px rgba(0,0,0,0.4);animation:pulse 2s ease-in-out infinite;}
 
+  /* ===== GLOBAL CHAT DRAWER (docked panel, never covers the game) ===== */
+  .chat-drawer{position:fixed;top:0;right:0;bottom:0;width:360px;max-width:92vw;background:var(--panel);border-left:1px solid var(--border-light);box-shadow:-10px 0 30px rgba(0,0,0,0.4);z-index:95;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s ease-out;}
+  .chat-drawer.open{transform:translateX(0);}
+  .chat-drawer-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+  .chat-drawer-header h3{font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--brass-bright);}
+  .chat-drawer-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:12px;}
+  .chat-drawer-input-row{display:flex;gap:6px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);flex-shrink:0;}
+  @media (max-width:600px){
+    .chat-drawer{top:auto;left:0;right:0;bottom:0;width:100%;max-width:100%;height:88dvh;border-left:none;border-top:1px solid var(--border-light);border-radius:16px 16px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,0.45);transform:translateY(100%);}
+    .chat-drawer.open{transform:translateY(0);}
+  }
+
 
   /* ===== UI ICONS ===== */
   .ui-icon{width:24px;height:24px;vertical-align:text-bottom;display:inline-block;margin:-2px 2px 0 2px;image-rendering:pixelated;image-rendering:crisp-edges;}
