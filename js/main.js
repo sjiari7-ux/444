@@ -19,6 +19,8 @@ async function startGame(){
   setInterval(()=>{ if(state && state.missions && Date.now() >= state.missions.resetAt){ generateMissions(); renderBody(); } }, 60000);
   setInterval(syncToFirestore, SYNC_INTERVAL);
   loadUsername();
+  renderGlobalChatFab();
+  startGlobalChatListener();
 }
 function render(){
   renderHeader();
