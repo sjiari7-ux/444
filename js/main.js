@@ -73,8 +73,6 @@ function renderBottomNav(){
     {id:'market',icon:'📊',label:'Market'},
     {id:'zones',icon:'🗺️',label:'Zones'},
     {id:'gear',icon:'🛡️',label:'Gear'},
-    {id:'class',icon:'🧙',label:'Class'},
-    {id:'skills',icon:'🎯',label:'Skills'},
     {id:'companies',icon:'🏭',label:'Biz'},
     {id:'alliance',icon:'🏛️',label:'Alliance'},
     {id:'settings',icon:'⚙️',label:'More'},
@@ -521,4 +519,3 @@ function goBackFromZone(){
   state.zoneView = null;
   renderBody();
 }
-
