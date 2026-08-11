@@ -717,7 +717,7 @@ function renderLeaderboard(){
   const tbl = (list, valueKey, suffix)=> `
     <table class="lb-table">
       <tr><th>#</th><th>Player</th><th>${valueKey==='gold'?'Gold':'Level'}</th></tr>
-      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td>${r.name}</td><td>${valueKey==='gold'?fmtG(r.gold)+'g':r.level}</td></tr>`).join('')}
+      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="showPlayerProfile({username:'${r.name}',avatar:'🧙',level:${r.level},wins:0,losses:0,gold:${r.gold||0}})">${r.name}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':r.level}</td></tr>`).join('')}
     </table>`;
   return `
     <div class="lb-note">This is a local simulation (no real multiplayer connection) — a real leaderboard would need a shared backend database.</div>
@@ -751,7 +751,7 @@ function renderSettings(){
     <div class="grid" style="grid-template-columns:1fr;">
 
       <!-- Profile Hero -->
-      <div class="profile-hero">
+      <div class="profile-hero" style="cursor:pointer;" onclick="showPlayerProfile()">
         <div class="profile-hero-top">
           <div class="profile-hero-avatar">${state.avatar || '🧙'}</div>
           <div>
@@ -1400,4 +1400,119 @@ function applyAccentColor(color) {
     root.style.setProperty('--brass', color);
     root.style.setProperty('--brass-bright', color);
     // يمكنك تعديل الألوان المشتقة حسب الرغبة
+}
+
+
+/* ===== PLAYER PROFILE MODAL ===== */
+
+function showPlayerProfile(playerData){
+  // playerData can be: { username, avatar, level, class, wins, losses, gold, allianceName, allianceRole, bio, gearCount }
+  // If no data provided, show current player
+  const isSelf = !playerData;
+  const p = playerData || {
+    username: state.username || 'Player',
+    avatar: state.avatar || '🧙',
+    level: state.level,
+    playerClass: state.playerClass,
+    wins: state.combat.wins,
+    losses: state.combat.losses,
+    gold: state.gold,
+    allianceName: null, // Would need to fetch from alliance system
+    allianceRole: null,
+    bio: state.bio || '',
+    gearCount: state.gearBag.length,
+    totalGoldEarned: state.totalGoldEarned,
+    prestigePoints: state.prestige.points,
+  };
+
+  const cls = p.playerClass ? CLASS_DATA[p.playerClass] : null;
+  const clsColor = cls ? cls.color : '#d4a24c';
+  const clsName = cls ? cls.nameAr : 'Adventurer';
+  const clsIcon = cls ? cls.icon : '🧭';
+
+  const allianceHtml = p.allianceName ? `
+    <div class="pp-alliance">
+      <div class="pp-alliance-icon">🏛️</div>
+      <div>
+        <div class="pp-alliance-name">${p.allianceName}</div>
+        <div class="pp-alliance-role">${p.allianceRole || 'Member'}</div>
+      </div>
+    </div>
+  ` : '';
+
+  const bioHtml = p.bio ? `<div class="pp-bio">"${p.bio}"</div>` : '';
+
+  const body = `
+    <div class="pp-container">
+      <!-- Header -->
+      <div class="pp-header" style="--cls:${clsColor};">
+        <div class="pp-avatar-ring">
+          <div class="pp-avatar">${p.avatar}</div>
+        </div>
+        <div class="pp-info">
+          <div class="pp-name">${p.username}</div>
+          <div class="pp-level-class">
+            <span class="pp-lvl">Lv.${p.level}</span>
+            <span class="pp-sep">·</span>
+            <span class="pp-class" style="color:${clsColor};">${clsIcon} ${clsName}</span>
+          </div>
+        </div>
+      </div>
+
+      ${bioHtml}
+      ${allianceHtml}
+
+      <!-- Stats Grid -->
+      <div class="pp-stats-grid">
+        <div class="pp-stat-box">
+          <div class="pp-stat-icon">🪙</div>
+          <div class="pp-stat-val">${fmtG(p.gold)}</div>
+          <div class="pp-stat-label">Gold</div>
+        </div>
+        <div class="pp-stat-box">
+          <div class="pp-stat-icon" style="color:var(--green);">⚔️</div>
+          <div class="pp-stat-val" style="color:var(--green);">${p.wins}</div>
+          <div class="pp-stat-label">Wins</div>
+        </div>
+        <div class="pp-stat-box">
+          <div class="pp-stat-icon" style="color:var(--red);">💀</div>
+          <div class="pp-stat-val" style="color:var(--red);">${p.losses}</div>
+          <div class="pp-stat-label">Losses</div>
+        </div>
+        <div class="pp-stat-box">
+          <div class="pp-stat-icon" style="color:var(--prestige);">✨</div>
+          <div class="pp-stat-val" style="color:var(--prestige);">${p.prestigePoints || 0}</div>
+          <div class="pp-stat-label">Prestige</div>
+        </div>
+        <div class="pp-stat-box">
+          <div class="pp-stat-icon" style="color:var(--brass-bright);">💰</div>
+          <div class="pp-stat-val" style="color:var(--brass-bright);">${fmtG(p.totalGoldEarned || p.gold)}</div>
+          <div class="pp-stat-label">Total Earned</div>
+        </div>
+        <div class="pp-stat-box">
+          <div class="pp-stat-icon" style="color:var(--skill);">🎒</div>
+          <div class="pp-stat-val" style="color:var(--skill);">${p.gearCount || 0}</div>
+          <div class="pp-stat-label">Gear Items</div>
+        </div>
+      </div>
+
+      <!-- Win Rate -->
+      <div class="pp-winrate">
+        <div class="pp-winrate-label">Win Rate</div>
+        <div class="pp-winrate-bar-track">
+          <div class="pp-winrate-bar-fill" style="width:${p.wins + p.losses > 0 ? (p.wins/(p.wins+p.losses)*100) : 0}%"></div>
+          <span class="pp-winrate-text">${p.wins + p.losses > 0 ? Math.round(p.wins/(p.wins+p.losses)*100) : 0}%</span>
+        </div>
+      </div>
+
+      ${isSelf ? '' : `
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="act-btn" style="flex:1;" onclick="showToast('Coming Soon','Private messaging will be available soon!','win')">💬 Message</button>
+          <button class="act-btn buy" style="flex:1;" onclick="showToast('Coming Soon','Alliance invite will be available soon!','win')">🏛️ Invite to Alliance</button>
+        </div>
+      `}
+    </div>
+  `;
+
+  showModal(isSelf ? '👤 Your Profile' : `👤 ${p.username}`, body);
 }
