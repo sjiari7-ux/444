@@ -607,21 +607,91 @@ function renderSkills(){
 }
 
 function renderMissions(){
-  const rows = state.missions.list.map(ms=>{
-    const tpl = MISSION_POOL.find(m=>m.id===ms.templateId);
-    const progress = Math.min(ms.target, state.missions.counters[tpl.track]);
-    return `<div class="mission-row ${ms.done?'done':''}">
-      <div class="mission-mark">${ms.done?'✔':'○'}</div>
-      <div>
-        <div class="mission-title">${tpl.label(ms.target)}</div>
-        <div class="mission-desc">${progress} / ${ms.target}</div>
-        <div class="mission-reward">Reward: ${ms.reward}g</div>
+  if(!state.missions) initMissions();
+
+  const activeTab = state.activeMissionTab || 'daily';
+  const mData = state.missions || {};
+
+  const tabs = [
+    { id:'daily', label:'Daily', icon:'📅', data: mData.daily, pool: DAILY_MISSIONS },
+    { id:'weekly', label:'Weekly', icon:'📅', data: mData.weekly, pool: WEEKLY_MISSIONS },
+    { id:'starting', label:'Starting', icon:'⭐', data: mData.starting, pool: STARTING_MISSIONS },
+  ];
+
+  const tabHtml = tabs.map(t => {
+    const d = t.data || { completed:0, claimed:[], progress:{}, lastReset:0 };
+    const completed = d.claimed ? d.claimed.length : 0;
+    const total = t.pool.length;
+    const isActive = activeTab === t.id;
+    const isDone = completed >= total;
+    const pct = total > 0 ? (completed/total)*100 : 0;
+
+    return `
+      <div class="mission-tab ${isActive?'active':''} ${isDone?'done':''}" onclick="state.activeMissionTab='${t.id}';renderBody();">
+        <div class="mission-tab-header">
+          <span class="mission-tab-icon">${t.icon}</span>
+          <span class="mission-tab-label">${t.label}</span>
+          ${isDone?'<span class="mission-tab-check">✓</span>':''}
+        </div>
+        <div class="mission-tab-bar-track">
+          <div class="mission-tab-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="mission-tab-count">${completed}/${total}</div>
+        ${t.id!=='starting'?`<div class="mission-tab-timer">⏳ ${hmsUntil(d.lastReset||0)}</div>`:''}
       </div>
-    </div>`;
+    `;
   }).join('');
+
+  const current = tabs.find(t=>t.id===activeTab);
+  const pool = current.pool;
+  const data = current.data || { progress:{}, claimed:[] };
+
+  const rows = pool.map(m => {
+    const progress = data.progress[m.id] || 0;
+    const isClaimed = data.claimed.includes(m.id);
+    const isComplete = progress >= m.target;
+    const pct = Math.min(100, (progress/m.target)*100);
+
+    const rewards = [];
+    if(m.reward.xp) rewards.push(`<span class="mission-reward-xp">✨ ${m.reward.xp}</span>`);
+    if(m.reward.gold) rewards.push(`<span class="mission-reward-gold">🪙 ${m.reward.gold}</span>`);
+
+    return `
+      <div class="mission-card ${isClaimed?'claimed':''} ${isComplete&&!isClaimed?'ready':''}">
+        <div class="mission-icon">${m.icon}</div>
+        <div class="mission-body">
+          <div class="mission-title">${m.title}</div>
+          <div class="mission-progress-bar-track">
+            <div class="mission-progress-bar-fill" style="width:${pct}%"></div>
+            <span class="mission-progress-text">${progress}/${m.target}</span>
+          </div>
+        </div>
+        <div class="mission-rewards">${rewards.join('')}</div>
+        <div class="mission-action">
+          ${isClaimed 
+            ? `<button class="mission-btn claimed" disabled>CLAIMED</button>`
+            : isComplete 
+              ? `<button class="mission-btn claim" onclick="claimMissionReward('${m.id}','${activeTab}')">CLAIM</button>`
+              : `<button class="mission-btn arrow" onclick="goToMissionTarget('${m.track}')">→</button>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const totalCompleted = (current.data?.claimed?.length || 0);
+  const totalAll = pool.length;
+
   return `
-    <div class="reset-note">Missions reset in: ${hmsUntil(state.missions.resetAt)}</div>
-    <div class="grid" style="grid-template-columns:1fr;">${rows}</div>`;
+    <div class="missions-container">
+      <div class="missions-header">
+        <h2>Missions</h2>
+        <span class="missions-sub">${totalCompleted}/${totalAll} completed</span>
+      </div>
+      <div class="missions-tabs">${tabHtml}</div>
+      <div class="missions-list">${rows}</div>
+    </div>
+  `;
 }
 
 function renderLeaderboard(){
