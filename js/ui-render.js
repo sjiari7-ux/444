@@ -76,14 +76,19 @@ function renderInventory(){
   const cap = getStorageCap(state);
   const totalItems = Object.values(state.inv).reduce((a,b)=>a+b,0);
   const storagePct = Math.min(100, (totalItems/cap)*100);
-  const allCards = Object.keys(ITEMS).map(key=>{
+
+  // Only show items that player actually has (quantity > 0)
+  const ownedKeys = Object.keys(ITEMS).filter(key => (state.inv[key] || 0) > 0);
+
+  const allCards = ownedKeys.map(key=>{
     const it = ITEMS[key];
-    const pct = Math.min(100, (state.inv[key]/cap)*100);
+    const qty = state.inv[key] || 0;
+    const pct = Math.min(100, (qty/cap)*100);
     const isResource = RESOURCES[key] !== undefined;
     const isBread = BREAD_TIERS[key] !== undefined;
     const isEnergy = ENERGY_POTION_TIERS[key] !== undefined;
     const isHealthPotion = key === 'health_potion';
-    const canConsume = (isBread || isEnergy || isHealthPotion) && (state.inv[key]||0) > 0;
+    const canConsume = (isBread || isEnergy || isHealthPotion) && qty > 0;
     let consumeBtn = '';
     if(isBread){
       const maxed = state.health >= getMaxHealth(state);
@@ -96,7 +101,8 @@ function renderInventory(){
       consumeBtn = `<button class="mini-btn" style="border-color:var(--health);color:var(--health);margin-top:8px;width:100%;" ${maxed?'disabled':''} onclick="consumeBread('${key}')">🍽️ Use (+30-50 HP)</button>`;
     }
     return `<div class="card">
-      <div class="card-top"><div class="card-icon" style="font-size:26px;">${it.icon}</div><div><div class="card-name">${it.name}</div><div class="card-sub">${fmtG(state.inv[key])} / ${fmtG(cap)}</div></div></div>
+      <div class="inv-qty-badge">${fmtG(qty)}</div>
+      <div class="card-top"><div class="card-icon" style="font-size:32px;">${it.icon}</div><div><div class="card-name">${it.name}</div></div></div>
       <div class="bar-track"><div class="bar-fill ${isResource?'':'warn'}" style="width:${pct}%"></div></div>
       <div style="display:flex;justify-content:space-between;margin-top:4px;">
         <span style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;">${pct.toFixed(0)}%</span>
@@ -105,6 +111,15 @@ function renderInventory(){
       ${consumeBtn}
     </div>`;
   }).join('');
+
+  const emptyState = ownedKeys.length === 0 ? `
+    <div class="panel" style="text-align:center;padding:40px 20px;">
+      <div style="font-size:48px;margin-bottom:12px;">🎒</div>
+      <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);margin-bottom:6px;">Your bag is empty</div>
+      <div style="font-size:12px;color:var(--dim);">Gather resources from zones or craft items to fill your bag.</div>
+    </div>
+  ` : '';
+
   return `
     <div class="panel" style="margin-bottom:14px;padding:12px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -113,6 +128,7 @@ function renderInventory(){
       </div>
       <div class="bar-track" style="height:10px;"><div class="bar-fill ${storagePct>90?'warn':''}" style="width:${storagePct}%"></div></div>
     </div>
+    ${emptyState}
     <div class="grid">${allCards}</div>`;
 }
 
