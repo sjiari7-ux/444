@@ -189,6 +189,7 @@ function renderHeader(){
           <div class="v3-gold-amount">${fmtG(state.gold)}</div>
         </div>
         <div class="v3-btns">
+          <button class="v3-btn backpack" onclick="activeTab='inventory';renderBody();" title="Backpack / Inventory">🎒</button>
           <button class="v3-btn" onclick="activeTab='settings';renderBody();" title="Settings">⚙️</button>
           <button class="v3-btn" onclick="logout()" title="Log out">🚪</button>
         </div>
@@ -209,6 +210,7 @@ function renderBottomNav(){
   nav.className = 'bottom-nav';
   const tabs = [
     {id:'production',icon:'🛠️',label:'Craft'},
+    {id:'inventory',icon:'🎒',label:'Bag'},
     {id:'market',icon:`<img class="ui-icon" src="${ICONS.market_chart}" alt="📊">`,label:'Market'},
     {id:'zones',icon:`<img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️">`,label:'Zones'},
     {id:'gear',icon:`<img class="ui-icon" src="${ICONS.defense_ui}" alt="🛡️">`,label:'Gear'},
