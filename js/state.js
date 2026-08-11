@@ -160,7 +160,13 @@ if (typeof s.accentColor !== 'string') s.accentColor = '#d4a24c';
         if(!g) return null;
         if(typeof g.tier === 'number') return g;
         const tier = g.rarity === 'legendary' ? 4 : 0;
-        return { ...g, tier, upgradeLevel: 0 };
+        return {
+        missions: {
+            daily: { progress: {}, claimed: [], lastReset: 0, completed: 0 },
+            weekly: { progress: {}, claimed: [], lastReset: 0, completed: 0 },
+            starting: { progress: {}, claimed: [], completed: 0 }
+        },
+        activeMissionTab: 'daily', ...g, tier, upgradeLevel: 0 };
     }
     s.equipped = Object.fromEntries(Object.entries(s.equipped).map(([k,v])=>[k,migrateGear(v)]));
     s.gearBag = s.gearBag.map(migrateGear).filter(Boolean);
@@ -171,7 +177,37 @@ if (typeof s.accentColor !== 'string') s.accentColor = '#d4a24c';
     if(typeof s.bio !== 'string') s.bio = '';
     if(typeof s.username !== 'string') s.username = 'Player';
 
-    return s;
+    // ===== MISSIONS SYSTEM MIGRATION =====
+    if(!s.missions) {
+        s.missions = {
+            daily: { progress: {}, claimed: [], lastReset: 0, completed: 0 },
+            weekly: { progress: {}, claimed: [], lastReset: 0, completed: 0 },
+            starting: { progress: {}, claimed: [], completed: 0 }
+        };
+    }
+    if(!s.activeMissionTab) s.activeMissionTab = 'daily';
+
+    ['daily','weekly','starting'].forEach(type => {
+        if(!s.missions[type]) s.missions[type] = { progress: {}, claimed: [], completed: 0 };
+        if(!s.missions[type].progress) s.missions[type].progress = {};
+        if(!s.missions[type].claimed) s.missions[type].claimed = [];
+        if(typeof s.missions[type].completed !== 'number') s.missions[type].completed = 0;
+        if(type !== 'starting' && (!s.missions[type].lastReset || s.missions[type].lastReset === 0)) {
+            const d = new Date();
+            if(type === 'daily'){
+                d.setUTCHours(24,0,0,0);
+                s.missions[type].lastReset = d.getTime();
+            } else {
+                const day = d.getUTCDay();
+                const daysUntilMon = day === 1 ? 7 : (8 - day) % 7;
+                d.setUTCDate(d.getUTCDate() + daysUntilMon);
+                d.setUTCHours(0,0,0,0);
+                s.missions[type].lastReset = d.getTime();
+            }
+        }
+    });
+
+        return s;
 }
 
 function xpForLevel(level){ return Math.round(35 * Math.pow(level, 1.4)); }
