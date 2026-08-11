@@ -147,35 +147,57 @@ function renderBody(){ document.getElementById('app').innerHTML = renderBodyHTML
 function renderHeader(){
   const el = document.getElementById('header');
   if(!el) return;
-  // Compact topbar v2
   const maxE = getMaxEnergy(state);
   const maxH = getMaxHealth(state);
   const ePct = maxE>0?(state.energy/maxE)*100:0;
   const hPct = maxH>0?(state.health/maxH)*100:0;
   const xpPct = state.xpToNext>0?(state.xp/state.xpToNext)*100:0;
   const cls = state.playerClass ? CLASS_DATA[state.playerClass] : null;
+  const clsColor = cls ? cls.color : '#d4a24c';
   el.innerHTML = `
-  <div class="topbar-v2">
-    <div class="topbar-main">
-      <div class="avatar-wrap">
-        <div class="avatar-circle">${state.playerClass==='merchant'?`<img class="ui-icon" src="${ICONS.business}" alt="💰" style="width:100%;height:100%;object-fit:contain;">`:(cls?cls.icon:'🧙')}</div>
-        <div class="avatar-level">${state.level}</div>
+  <div class="topbar-v3">
+    <div class="topbar-v3-inner">
+      <!-- LEFT: Avatar + Level -->
+      <div class="v3-avatar-section">
+        <div class="v3-avatar-ring" style="--cls:${clsColor};">
+          <div class="v3-avatar">${state.playerClass==='merchant'?`<img class="ui-icon" src="${ICONS.business}" alt="💰" style="width:100%;height:100%;object-fit:contain;">`:(cls?cls.icon:'🧙')}</div>
+        </div>
+        <div class="v3-lvl-badge">${state.level}</div>
       </div>
-      <div class="stats-col">
-        <div class="stat-row"><span class="icon"><img class="ui-icon" src="${ICONS.energy}" alt="⚡"></span><div class="bar"><div class="bar-fill" style="width:${ePct}%;background:var(--brass);"></div></div><span class="val"><b>${Math.floor(state.energy)}</b>/${maxE}</span></div>
-        <div class="stat-row"><span class="icon"><img class="ui-icon" src="${ICONS.heart_hp}" alt="❤️"></span><div class="bar"><div class="bar-fill ${hPct<30?'health':''}" style="width:${hPct}%;background:var(--health);"></div></div><span class="val"><b>${Math.floor(state.health)}</b>/${maxH}</span></div>
-        <div class="stat-row"><span class="icon">✨</span><div class="bar"><div class="bar-fill" style="width:${xpPct}%;background:var(--prestige);"></div></div><span class="val"><b>${state.xp}</b>/${state.xpToNext}</span></div>
+      <!-- CENTER: Bars -->
+      <div class="v3-bars">
+        <div class="v3-bar-row">
+          <span class="v3-bar-icon energy">⚡</span>
+          <div class="v3-bar-track"><div class="v3-bar-fill energy" style="width:${ePct}%"></div></div>
+          <span class="v3-bar-val">${Math.floor(state.energy)}<span class="v3-bar-max">/${maxE}</span></span>
+        </div>
+        <div class="v3-bar-row">
+          <span class="v3-bar-icon health">❤️</span>
+          <div class="v3-bar-track"><div class="v3-bar-fill health ${hPct<25?'low':''}" style="width:${hPct}%"></div></div>
+          <span class="v3-bar-val">${Math.floor(state.health)}<span class="v3-bar-max">/${maxH}</span></span>
+        </div>
+        <div class="v3-bar-row">
+          <span class="v3-bar-icon xp">✨</span>
+          <div class="v3-bar-track"><div class="v3-bar-fill xp" style="width:${xpPct}%"></div></div>
+          <span class="v3-bar-val">${state.xp}<span class="v3-bar-max">/${state.xpToNext}</span></span>
+        </div>
       </div>
-      <div class="topbar-right">
-        <div class="gold-pill"><img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙"> ${fmtG(state.gold)}</div>
-        <button class="top-icon-btn" onclick="activeTab='settings';renderBody();" title="Settings">⚙️</button>
-        <button class="top-icon-btn" onclick="logout()" title="Log out">🚪</button>
+      <!-- RIGHT: Gold + Buttons -->
+      <div class="v3-actions">
+        <div class="v3-gold">
+          <div class="v3-gold-icon">🪙</div>
+          <div class="v3-gold-amount">${fmtG(state.gold)}</div>
+        </div>
+        <div class="v3-btns">
+          <button class="v3-btn" onclick="activeTab='settings';renderBody();" title="Settings">⚙️</button>
+          <button class="v3-btn" onclick="logout()" title="Log out">🚪</button>
+        </div>
       </div>
     </div>
-    <div class="topbar-sub">
-      <div class="timer-pill"><img class="ui-icon" src="${ICONS.mana}" alt="🔮"> ${state.mana}/${state.maxMana} MP</div>
-      <div class="action-pill"><span class="dot"></span>Online</div>
-      <div class="timer-pill" id="usernameDisplay" style="background:rgba(184,160,212,0.12);border-color:var(--prestige);color:var(--prestige);">👤 ${window.__playerUsername || "Player"}</div>
+    <div class="topbar-v3-sub">
+      <div class="v3-sub-pill mp"><span class="v3-sub-dot mp"></span>${state.mana}/${state.maxMana} MP</div>
+      <div class="v3-sub-pill status"><span class="v3-sub-dot online"></span>Online</div>
+      <div class="v3-sub-pill user">👤 ${window.__playerUsername || "Player"}</div>
     </div>
   </div>`;
 }
