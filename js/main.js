@@ -217,6 +217,7 @@ function renderBottomNav(){
     {id:'companies',icon:'🏭',label:'Biz'},
     {id:'alliance',icon:`<img class="ui-icon" src="${ICONS.alliance}" alt="🏛️">`,label:'Alliance'},
     {id:'missions',icon:'📋',label:'Missions'},
+    {id:'leaderboard',icon:'🏆',label:'Rank'},
     {id:'settings',icon:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️">`,label:'More'},
   ];
   nav.innerHTML = tabs.map(t=>`<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${t.id==='alliance'?'openAllianceTab();':`stopAllianceChatListener();activeTab='${t.id}';renderBody();`}"><span class="nav-icon">${t.icon}</span><span>${t.label}</span></button>`).join('');
