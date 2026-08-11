@@ -2,6 +2,121 @@ function getCompanyManagementLevel(level){ return Math.floor(level/5); }
 function getMaxAllowedCompanies(level){ return Math.min(MAX_COMPANIES, 1 + Math.floor(level/5)); }
 function getConcreteCost(n){ return n <= 1 ? 0 : (n-1)*5; }
 
+/* ===== MISSIONS SYSTEM ===== */
+
+function getNextDailyReset(){
+  const d = new Date();
+  d.setUTCHours(24,0,0,0);
+  return d.getTime();
+}
+function getNextWeeklyReset(){
+  const d = new Date();
+  const day = d.getUTCDay();
+  const daysUntilMon = day === 1 ? 7 : (8 - day) % 7;
+  d.setUTCDate(d.getUTCDate() + daysUntilMon);
+  d.setUTCHours(0,0,0,0);
+  return d.getTime();
+}
+
+function initMissions(){
+  if(!state.missions){
+    state.missions = {
+      daily: { progress: {}, claimed: [], lastReset: getNextDailyReset(), completed: 0 },
+      weekly: { progress: {}, claimed: [], lastReset: getNextWeeklyReset(), completed: 0 },
+      starting: { progress: {}, claimed: [], completed: 0 }
+    };
+  }
+  checkMissionResets();
+}
+
+function checkMissionResets(){
+  const now = Date.now();
+  if(now >= (state.missions.daily.lastReset || 0)){
+    state.missions.daily.progress = {};
+    state.missions.daily.claimed = [];
+    state.missions.daily.completed = 0;
+    state.missions.daily.lastReset = getNextDailyReset();
+    pushLog(state, 'Daily missions have been reset!', 'prestige');
+  }
+  if(now >= (state.missions.weekly.lastReset || 0)){
+    state.missions.weekly.progress = {};
+    state.missions.weekly.claimed = [];
+    state.missions.weekly.completed = 0;
+    state.missions.weekly.lastReset = getNextWeeklyReset();
+    pushLog(state, 'Weekly missions have been reset!', 'prestige');
+  }
+}
+
+function updateMissionProgress(track, amount){
+  if(!state.missions) return;
+
+  ['daily','weekly'].forEach(type => {
+    const pool = type === 'daily' ? DAILY_MISSIONS : WEEKLY_MISSIONS;
+    pool.forEach(m => {
+      if(m.track === track && !state.missions[type].claimed.includes(m.id)){
+        const current = state.missions[type].progress[m.id] || 0;
+        state.missions[type].progress[m.id] = Math.min(m.target, current + amount);
+      }
+    });
+  });
+
+  STARTING_MISSIONS.forEach(m => {
+    if(m.track === track && !state.missions.starting.claimed.includes(m.id)){
+      const current = state.missions.starting.progress[m.id] || 0;
+      state.missions.starting.progress[m.id] = Math.min(m.target, current + amount);
+    }
+  });
+}
+
+function claimMissionReward(missionId, type){
+  if(!state.missions) return;
+  const pool = type === 'daily' ? DAILY_MISSIONS : (type === 'weekly' ? WEEKLY_MISSIONS : STARTING_MISSIONS);
+  const mission = pool.find(m => m.id === missionId);
+  if(!mission) return;
+
+  const progress = state.missions[type].progress[missionId] || 0;
+  if(progress < mission.target) return;
+  if(state.missions[type].claimed.includes(missionId)) return;
+
+  if(mission.reward.xp){
+    const leveled = grantXp(state, mission.reward.xp);
+    if(leveled){
+      pushLog(state, `Level up! You are now level ${state.level}`, 'levelup');
+      showToast('Level Up!', `Level ${state.level}`, 'levelup');
+    }
+  }
+  if(mission.reward.gold){
+    state.gold += mission.reward.gold;
+    state.totalGoldEarned += mission.reward.gold;
+  }
+
+  state.missions[type].claimed.push(missionId);
+  state.missions[type].completed = (state.missions[type].completed || 0) + 1;
+
+  pushLog(state, `Claimed ${type} mission: ${mission.title}`, 'win');
+  showToast('Mission Complete', `${mission.title} — Rewards claimed!`, 'win');
+  scheduleSave();
+  renderBody();
+}
+
+function goToMissionTarget(track){
+  const routes = {
+    work_employer: 'companies', self_work: 'companies',
+    hit_battles: 'zones', participate_battles: 'zones', diminish_armor: 'zones',
+    eat_food: 'production', use_potions: 'production',
+    donate_mu: 'alliance', help_alliance: 'alliance', join_alliance: 'alliance',
+    open_loot: 'inventory', equip_gear: 'gear', upgrade_gear: 'gear',
+    collected: 'zones', collected_rare: 'zones', crafted: 'production',
+    sold: 'market', buy_market: 'market', craft_epic: 'production',
+    gold_earned: 'market', defeat_boss: 'zones', wins: 'zones',
+    build_company: 'companies', upgrade_skill: 'skills', level_up: 'skills',
+    login_streak: 'settings',
+  };
+  activeTab = routes[track] || 'production';
+  renderBody();
+}
+
+
 /* ===== CORE LOOP & RENDER ===== */
 async function startGame(){
   if(window.__gameStarted) return; window.__gameStarted = true;
@@ -10,7 +125,7 @@ async function startGame(){
   if(typeof applyTheme === 'function') applyTheme(state.theme);
   if(typeof applyFontSize === 'function') applyFontSize(state.fontSize);
   if(typeof applyAccentColor === 'function') applyAccentColor(state.accentColor);
-  if(!state.missions) generateMissions();
+  initMissions();
   if(!state.leaderboard) evolveLeaderboard();
   await initAllianceOnStart();
   render();
@@ -77,6 +192,7 @@ function renderBottomNav(){
     {id:'gear',icon:`<img class="ui-icon" src="${ICONS.defense_ui}" alt="🛡️">`,label:'Gear'},
     {id:'companies',icon:'🏭',label:'Biz'},
     {id:'alliance',icon:`<img class="ui-icon" src="${ICONS.alliance}" alt="🏛️">`,label:'Alliance'},
+    {id:'missions',icon:'📋',label:'Missions'},
     {id:'settings',icon:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️">`,label:'More'},
   ];
   nav.innerHTML = tabs.map(t=>`<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${t.id==='alliance'?'openAllianceTab();':`stopAllianceChatListener();activeTab='${t.id}';renderBody();`}"><span class="nav-icon">${t.icon}</span><span>${t.label}</span></button>`).join('');
@@ -150,10 +266,7 @@ function tick(){
     evolveLeaderboard();
     state.lastLbEvolve = now;
   }
-  // Missions reset check
-  if(state.missions && now >= state.missions.resetAt){
-    generateMissions();
-  }
+  checkMissionResets();
   renderHeader();
 }
 function updatePrices(){
@@ -211,7 +324,7 @@ function collect(key){
   state.inv[key] += amount;
   state.energy -= cost;
   grantXp(state, 1);
-  trackMission(state, 'collected', amount);
+  updateMissionProgress('collected', amount);
   pushLog(state, `+${amount} ${ITEMS[key].name}`, 'gain');
   renderBody(); scheduleSave();
 }
@@ -237,6 +350,7 @@ function consumeBread(key){
   state.inv[key] -= 1;
   const maxH = getMaxHealth(state);
   state.health = Math.min(maxH, state.health + b.heal);
+  updateMissionProgress('eat_food', 1);
   pushLog(state, `Ate ${b.name} (+${b.heal} HP)`, 'gain');
   renderBody(); scheduleSave();
 }
@@ -273,7 +387,7 @@ function sell(key, amount){
   state.gold += gold;
   state.totalGoldEarned += gold;
   state.inv[key] -= amount;
-  trackMission(state, 'sold', amount);
+  updateMissionProgress('sold', amount);
   pushLog(state, `Sold ${amount} ${MARKET_CATALOG[key].name} for ${gold}g`, 'sell');
   renderBody(); scheduleSave();
 }
@@ -291,7 +405,7 @@ function craft(key){
   state.inv[key] += r.output;
   state.energy -= cost;
   const leveled = grantXp(state, r.xp);
-  trackMission(state, 'crafted', 1);
+  updateMissionProgress('crafted', 1);
   pushLog(state, `Crafted ${r.output} ${ITEMS[key].name} (+${r.xp}XP)`, 'gain');
   if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast('Level Up!', `Level ${state.level}`, 'levelup'); }
   renderBody(); scheduleSave();
@@ -315,7 +429,7 @@ function craftMax(key){
   if(count > 0){
     const xp = count * r.xp;
     const leveled = grantXp(state, xp);
-    trackMission(state, 'crafted', count);
+    updateMissionProgress('crafted', count);
     pushLog(state, `Crafted ${count*r.output} ${ITEMS[key].name} (+${xp}XP)`, 'gain');
     if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast('Level Up!', `Level ${state.level}`, 'levelup'); }
     renderBody(); scheduleSave();
