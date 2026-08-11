@@ -1093,3 +1093,19 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
   .v3-btn{width:30px;height:30px;font-size:13px;}
   .topbar-v3-sub{padding:5px 10px 6px;}
 }
+
+/* Backpack button */
+.v3-btn.backpack{
+  background:linear-gradient(160deg,rgba(139,212,78,0.15),rgba(139,212,78,0.05));
+  border-color:rgba(139,212,78,0.3);
+  font-size:16px;
+}
+.v3-btn.backpack:hover{
+  background:linear-gradient(160deg,rgba(139,212,78,0.25),rgba(139,212,78,0.1));
+  border-color:var(--green);
+  box-shadow:0 0 0 3px rgba(139,212,78,0.15),0 0 12px rgba(139,212,78,0.2);
+  transform:translateY(-2px);
+}
+.v3-btn.backpack:active{
+  transform:scale(0.95);
+}
