@@ -158,7 +158,7 @@ function renderHeader(){
   <div class="topbar-v3">
     <div class="topbar-v3-inner">
       <!-- LEFT: Avatar + Level -->
-      <div class="v3-avatar-section">
+      <div class="v3-avatar-section" style="cursor:pointer;" onclick="showPlayerProfile()" title="View Profile">
         <div class="v3-avatar-ring" style="--cls:${clsColor};">
           <div class="v3-avatar">${state.playerClass==='merchant'?`<img class="ui-icon" src="${ICONS.business}" alt="💰" style="width:100%;height:100%;object-fit:contain;">`:(cls?cls.icon:'🧙')}</div>
         </div>
