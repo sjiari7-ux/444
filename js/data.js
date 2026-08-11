@@ -311,6 +311,7 @@ const CLASS_SKILL_COST_TABLE = [1,1,2,2,3,3,4,4,5,5];
 
 const STAT_POOL = ['health','damage','defense','stamina','storage','profit'];
 
+
 /* ═══════════════════════════════════════════════════════════════
    MISSIONS SYSTEM — Daily, Weekly & Starting
    ═══════════════════════════════════════════════════════════════ */
