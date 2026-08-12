@@ -215,12 +215,14 @@ function renderBottomNav(){
     {id:'leaderboard',icon:'🏆',label:'Rank'},
     {id:'settings',icon:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️">`,label:'More'},
   ];
+  const allianceBadge = (typeof alliancePendingBadgeCount === 'function') ? alliancePendingBadgeCount() : 0;
   nav.innerHTML = tabs.map(t=>{
     let onclick;
     if(t.id==='alliance') onclick = 'openAllianceTab();';
     else if(t.id==='leaderboard') onclick = 'stopAllianceChatListener();openLeaderboardTab();';
     else onclick = `stopAllianceChatListener();activeTab='${t.id}';renderBody();`;
-    return `<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${onclick}"><span class="nav-icon">${t.icon}</span><span>${t.label}</span></button>`;
+    const dot = (t.id==='alliance' && allianceBadge>0) ? `<span class="nav-dot">${allianceBadge>9?'9+':allianceBadge}</span>` : '';
+    return `<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${onclick}"><span class="nav-icon">${t.icon}${dot}</span><span>${t.label}</span></button>`;
   }).join('');
   document.body.appendChild(nav);
 }
