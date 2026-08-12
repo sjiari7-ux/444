@@ -140,13 +140,6 @@ const RECIPES = {
   legendary_energy_potion:{ inputs:{herbs:20, water:10, glass:5, gold:3, gemstones:2}, output:1, energyCost:6, xp:30, minLevel:40 },
 };
 
-const MISSION_POOL = [
-  { id:'collect', track:'collected', label:(t)=>`Collect ${t} units of any resource`, gen:()=>80+Math.floor(Math.random()*120), reward:(t)=>Math.round(t*0.8) },
-  { id:'craft',   track:'crafted',   label:(t)=>`Craft ${t} products`,              gen:()=>5+Math.floor(Math.random()*8),   reward:(t)=>t*15 },
-  { id:'sell',    track:'sold',      label:(t)=>`Sell ${t} units on the market`,     gen:()=>10+Math.floor(Math.random()*20), reward:(t)=>t*6 },
-  { id:'win',     track:'wins',      label:(t)=>`Win ${t} battles`,                  gen:()=>2+Math.floor(Math.random()*3),   reward:(t)=>t*40 },
-];
-
 
 const SKILLS = {
   health:  { name:'Health',  icon:`<img class="ui-icon" src="${ICONS.heart_hp}" alt="❤️">`, perLevel:20,  max:20, desc:'Increases max health points' },
@@ -315,44 +308,43 @@ const STAT_POOL = ['health','damage','defense','stamina','storage','profit'];
    ═══════════════════════════════════════════════════════════════ */
 
 const DAILY_MISSIONS = [
-  { id:'work_employer', title:'Work 55 times for an employer', target:55, reward:{xp:30}, icon:'⛏️', track:'work_employer' },
-  { id:'self_work',     title:'Self work 30 times in your companies', target:30, reward:{xp:30}, icon:'💡', track:'self_work' },
-  { id:'hit_battles',   title:'Hit 75 times in battles', target:75, reward:{xp:30}, icon:'⚔️', track:'hit_battles' },
-  { id:'participate_battles', title:'Participate in 10 battles', target:10, reward:{xp:30}, icon:'⚔️', track:'participate_battles' },
-  { id:'eat_food',      title:'Eat 10 food items', target:10, reward:{xp:30}, icon:'🌭', track:'eat_food' },
-  { id:'donate_mu',     title:'Donate 25 to MU or Country', target:25, reward:{xp:300, gold:30}, icon:'🤝', track:'donate_mu' },
-  { id:'open_loot',     title:'Open 5 loot boxes', target:5, reward:{xp:30}, icon:'🎁', track:'open_loot' },
-  { id:'diminish_armor',title:'Diminish 45 received damages with Armor in battles', target:45, reward:{xp:30}, icon:'🛡️', track:'diminish_armor' },
-  { id:'collect_any',   title:'Collect 200 resources', target:200, reward:{xp:25}, icon:'🌲', track:'collected' },
-  { id:'craft_items',   title:'Craft 15 products', target:15, reward:{xp:25}, icon:'🛠️', track:'crafted' },
+  { id:'daily_collect', title:'Collect 150 resources',        target:150, reward:{xp:25},          icon:'🌲', track:'collected' },
+  { id:'daily_craft',   title:'Craft 10 products',             target:10,  reward:{xp:30},          icon:'🛠️', track:'crafted' },
+  { id:'daily_sell',    title:'Sell 200 units on the market',  target:200, reward:{xp:25, gold:30},  icon:'📈', track:'sold' },
+  { id:'daily_buy',     title:'Buy 100 units from the market', target:100, reward:{xp:20, gold:20},  icon:'🛒', track:'bought' },
+  { id:'daily_battles', title:'Enter 8 battles',                target:8,   reward:{xp:35},          icon:'⚔️', track:'battles_started' },
+  { id:'daily_hits',    title:'Land 40 hits in battle',         target:40,  reward:{xp:30},          icon:'💥', track:'hits_landed' },
+  { id:'daily_wins',    title:'Win 5 battles',                  target:5,   reward:{xp:40, gold:40},  icon:'🏆', track:'battles_won' },
+  { id:'daily_eat',     title:'Eat 10 food items',              target:10,  reward:{xp:20},          icon:'🍞', track:'eat_food' },
+  { id:'daily_potions', title:'Drink 5 energy potions',         target:5,   reward:{xp:20},          icon:'🧪', track:'used_potion' },
+  { id:'daily_donate',  title:'Donate 500 to your alliance',    target:500, reward:{xp:40, gold:20},  icon:'🏛️', track:'alliance_donated' },
 ];
 
 const WEEKLY_MISSIONS = [
-  { id:'win_battles',   title:'Win 20 battles', target:20, reward:{xp:150, gold:100}, icon:'🏆', track:'wins' },
-  { id:'sell_market',   title:'Sell 500 units on the market', target:500, reward:{xp:100, gold:50}, icon:'📈', track:'sold' },
-  { id:'gather_rare',   title:'Collect 50 rare resources', target:50, reward:{xp:120, gold:75}, icon:'💎', track:'collected_rare' },
-  { id:'upgrade_gear',  title:'Upgrade gear 5 times', target:5, reward:{xp:80, gold:40}, icon:'⬆️', track:'upgrade_gear' },
-  { id:'use_potions',   title:'Use 20 potions', target:20, reward:{xp:60, gold:30}, icon:'🧪', track:'use_potions' },
-  { id:'earn_gold',     title:'Earn 5000 gold', target:5000, reward:{xp:200, gold:0}, icon:'💰', track:'gold_earned' },
-  { id:'defeat_boss',   title:'Defeat 3 bosses', target:3, reward:{xp:250, gold:150}, icon:'👹', track:'defeat_boss' },
-  { id:'craft_epic',    title:'Craft 5 epic items', target:5, reward:{xp:100, gold:80}, icon:'✨', track:'craft_epic' },
-  { id:'help_alliance', title:'Help alliance 10 times', target:10, reward:{xp:90, gold:50}, icon:'🏛️', track:'help_alliance' },
-  { id:'login_streak',  title:'Login 5 days in a row', target:5, reward:{xp:300, gold:200}, icon:'🔥', track:'login_streak' },
+  { id:'weekly_wins',    title:'Win 30 battles',                          target:30,   reward:{xp:150, gold:100}, icon:'🏆', track:'battles_won' },
+  { id:'weekly_sell',    title:'Sell 1000 units on the market',           target:1000, reward:{xp:100, gold:80},  icon:'📈', track:'sold' },
+  { id:'weekly_collect', title:'Collect 1000 resources',                  target:1000, reward:{xp:100, gold:60},  icon:'🌲', track:'collected' },
+  { id:'weekly_craft',   title:'Craft 40 products',                       target:40,   reward:{xp:110, gold:70},  icon:'🛠️', track:'crafted' },
+  { id:'weekly_equip',   title:'Equip 5 gear pieces',                     target:5,    reward:{xp:80,  gold:50},  icon:'🗡️', track:'gear_equipped' },
+  { id:'weekly_upgrade', title:'Successfully upgrade gear 8 times',       target:8,    reward:{xp:120, gold:100}, icon:'⬆️', track:'gear_upgraded' },
+  { id:'weekly_forge',   title:'Forge 5 gear items',                      target:5,    reward:{xp:90,  gold:60},  icon:'⚒️', track:'gear_crafted' },
+  { id:'weekly_donate',  title:'Donate 2000 to your alliance',            target:2000, reward:{xp:130, gold:80},  icon:'🏛️', track:'alliance_donated' },
+  { id:'weekly_potions', title:'Drink 15 energy potions',                 target:15,   reward:{xp:70,  gold:40},  icon:'🧪', track:'used_potion' },
 ];
 
 const STARTING_MISSIONS = [
-  { id:'first_work',    title:'Work 5 times', target:5, reward:{xp:50, gold:50}, icon:'⛏️', track:'work_employer' },
-  { id:'first_battle',  title:'Win your first battle', target:1, reward:{xp:30, gold:20}, icon:'⚔️', track:'wins' },
-  { id:'first_craft',   title:'Craft your first item', target:1, reward:{xp:20, gold:10}, icon:'🛠️', track:'crafted' },
-  { id:'first_sell',    title:'Sell 10 items', target:10, reward:{xp:25, gold:15}, icon:'📈', track:'sold' },
-  { id:'equip_gear',    title:'Equip your first weapon', target:1, reward:{xp:40, gold:30}, icon:'🗡️', track:'equip_gear' },
-  { id:'join_alliance', title:'Join an alliance', target:1, reward:{xp:100, gold:100}, icon:'🏛️', track:'join_alliance' },
-  { id:'level_5',       title:'Reach level 5', target:5, reward:{xp:50, gold:50}, icon:'⭐', track:'level_up' },
-  { id:'collect_100',   title:'Collect 100 resources', target:100, reward:{xp:30, gold:20}, icon:'🌲', track:'collected' },
-  { id:'build_company', title:'Build your first company', target:1, reward:{xp:60, gold:40}, icon:'🏭', track:'build_company' },
-  { id:'use_skill',     title:'Upgrade a skill', target:1, reward:{xp:40, gold:25}, icon:'🎯', track:'upgrade_skill' },
-  { id:'eat_food_5',    title:'Eat 5 food items', target:5, reward:{xp:20, gold:10}, icon:'🍞', track:'eat_food' },
-  { id:'buy_market',    title:'Buy 20 items from market', target:20, reward:{xp:25, gold:15}, icon:'🛒', track:'buy_market' },
-  { id:'prestige_ready',title:'Reach level 20', target:20, reward:{xp:100, gold:100}, icon:'✨', track:'level_up' },
-  { id:'defeat_dragon', title:'Defeat a dragon', target:1, reward:{xp:150, gold:200}, icon:'🐉', track:'defeat_boss' },
+  { id:'first_collect',  title:'Collect 100 resources',        target:100, reward:{xp:30,  gold:20},  icon:'🌲', track:'collected' },
+  { id:'first_craft',    title:'Craft your first item',        target:1,   reward:{xp:20,  gold:10},  icon:'🛠️', track:'crafted' },
+  { id:'first_sell',     title:'Sell 10 items',                target:10,  reward:{xp:25,  gold:15},  icon:'📈', track:'sold' },
+  { id:'first_buy',      title:'Buy 20 items from market',     target:20,  reward:{xp:25,  gold:15},  icon:'🛒', track:'bought' },
+  { id:'first_battle',   title:'Win your first battle',        target:1,   reward:{xp:30,  gold:20},  icon:'⚔️', track:'battles_won' },
+  { id:'first_hits',     title:'Land 20 hits in battle',       target:20,  reward:{xp:30,  gold:15},  icon:'💥', track:'hits_landed' },
+  { id:'first_gear',     title:'Forge your first gear item',   target:1,   reward:{xp:40,  gold:25},  icon:'⚒️', track:'gear_crafted' },
+  { id:'first_equip',    title:'Equip your first weapon',      target:1,   reward:{xp:40,  gold:30},  icon:'🗡️', track:'gear_equipped' },
+  { id:'first_alliance', title:'Join an alliance',             target:1,   reward:{xp:100, gold:100}, icon:'🏛️', track:'alliance_joined' },
+  { id:'first_donate',   title:'Donate to your alliance',      target:50,  reward:{xp:40,  gold:20},  icon:'🤝', track:'alliance_donated' },
+  { id:'first_company',  title:'Build your first company',     target:1,   reward:{xp:60,  gold:40},  icon:'🏭', track:'company_built' },
+  { id:'first_skill',    title:'Upgrade a skill',              target:1,   reward:{xp:40,  gold:25},  icon:'🎯', track:'skill_upgraded' },
+  { id:'level_5',        title:'Reach level 5',                target:5,   reward:{xp:50,  gold:50},  icon:'⭐', track:'level_reached' },
+  { id:'level_20',       title:'Reach level 20',               target:20,  reward:{xp:150, gold:150}, icon:'✨', track:'level_reached' },
 ];
