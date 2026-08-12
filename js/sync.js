@@ -215,7 +215,7 @@ async function openLeaderboardTab(){
 }
 
 function refreshLeaderboard(){
-  loadRealLeaderboard(true).then(renderBody);
+  loadRealLeaderboard(true).then(()=> (typeof renderBodyUnlessTyping==='function' ? renderBodyUnlessTyping() : renderBody()));
 }
 
 /* ═══════════════════════════════════════════════════════════════
