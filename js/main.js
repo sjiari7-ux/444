@@ -101,16 +101,13 @@ function claimMissionReward(missionId, type){
 
 function goToMissionTarget(track){
   const routes = {
-    work_employer: 'companies', self_work: 'companies',
-    hit_battles: 'zones', participate_battles: 'zones', diminish_armor: 'zones',
-    eat_food: 'production', use_potions: 'production',
-    donate_mu: 'alliance', help_alliance: 'alliance', join_alliance: 'alliance',
-    open_loot: 'inventory', equip_gear: 'gear', upgrade_gear: 'gear',
-    collected: 'zones', collected_rare: 'zones', crafted: 'production',
-    sold: 'market', buy_market: 'market', craft_epic: 'production',
-    gold_earned: 'market', defeat_boss: 'zones', wins: 'zones',
-    build_company: 'companies', upgrade_skill: 'skills', level_up: 'skills',
-    login_streak: 'settings',
+    collected: 'production', crafted: 'production',
+    sold: 'market', bought: 'market',
+    battles_started: 'zones', hits_landed: 'zones', battles_won: 'zones',
+    eat_food: 'inventory', used_potion: 'inventory',
+    alliance_donated: 'alliance', alliance_joined: 'alliance',
+    gear_equipped: 'gear', gear_upgraded: 'gear', gear_crafted: 'gear',
+    company_built: 'companies', skill_upgraded: 'skills', level_reached: 'skills',
   };
   activeTab = routes[track] || 'production';
   renderBody();
@@ -130,7 +127,6 @@ async function startGame(){
   render();
   setInterval(tick, TICK_MS);
   setInterval(()=>{ updatePrices(); renderBody(); }, PRICE_TICK_MS);
-  setInterval(()=>{ if(state && state.missions && Date.now() >= state.missions.resetAt){ generateMissions(); renderBody(); } }, 60000);
   setInterval(syncToFirestore, SYNC_INTERVAL);
   loadUsername();
   renderGlobalChatFab();
@@ -304,33 +300,6 @@ function updatePrices(){
     if(state.priceHistory[k].length > PRICE_HISTORY_LENGTH) state.priceHistory[k].shift();
   });
 }
-function generateMissions(){
-  const list = [];
-  const counters = { collected:0, crafted:0, sold:0, wins:0 };
-  const pool = [...MISSION_POOL].sort(()=>Math.random()-0.5).slice(0,3);
-  pool.forEach(tpl=>{
-    const target = tpl.gen();
-    list.push({ templateId: tpl.id, target, reward: tpl.reward(target), done: false });
-  });
-  state.missions = { list, counters, resetAt: Date.now() + MISSION_PERIOD_MS };
-}
-function trackMission(s, track, amount){
-  if(!s.missions) return;
-  s.missions.counters[track] = (s.missions.counters[track]||0) + amount;
-  s.missions.list.forEach(ms=>{
-    if(ms.done) return;
-    const tpl = MISSION_POOL.find(m=>m.id===ms.templateId);
-    if(tpl && tpl.track===track){
-      if(s.missions.counters[track] >= ms.target){
-        ms.done = true;
-        s.gold += ms.reward;
-        s.totalGoldEarned += ms.reward;
-        pushLog(s, `Mission complete: ${tpl.label(ms.target)} (+${ms.reward}g)`, 'win');
-        showToast('Mission Complete', tpl.label(ms.target) + ` +${ms.reward}g`, 'win');
-      }
-    }
-  });
-}
 /* ===== GATHERING & CONSUMABLES ===== */
 function collect(key){
   const cost = getEnergyCost(state, 1);
@@ -377,6 +346,7 @@ function consumeEnergyPotion(key){
   if(!p) return;
   state.inv[key] -= 1;
   state.energy = Math.min(getMaxEnergy(state), state.energy + p.energy);
+  updateMissionProgress('used_potion', 1);
   pushLog(state, `Drank ${p.name} (+${p.energy}<img class="ui-icon" src="${ICONS.energy}" alt="⚡">)`, 'gain');
   renderBody(); scheduleSave();
 }
@@ -392,6 +362,7 @@ function buy(key, amount){
   if(cost > state.gold){ pushLog(state, 'Not enough gold!', 'lose'); return; }
   state.gold -= cost;
   state.inv[key] += amount;
+  updateMissionProgress('bought', amount);
   pushLog(state, `Bought ${amount} ${MARKET_CATALOG[key].name} for ${cost}g`, 'gain');
   renderBody(); scheduleSave();
 }
@@ -519,6 +490,7 @@ function upgradeSkill(key){
   if(key==='health'){ state.health += SKILLS.health.perLevel; }
   if(key==='stamina'){ state.maxEnergy += SKILLS.stamina.perLevel; state.energy += SKILLS.stamina.perLevel; }
   if(key==='storage'){ state.storageCap += SKILLS.storage.perLevel; }
+  updateMissionProgress('skill_upgraded', 1);
   pushLog(state, `Upgraded ${sk.name} to level ${lvl+1}`, 'skill');
   renderBody(); scheduleSave();
 }
@@ -580,6 +552,7 @@ function buildCompany(){
   const id = state.companies.length > 0 ? Math.max(...state.companies.map(c=>c.id)) + 1 : 1;
   state.companies.push({ id, resource: res, engineLevel: 1, stored: 0, disabled: false });
   state.companyBuildResource = null;
+  updateMissionProgress('company_built', 1);
   pushLog(state, `Built ${ITEMS[res].name} Company!`, 'win');
   renderBody(); scheduleSave();
 }
