@@ -425,7 +425,7 @@ function renderCompanies(){
 
 
 function renderClass(){
-  const backLink = `<button class="mini-btn" style="margin-bottom:12px;" onclick="stopAllianceChatListener();activeTab='settings';renderBody();">← Back to Settings</button>`;
+  const backLink = `<button class="mini-btn" style="margin-bottom:12px;" onclick="activeTab='settings';renderBody();">← Back to Settings</button>`;
   if(!state.playerClass){
     return `
       ${backLink}
@@ -610,7 +610,7 @@ function renderSkills(){
   }).join('');
 
   return `
-    <button class="mini-btn" style="margin-bottom:12px;" onclick="stopAllianceChatListener();activeTab='settings';renderBody();">← Back to Settings</button>
+    <button class="mini-btn" style="margin-bottom:12px;" onclick="activeTab='settings';renderBody();">← Back to Settings</button>
     <div class="stat-overview-grid">${overview}</div>
     <div class="sp-banner">
       <div class="sp-label">🎯 Skill Points</div>
@@ -796,8 +796,8 @@ function renderSettings(){
       <div>
         <div class="settings-group-label">Character</div>
         <div class="settings-list">
-          ${settingsRow(classIcon,'Class',`${className} · Unique skills`,`stopAllianceChatListener();activeTab='class';renderBody();`)}
-          ${settingsRow('🎯','Skills','Spend skill points',`stopAllianceChatListener();activeTab='skills';renderBody();`)}
+          ${settingsRow(classIcon,'Class',`${className} · Unique skills`,`activeTab='class';renderBody();`)}
+          ${settingsRow('🎯','Skills','Spend skill points',`activeTab='skills';renderBody();`)}
         </div>
       </div>
 
