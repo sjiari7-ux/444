@@ -1086,16 +1086,18 @@ function openNameModal() {
     document.body.appendChild(modal);
     
     const input = document.getElementById('newUsernameInput');
-    input.addEventListener('input', async function() {
+    let nameCheckTimeout = null;
+    input.addEventListener('input', function() {
         const val = this.value.trim();
         const errorEl = document.getElementById('nameError');
         const successEl = document.getElementById('nameSuccess');
         const confirmBtn = document.getElementById('confirmNameBtn');
-        
+
+        clearTimeout(nameCheckTimeout);
         errorEl.style.display = 'none';
         successEl.style.display = 'none';
         confirmBtn.disabled = true;
-        
+
         if (val.length < 3) {
             errorEl.textContent = 'Username must be at least 3 characters';
             errorEl.style.display = 'block';
@@ -1111,22 +1113,24 @@ function openNameModal() {
             errorEl.style.display = 'block';
             return;
         }
-        
-        try {
-            if (db) {
-                const doc = await db.collection('usernames').doc(val).get();
-                if (doc.exists) {
-                    errorEl.textContent = '❌ Username already taken';
-                    errorEl.style.display = 'block';
-                    return;
+
+        nameCheckTimeout = setTimeout(async () => {
+            try {
+                if (db) {
+                    const doc = await db.collection('usernames').doc(val).get();
+                    if (doc.exists) {
+                        errorEl.textContent = '❌ Username already taken';
+                        errorEl.style.display = 'block';
+                        return;
+                    }
                 }
+                successEl.style.display = 'block';
+                confirmBtn.disabled = false;
+            } catch(e) {
+                errorEl.textContent = 'Connection error, try again';
+                errorEl.style.display = 'block';
             }
-            successEl.style.display = 'block';
-            confirmBtn.disabled = false;
-        } catch(e) {
-            errorEl.textContent = 'Connection error, try again';
-            errorEl.style.display = 'block';
-        }
+        }, 400);
     });
 }
 
