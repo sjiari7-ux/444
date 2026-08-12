@@ -375,24 +375,43 @@ async function rejectJoinRequest(uid){
   if(typeof renderBottomNav === 'function') renderBottomNav();
 }
 
+async function findUsernameDoc(uname){
+  const tried = new Set();
+  const candidates = [
+    uname,
+    uname.toLowerCase(),
+    uname.toUpperCase(),
+    uname.charAt(0).toUpperCase() + uname.slice(1).toLowerCase(),
+  ];
+  for(const cand of candidates){
+    if(!cand || tried.has(cand)) continue;
+    tried.add(cand);
+    const doc = await db.collection('usernames').doc(cand).get();
+    if(doc.exists) return doc;
+  }
+  return null;
+}
+
 async function inviteToAlliance(){
   if(!db || !state.allianceId || !allianceCan(state.allianceRole,'invite')) return;
   const input = document.getElementById('allianceInviteInput');
   const uname = input ? input.value.trim() : '';
   if(!uname) return;
   try{
-    const uDoc = await db.collection('usernames').doc(uname).get();
-    if(!uDoc.exists){ showToast('❌','Player not found.','error'); return; }
+    const uDoc = await findUsernameDoc(uname);
+    if(!uDoc){ showToast('❌','Player not found. Check the spelling.','error'); return; }
     const targetUid = uDoc.data().uid;
+    if(targetUid === UID){ showToast('❌',"You can't invite yourself.",'error'); return; }
     const targetPlayerDoc = await db.collection('players').doc(targetUid).get();
     if(targetPlayerDoc.exists && targetPlayerDoc.data().allianceId){ showToast('❌','Player is already in an alliance.','error'); return; }
+    const realUname = (targetPlayerDoc.exists && targetPlayerDoc.data().username) || uname;
     await db.collection('alliances').doc(state.allianceId).collection('invites').doc(targetUid).set({
-      uid: targetUid, username: uname, invitedBy: window.__playerUsername || 'Player',
+      uid: targetUid, username: realUname, invitedBy: window.__playerUsername || 'Player',
       ts: firebase.firestore.FieldValue.serverTimestamp(),
     });
     if(input) input.value = '';
     await loadSentInvites();
-    showToast('✉️ Invite Sent', `Invited ${uname}.`, 'success');
+    showToast('✉️ Invite Sent', `Invited ${realUname}.`, 'success');
   }catch(e){ console.error(e); showToast('❌','Failed to invite.','error'); }
   renderBody();
 }
