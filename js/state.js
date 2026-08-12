@@ -13,8 +13,6 @@ function defaultState(){
         inv, prices, prevPrices, priceHistory, lastPriceTs: Date.now(),
         combat: { wins: 0, losses: 0 },
         missions: null,
-        leaderboard: null,
-        lastLbEvolve: Date.now(),
         log: [], lastTimestamp: Date.now(),
         prestige: { points: 0, gatherBonus: 0, sellBonus: 0, energyBonus: 0, storageBonus: 0 },
         totalGoldEarned: 150,
@@ -82,8 +80,6 @@ function migrateState(s){
     
     if(!s.log) s.log = [];
     if(!s.combat) s.combat = { wins: 0, losses: 0 };
-    if(!s.leaderboard) s.leaderboard = null;
-    if(!s.lastLbEvolve) s.lastLbEvolve = Date.now();
     if(!s.prestige) s.prestige = { points: 0, gatherBonus: 0, sellBonus: 0, energyBonus: 0, storageBonus: 0 };
     if(typeof s.totalGoldEarned !== 'number') s.totalGoldEarned = s.gold;
     if(!s.skills) s.skills = { health: 0, damage: 0, defense: 0, stamina: 0, storage: 0, profit: 0 };
@@ -411,4 +407,3 @@ const ZONE_RESOURCES = {
     volcano: ['gold_ore','silver','magic_stones','coal'],
     tundra: ['water','salt','zinc','iron'],
 };
-
