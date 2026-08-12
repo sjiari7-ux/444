@@ -392,6 +392,7 @@ function craftGear(slot, tier){
   gear.sellValue = t.sellMin + Math.floor(Math.random()*(t.sellMax-t.sellMin));
   state.gearBag.push(gear);
   const leveled = grantXp(state, recipe.xp);
+  updateMissionProgress('gear_crafted', 1);
   pushLog(state, `Forged [${t.symbol}] ${finalName}!`, 'gear');
   if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast('Level Up!', `Level ${state.level}`, 'levelup'); }
   customWeaponName = '';
@@ -406,6 +407,7 @@ function equipGear(id){
   if(old) state.gearBag.push(old);
   state.equipped[gear.slot] = gear;
   state.gearBag.splice(idx, 1);
+  updateMissionProgress('gear_equipped', 1);
   pushLog(state, `Equipped ${gear.name}`, 'gear');
   renderBody(); scheduleSave();
 }
@@ -431,6 +433,7 @@ function upgradeGear(id){
   state.gems -= req.gems;
   if(Math.random() < req.chance){
     gear.upgradeLevel++;
+    updateMissionProgress('gear_upgraded', 1);
     pushLog(state, `Upgrade success! ${gear.name} +${gear.upgradeLevel}`, 'upgrade-success');
     showToast('Upgrade Success', `${gear.name} +${gear.upgradeLevel}`, 'win');
   } else {
