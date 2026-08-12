@@ -189,7 +189,7 @@ function renderHeader(){
           <div class="v3-gold-amount">${fmtG(state.gold)}</div>
         </div>
         <div class="v3-btns">
-          <button class="v3-btn backpack" onclick="activeTab='inventory';renderBody();" title="Backpack / Inventory">🎒</button>
+          <button class="v3-btn backpack" onclick="activeTab='inventory';renderBody();" title="Backpack / Inventory"><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒" style="width:100%;height:100%;object-fit:contain;"></button>
           <button class="v3-btn" onclick="activeTab='settings';renderBody();" title="Settings">⚙️</button>
           <button class="v3-btn" onclick="logout()" title="Log out">🚪</button>
         </div>
@@ -210,11 +210,11 @@ function renderBottomNav(){
   nav.className = 'bottom-nav';
   const tabs = [
     {id:'production',icon:'🛠️',label:'Craft'},
-    {id:'inventory',icon:'🎒',label:'Bag'},
+    {id:'inventory',icon:`<img class="ui-icon" src="${ICONS.bag_full}" alt="🎒">`,label:'Bag'},
     {id:'market',icon:`<img class="ui-icon" src="${ICONS.market_chart}" alt="📊">`,label:'Market'},
     {id:'zones',icon:`<img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️">`,label:'Zones'},
     {id:'gear',icon:`<img class="ui-icon" src="${ICONS.defense_ui}" alt="🛡️">`,label:'Gear'},
-    {id:'companies',icon:'🏭',label:'Biz'},
+    {id:'companies',icon:`<img class="ui-icon" src="${ICONS.business}" alt="🏭">`,label:'Biz'},
     {id:'alliance',icon:`<img class="ui-icon" src="${ICONS.alliance}" alt="🏛️">`,label:'Alliance'},
     {id:'missions',icon:'📋',label:'Missions'},
     {id:'leaderboard',icon:'🏆',label:'Rank'},
