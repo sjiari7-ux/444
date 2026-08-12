@@ -438,7 +438,7 @@ function upgradeGear(id){
     showToast('Upgrade Success', `${gear.name} +${gear.upgradeLevel}`, 'win');
   } else {
     if(gear.upgradeLevel > 0) gear.upgradeLevel--;
-    pushLog(state, `Upgrade failed! ${gear.name} ${gear.upgradeLevel>0?'+${gear.upgradeLevel}':'(+0)'}`, 'upgrade-fail');
+    pushLog(state, `Upgrade failed! ${gear.name} ${gear.upgradeLevel>0?`+${gear.upgradeLevel}`:'(+0)'}`, 'upgrade-fail');
     showToast('Upgrade Failed', 'Better luck next time', 'lose');
   }
   renderBody(); scheduleSave();
