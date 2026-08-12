@@ -490,6 +490,80 @@ async function donateToAlliance(resourceKey, amount){
   renderBody();
 }
 
+/* ===== HEADER ICONS: DONATE MODAL + DISCORD ===== */
+function openAllianceDonateModal(){
+  if(!state.allianceId) return;
+  let modal = document.getElementById('allianceDonateModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'allianceDonateModal';
+    document.body.appendChild(modal);
+  }
+  const startAmt = Math.max(1, Math.min(state.gold, 5));
+  modal.innerHTML = `
+    <div class="modal-overlay" style="z-index:130;" onclick="if(event.target===this)closeAllianceDonateModal()">
+      <div class="modal-box" style="max-width:320px;">
+        <div class="modal-header"><h3>Donate Gold</h3><button class="modal-close" onclick="closeAllianceDonateModal()">✕</button></div>
+        <div style="padding:20px;">
+          <div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Amount</div>
+          <div class="donate-amount-row">
+            <button class="donate-step-btn" onclick="adjustAllianceDonateAmount(-5)">−</button>
+            <input id="allianceDonateAmountInput" type="number" min="1" max="${state.gold}" value="${startAmt}">
+            <button class="donate-step-btn" onclick="adjustAllianceDonateAmount(5)">+</button>
+          </div>
+          <div class="donate-hint">Donate gold to support this alliance's treasury (you have ${fmtG(state.gold)}).</div>
+          <button class="act-btn buy" style="width:100%;padding:12px;margin-bottom:8px;" onclick="submitAllianceDonateModal()">Donate Gold</button>
+          <button class="act-btn" style="width:100%;padding:10px;" onclick="closeAllianceDonateModal()">Close</button>
+        </div>
+      </div>
+    </div>`;
+}
+function adjustAllianceDonateAmount(delta){
+  const input = document.getElementById('allianceDonateAmountInput');
+  if(!input) return;
+  let n = (parseInt(input.value, 10) || 0) + delta;
+  n = Math.max(1, Math.min(state.gold, n));
+  input.value = n;
+}
+function closeAllianceDonateModal(){
+  const modal = document.getElementById('allianceDonateModal');
+  if(modal) modal.remove();
+}
+async function submitAllianceDonateModal(){
+  const input = document.getElementById('allianceDonateAmountInput');
+  const amt = Math.floor(parseInt(input ? input.value : 0, 10) || 0);
+  if(amt <= 0){ showToast('❌','Enter a valid amount.','error'); return; }
+  if(amt > state.gold){ showToast('❌','Not enough gold.','error'); return; }
+  closeAllianceDonateModal();
+  await donateToAlliance('gold', amt);
+}
+
+function openAllianceDiscord(){
+  const link = allianceData && allianceData.alliance && allianceData.alliance.discordLink;
+  if(link){ window.open(link, '_blank', 'noopener'); return; }
+  if(allianceCan(state.allianceRole,'editInfo')){
+    showToast('💬 No Discord Link', 'Add one in Manage → Alliance Profile.', 'error');
+    setAllianceView('manage');
+  } else {
+    showToast('💬 No Discord Link', "This alliance hasn't set one up yet.", 'error');
+  }
+}
+async function saveAllianceDiscordLink(){
+  if(!allianceCan(state.allianceRole,'editInfo') || !db) return;
+  const input = document.getElementById('allianceDiscordInput');
+  let link = (input ? input.value : '').trim();
+  if(link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
+  if(link && !/^https:\/\/(discord\.gg|discord\.com\/invite)\//i.test(link)){
+    showToast('❌','Enter a valid Discord invite link (discord.gg/...).','error'); return;
+  }
+  try{
+    await db.collection('alliances').doc(state.allianceId).update({ discordLink: link });
+    await loadMyAlliance();
+    showToast('✅ Saved','Discord link updated.','success');
+  }catch(e){ console.error(e); showToast('❌','Failed to save link.','error'); }
+  renderBody();
+}
+
 async function promoteMember(targetUid, currentRole){
   if(!allianceCan(state.allianceRole,'promote') || !db) return;
   if(currentRole === 'officer' && state.allianceRole !== 'leader'){
@@ -830,7 +904,11 @@ function renderAllianceDashboard(){
 
   return `
     <div class="alliance-hero">
-      <div class="alliance-hero-top">
+      <div class="alliance-hero-icons">
+        <button class="alliance-icon-btn discord" title="${alliance.discordLink ? 'Open Discord' : 'No Discord link set'}" onclick="openAllianceDiscord()">💬</button>
+        <button class="alliance-icon-btn donate" title="Donate Gold" onclick="openAllianceDonateModal()">🪙</button>
+      </div>
+      <div class="alliance-hero-top" style="padding-right:44px;">
         <div class="alliance-hero-emblem">${alliance.emblem||'⚔️'}</div>
         <div style="flex:1;min-width:0;">
           <div class="alliance-hero-name">${alliance.name}</div>
@@ -1078,6 +1156,14 @@ function renderAllianceManage(){
         <button class="mini-btn ${alliance.type==='closed'?'buy':''}" style="flex:1;" onclick="updateAllianceType('closed')">🔒 Closed</button>
       </div>
       <button class="act-btn buy" style="width:100%;padding:10px;" onclick="saveAllianceProfile()">Save Changes</button>
+    </div>
+    <div class="panel" style="margin-bottom:10px;">
+      <div class="panel-header">💬 Discord Server</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:8px;">Set your alliance's Discord invite link. Members tap the 💬 icon on the alliance header to join.</div>
+      <div style="display:flex;gap:6px;">
+        <input id="allianceDiscordInput" class="username-input" style="margin-bottom:0;flex:1;" placeholder="https://discord.gg/…" value="${(alliance.discordLink||'').replace(/"/g,'&quot;')}">
+        <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="saveAllianceDiscordLink()">Save</button>
+      </div>
     </div>`;
   }
 
