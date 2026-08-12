@@ -140,7 +140,6 @@ function playerAttackAction(isSkill, skillKey){
   const chargeMult = getChargeMultiplier();
   if(chargeMult > 1){ dmg = Math.round(dmg * chargeMult); }
   if(isCrit) dmg = Math.round(dmg * 2);
-  if(isPierce) dmg = Math.max(1, Math.round(pStats.atk * 1.5));
   m.hp -= dmg;
   updateMissionProgress('hits_landed', 1);
   bs.turns.push({ who:'player', dmg, crit:isCrit, pierce:isPierce, charge: chargeMult > 1 ? chargeMult : null, skill: skillName || null });
