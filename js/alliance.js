@@ -50,6 +50,8 @@ let allianceSentInvites = [];
 let allianceRequestedIds = new Set();
 let allianceChatMsgs = [];
 let allianceChatUnsub = null;
+let allianceChatUnread = 0;
+let allianceChatFirstLoad = true;
 let allianceError = '';
 let allianceCreateEmblem = '⚔️';
 let allianceCreateType = 'open';
@@ -134,6 +136,7 @@ async function initAllianceOnStart(){
     state.allianceDisbandCooldownUntil = pdata.allianceDisbandCooldownUntil || 0;
     if(state.allianceId){
       if(allianceCan(state.allianceRole,'manageRequests')) await loadAllianceRequests();
+      startAllianceChatListener();
     } else {
       await checkMyAllianceInvites();
     }
@@ -256,6 +259,7 @@ async function joinAllianceOpen(allianceId){
     scheduleSave();
     await loadMyAlliance();
     allianceView = 'home';
+    startAllianceChatListener();
     showToast('✅ Joined Alliance','Welcome!','success');
   }catch(e){
     const msg = e.message==='FULL' ? 'Alliance is full.' : e.message==='NOT_OPEN' ? 'This alliance requires an invite or request.' : 'Failed to join.';
@@ -312,6 +316,7 @@ async function acceptAllianceInvite(allianceId){
     scheduleSave();
     await loadMyAlliance();
     allianceView = 'home';
+    startAllianceChatListener();
     showToast('✅ Joined','Welcome to the alliance!','success');
   }catch(e){
     showToast('❌', e.message==='FULL' ? 'Alliance is full.' : 'Failed to join.', 'error');
@@ -585,15 +590,25 @@ async function disbandAlliance(){
   allianceLoading = false; renderBody();
 }
 
-/* ===== CHAT ===== */
+/* ===== CHAT (renders into the unified chat drawer — see sync.js) ===== */
 function startAllianceChatListener(){
-  if(!db || !state.allianceId) return;
-  if(allianceChatUnsub) allianceChatUnsub();
+  if(!db || !state.allianceId || allianceChatUnsub) return;
+  allianceChatFirstLoad = true;
   allianceChatUnsub = db.collection('alliances').doc(state.allianceId).collection('chat')
     .orderBy('ts','desc').limit(50)
     .onSnapshot(snap => {
-      allianceChatMsgs = snap.docs.map(d => ({ id:d.id, ...d.data() })).reverse();
-      if(allianceView === 'chat') renderBody();
+      const msgs = snap.docs.map(d => ({ id:d.id, ...d.data() })).reverse();
+      const grew = !allianceChatFirstLoad && msgs.length > allianceChatMsgs.length;
+      allianceChatFirstLoad = false;
+      allianceChatMsgs = msgs;
+      const drawerShowingAlliance = typeof chatDrawerOpen !== 'undefined' && chatDrawerOpen && chatActiveTab === 'alliance';
+      if(drawerShowingAlliance){
+        const el = document.getElementById('chatDrawerMsgs');
+        if(el){ el.innerHTML = renderChatMsgsHTML(allianceChatMsgs); el.scrollTop = el.scrollHeight; }
+      } else if(grew){
+        allianceChatUnread++;
+        if(typeof renderGlobalChatFab === 'function') renderGlobalChatFab();
+      }
     }, err => console.error('Alliance chat listener error', err));
 }
 function stopAllianceChatListener(){
@@ -601,15 +616,16 @@ function stopAllianceChatListener(){
   allianceChatMsgs = [];
 }
 async function sendAllianceChatMsg(){
-  const input = document.getElementById('allianceChatInput');
+  const input = document.getElementById('chatDrawerInput');
   let text = input ? input.value.trim() : '';
   if(!text || !db || !state.allianceId) return;
   if(text.length > 300) text = text.slice(0, 300);
   if(input) input.value = '';
   try{
     await db.collection('alliances').doc(state.allianceId).collection('chat').add({
-      uid: UID, username: window.__playerUsername || 'Player', text,
-      ts: firebase.firestore.FieldValue.serverTimestamp(),
+      uid: UID, username: window.__playerUsername || 'Player',
+      avatar: (typeof state !== 'undefined' && state && state.avatar) || '🧙',
+      text, ts: firebase.firestore.FieldValue.serverTimestamp(),
     });
   }catch(e){ console.error(e); }
 }
@@ -622,7 +638,6 @@ async function openAllianceTab(){
   if(!db) return;
   if(state.allianceId){
     if(!allianceData) await loadMyAlliance();
-    if(allianceView === 'chat') startAllianceChatListener();
     if(allianceView === 'manage'){ await loadAllianceRequests(); await loadSentInvites(); }
   } else {
     await checkMyAllianceInvites();
@@ -636,7 +651,6 @@ function setAllianceView(v){
   allianceView = v;
   allianceError = '';
   if(v === 'browse' && !allianceBrowseSearched) browseAlliances();
-  if(v === 'chat') startAllianceChatListener(); else stopAllianceChatListener();
   if(v === 'manage'){ loadAllianceRequests().then(()=>{ if(typeof renderBottomNav==='function') renderBottomNav(); }); loadSentInvites().then(renderBody); }
   renderBody();
 }
@@ -780,16 +794,16 @@ function renderAllianceDashboard(){
   const pointsPct = nextLvl ? Math.min(100, ((alliance.points||0) - lvlInfo.cost) / (nextLvl.cost - lvlInfo.cost) * 100) : 100;
 
   const manageBadge = allianceCan(role,'manageRequests') ? allianceRequests.length : 0;
+  const chatBadge = typeof allianceChatUnread !== 'undefined' ? allianceChatUnread : 0;
   const tabs = [
     { id:'home',    label:'🏛️ Home' },
     { id:'members', label:'👥 Members' },
-    { id:'chat',    label:'💬 Chat' },
+    { id:'chat',    label:'💬 Chat', badge: chatBadge, onclick: "openChatDrawer('alliance')" },
   ];
   if(allianceCan(role,'invite') || allianceCan(role,'editInfo')) tabs.push({ id:'manage', label:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️"> Manage`, badge: manageBadge });
 
   let body = '';
   if(allianceView === 'members') body = renderAllianceMembers();
-  else if(allianceView === 'chat') body = renderAllianceChat();
   else if(allianceView === 'manage') body = renderAllianceManage();
   else body = renderAllianceHome();
 
@@ -807,7 +821,7 @@ function renderAllianceDashboard(){
         <div class="bar-track" style="height:8px;"><div class="bar-fill" style="width:${pointsPct}%;background:var(--prestige);"></div></div>
       </div>
       <div class="alliance-tabbar">
-        ${tabs.map(t => `<button class="alliance-tab ${allianceView===t.id?'active':''}" onclick="setAllianceView('${t.id}')">${t.label}${t.badge?`<span class="tab-badge">${t.badge}</span>`:''}</button>`).join('')}
+        ${tabs.map(t => `<button class="alliance-tab ${!t.onclick && allianceView===t.id?'active':''}" onclick="${t.onclick || `setAllianceView('${t.id}')`}">${t.label}${t.badge?`<span class="tab-badge">${t.badge}</span>`:''}</button>`).join('')}
       </div>
     </div>
     ${body}`;
@@ -964,24 +978,6 @@ function renderAllianceMemberRow(m){
         ${canDemote?`<button class="mini-btn" onclick="demoteMember('${m.uid}','${m.role}')" title="Demote">⬇️</button>`:''}
         ${canExempt?`<button class="mini-btn" onclick="toggleMemberExempt('${m.uid}', ${!!m.exempt})" title="Toggle inactivity exemption">${m.exempt?'🔓':'🔒'}</button>`:''}
         ${canManage?`<button class="mini-btn" style="color:var(--red);border-color:var(--red);" onclick="kickMember('${m.uid}','${m.role}')" title="Kick">✕</button>`:''}
-      </div>
-    </div>`;
-}
-
-function renderAllianceChat(){
-  return `
-    <div class="panel">
-      <div class="panel-header">💬 Alliance Chat</div>
-      <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-right:2px;">
-        ${allianceChatMsgs.length ? allianceChatMsgs.map(m => `
-          <div style="background:${m.uid===UID?'rgba(212,162,76,0.12)':'var(--bg)'};border:1px solid var(--border);border-radius:8px;padding:6px 10px;">
-            <div style="font-size:11px;color:var(--brass-bright);font-weight:700;">${m.username} <span style="color:var(--dim);font-weight:400;">${allianceTimeAgo(m.ts)}</span></div>
-            <div style="font-size:12px;color:var(--text);">${(m.text||'').replace(/</g,'&lt;')}</div>
-          </div>`).join('') : `<div style="text-align:center;color:var(--dim);font-size:12px;padding:20px;">No messages yet. Say hello!</div>`}
-      </div>
-      <div style="display:flex;gap:6px;">
-        <input id="allianceChatInput" class="username-input" style="margin-bottom:0;flex:1;" maxlength="300" placeholder="Type a message…" onkeydown="allianceChatKeydown(event)">
-        <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="sendAllianceChatMsg()">Send</button>
       </div>
     </div>`;
 }
