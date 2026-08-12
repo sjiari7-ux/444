@@ -9,7 +9,6 @@ const ENERGY_REGEN_MS = 5*60*1000;
 const HEALTH_REGEN_MS = 30*1000;
 const PRICE_TICK_MS = 15000;
 const MISSION_PERIOD_MS = 24*60*60*1000;
-const LB_EVOLVE_MS = 45000;
 const PRESTIGE_LEVEL_REQ = 20;
 const GEAR_BAG_LIMIT = 40;
 const PRICE_HISTORY_LENGTH = 12;
@@ -148,7 +147,6 @@ const MISSION_POOL = [
   { id:'win',     track:'wins',      label:(t)=>`Win ${t} battles`,                  gen:()=>2+Math.floor(Math.random()*3),   reward:(t)=>t*40 },
 ];
 
-const LB_NAMES = ['Trader_Sami','Night_Rider','Mother_Gold','Hunter_Yasin','Valley_Treasure'];
 
 const SKILLS = {
   health:  { name:'Health',  icon:`<img class="ui-icon" src="${ICONS.heart_hp}" alt="❤️">`, perLevel:20,  max:20, desc:'Increases max health points' },
