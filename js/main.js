@@ -126,7 +126,6 @@ async function startGame(){
   if(typeof applyFontSize === 'function') applyFontSize(state.fontSize);
   if(typeof applyAccentColor === 'function') applyAccentColor(state.accentColor);
   initMissions();
-  if(!state.leaderboard) evolveLeaderboard();
   await initAllianceOnStart();
   render();
   setInterval(tick, TICK_MS);
@@ -220,7 +219,13 @@ function renderBottomNav(){
     {id:'leaderboard',icon:'🏆',label:'Rank'},
     {id:'settings',icon:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️">`,label:'More'},
   ];
-  nav.innerHTML = tabs.map(t=>`<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${t.id==='alliance'?'openAllianceTab();':`stopAllianceChatListener();activeTab='${t.id}';renderBody();`}"><span class="nav-icon">${t.icon}</span><span>${t.label}</span></button>`).join('');
+  nav.innerHTML = tabs.map(t=>{
+    let onclick;
+    if(t.id==='alliance') onclick = 'openAllianceTab();';
+    else if(t.id==='leaderboard') onclick = 'stopAllianceChatListener();openLeaderboardTab();';
+    else onclick = `stopAllianceChatListener();activeTab='${t.id}';renderBody();`;
+    return `<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${onclick}"><span class="nav-icon">${t.icon}</span><span>${t.label}</span></button>`;
+  }).join('');
   document.body.appendChild(nav);
 }
 function scheduleSave(){
@@ -286,11 +291,6 @@ function tick(){
     const maxCap = rate * 24;
     c.stored = Math.min(maxCap, c.stored + rate / 3600); // per second
   });
-  // Leaderboard evolve
-  if(now - state.lastLbEvolve >= LB_EVOLVE_MS){
-    evolveLeaderboard();
-    state.lastLbEvolve = now;
-  }
   checkMissionResets();
   renderHeader();
 }
@@ -331,14 +331,6 @@ function trackMission(s, track, amount){
     }
   });
 }
-function evolveLeaderboard(){
-  state.leaderboard = LB_NAMES.map((name,i)=>{
-    const level = Math.max(1, state.level + Math.floor((Math.random()-0.5)*8));
-    const gold = Math.max(0, Math.floor(state.gold * (0.5 + Math.random()*1.5)));
-    return { name, level, gold };
-  });
-}
-
 /* ===== GATHERING & CONSUMABLES ===== */
 function collect(key){
   const cost = getEnergyCost(state, 1);
