@@ -711,19 +711,29 @@ function renderMissions(){
 }
 
 function renderLeaderboard(){
-  const rows = [...state.leaderboard, { name:'You', level:state.level, gold:state.gold, me:true }];
-  const byGold = [...rows].sort((a,b)=>b.gold-a.gold);
-  const byLevel = [...rows].sort((a,b)=>b.level-a.level);
-  const tbl = (list, valueKey, suffix)=> `
+  if(!db){
+    return `<div class="lb-note">🔌 Leaderboard needs a cloud connection. Sign in with Google to compete on the real, server-wide leaderboard.</div>`;
+  }
+  if(leaderboardLoading && !leaderboardByGold){
+    return `<div class="lb-note">Loading leaderboard…</div>`;
+  }
+  if(leaderboardError && !leaderboardByGold){
+    return `
+      <div class="lb-note">⚠️ ${leaderboardError}</div>
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="refreshLeaderboard()">Retry</button>`;
+  }
+  const tbl = (list, valueKey)=> `
     <table class="lb-table">
       <tr><th>#</th><th>Player</th><th>${valueKey==='gold'?'Gold':'Level'}</th></tr>
-      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="showPlayerProfile({username:'${r.name}',avatar:'🧙',level:${r.level},wins:0,losses:0,gold:${r.gold||0}})">${r.name}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':r.level}</td></tr>`).join('')}
+      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="viewChatProfile('${r.uid}')">${(r.me?'You':r.name).replace(/</g,'&lt;')}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':r.level}</td></tr>`).join('')}
     </table>`;
   return `
-    <div class="lb-note">This is a local simulation (no real multiplayer connection) — a real leaderboard would need a shared backend database.</div>
+    <div class="lb-note">🌐 Live server-wide leaderboard, top ${LEADERBOARD_SIZE} players.
+      <span style="cursor:pointer;color:var(--brass-bright);" onclick="refreshLeaderboard()">↻ Refresh</span>
+    </div>
     <div class="grid" style="grid-template-columns:1fr 1fr;">
-      <div class="panel"><div class="section-title" style="margin-top:0;"><h2>🥇 Richest</h2></div>${tbl(byGold,'gold')}</div>
-      <div class="panel"><div class="section-title" style="margin-top:0;"><h2>🥈 Highest Level</h2></div>${tbl(byLevel,'level')}</div>
+      <div class="panel"><div class="section-title" style="margin-top:0;"><h2>🥇 Richest</h2></div>${tbl(leaderboardByGold||[],'gold')}</div>
+      <div class="panel"><div class="section-title" style="margin-top:0;"><h2>🥈 Highest Level</h2></div>${tbl(leaderboardByLevel||[],'level')}</div>
     </div>`;
 }
 
