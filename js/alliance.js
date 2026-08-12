@@ -46,6 +46,8 @@ let allianceBrowseResults = [];
 let allianceBrowseSearched = false;
 let allianceMyInvites = [];
 let allianceRequests = [];
+let allianceSentInvites = [];
+let allianceRequestedIds = new Set();
 let allianceChatMsgs = [];
 let allianceChatUnsub = null;
 let allianceError = '';
@@ -130,6 +132,11 @@ async function initAllianceOnStart(){
     }
     state.allianceJoinCooldownUntil = pdata.allianceJoinCooldownUntil || 0;
     state.allianceDisbandCooldownUntil = pdata.allianceDisbandCooldownUntil || 0;
+    if(state.allianceId){
+      if(allianceCan(state.allianceRole,'manageRequests')) await loadAllianceRequests();
+    } else {
+      await checkMyAllianceInvites();
+    }
   }catch(e){ console.error('Alliance init failed', e); }
 }
 
@@ -259,6 +266,7 @@ async function joinAllianceOpen(allianceId){
 
 async function requestJoinAlliance(allianceId){
   if(!db || state.allianceId) return;
+  if(allianceRequestedIds.has(allianceId)) return;
   if(state.allianceJoinCooldownUntil && Date.now() < state.allianceJoinCooldownUntil){
     showToast('⏳ Cooldown','You must wait before joining a new alliance.','error'); return;
   }
@@ -266,8 +274,10 @@ async function requestJoinAlliance(allianceId){
     await db.collection('alliances').doc(allianceId).collection('requests').doc(UID).set({
       uid: UID, username: window.__playerUsername || 'Player', ts: firebase.firestore.FieldValue.serverTimestamp(),
     });
+    allianceRequestedIds.add(allianceId);
     showToast('📨 Request Sent','Waiting for approval.','success');
   }catch(e){ console.error(e); showToast('❌','Failed to send request.','error'); }
+  renderBody();
 }
 
 async function checkMyAllianceInvites(){
@@ -307,6 +317,7 @@ async function acceptAllianceInvite(allianceId){
     showToast('❌', e.message==='FULL' ? 'Alliance is full.' : 'Failed to join.', 'error');
   }
   allianceLoading = false; renderBody();
+  if(typeof renderBottomNav === 'function') renderBottomNav();
 }
 
 async function declineAllianceInvite(allianceId){
@@ -314,6 +325,7 @@ async function declineAllianceInvite(allianceId){
   try{ await db.collection('alliances').doc(allianceId).collection('invites').doc(UID).delete(); }catch(e){}
   await checkMyAllianceInvites();
   renderBody();
+  if(typeof renderBottomNav === 'function') renderBottomNav();
 }
 
 async function loadAllianceRequests(){
@@ -347,6 +359,7 @@ async function approveJoinRequest(uid, username){
     showToast('❌', e.message==='FULL' ? 'Alliance is full.' : 'Failed.', 'error');
   }
   renderBody();
+  if(typeof renderBottomNav === 'function') renderBottomNav();
 }
 
 async function rejectJoinRequest(uid){
@@ -354,6 +367,7 @@ async function rejectJoinRequest(uid){
   try{ await db.collection('alliances').doc(state.allianceId).collection('requests').doc(uid).delete(); }catch(e){}
   await loadAllianceRequests();
   renderBody();
+  if(typeof renderBottomNav === 'function') renderBottomNav();
 }
 
 async function inviteToAlliance(){
@@ -372,9 +386,35 @@ async function inviteToAlliance(){
       ts: firebase.firestore.FieldValue.serverTimestamp(),
     });
     if(input) input.value = '';
+    await loadSentInvites();
     showToast('✉️ Invite Sent', `Invited ${uname}.`, 'success');
   }catch(e){ console.error(e); showToast('❌','Failed to invite.','error'); }
   renderBody();
+}
+
+async function loadSentInvites(){
+  if(!db || !state.allianceId || !allianceCan(state.allianceRole,'invite')){ allianceSentInvites = []; return; }
+  try{
+    const snap = await db.collection('alliances').doc(state.allianceId).collection('invites').get();
+    allianceSentInvites = snap.docs.map(d => ({ uid:d.id, ...d.data() }));
+  }catch(e){ console.error('Load sent invites failed', e); allianceSentInvites = []; }
+}
+
+async function cancelAllianceInvite(targetUid){
+  if(!allianceCan(state.allianceRole,'invite') || !db) return;
+  try{
+    await db.collection('alliances').doc(state.allianceId).collection('invites').doc(targetUid).delete();
+    await loadSentInvites();
+    showToast('✉️ Invite Cancelled','','success');
+  }catch(e){ console.error(e); }
+  renderBody();
+}
+
+function alliancePendingBadgeCount(){
+  if(state.allianceId){
+    return allianceCan(state.allianceRole,'manageRequests') ? allianceRequests.length : 0;
+  }
+  return allianceMyInvites.length;
 }
 
 async function checkAllianceLevelUp(){
@@ -583,12 +623,13 @@ async function openAllianceTab(){
   if(state.allianceId){
     if(!allianceData) await loadMyAlliance();
     if(allianceView === 'chat') startAllianceChatListener();
-    if(allianceView === 'manage') await loadAllianceRequests();
+    if(allianceView === 'manage'){ await loadAllianceRequests(); await loadSentInvites(); }
   } else {
     await checkMyAllianceInvites();
     if(!allianceBrowseSearched) await browseAlliances();
   }
   renderBody();
+  if(typeof renderBottomNav === 'function') renderBottomNav();
 }
 
 function setAllianceView(v){
@@ -596,7 +637,7 @@ function setAllianceView(v){
   allianceError = '';
   if(v === 'browse' && !allianceBrowseSearched) browseAlliances();
   if(v === 'chat') startAllianceChatListener(); else stopAllianceChatListener();
-  if(v === 'manage') loadAllianceRequests();
+  if(v === 'manage'){ loadAllianceRequests().then(()=>{ if(typeof renderBottomNav==='function') renderBottomNav(); }); loadSentInvites().then(renderBody); }
   renderBody();
 }
 
@@ -629,26 +670,31 @@ function renderAllianceLanding(){
   else body = renderAllianceBrowse();
 
   return `
-    <div class="panel" style="margin-bottom:10px;">
-      <div class="panel-header">🏛️ Alliances</div>
-      <div style="font-size:12px;color:var(--dim);padding:0 2px 10px;">Team up with other players to trade, fight, and grow together.</div>
-      ${cooldown > 0 ? `<div style="background:rgba(184,92,82,0.12);border:1px solid var(--red);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--red);margin-bottom:10px;">⏳ You must wait ${Math.ceil(cooldown/3600000)}h before joining a new alliance.</div>` : ''}
-      ${renderAllianceInvitesBox()}
-      <div style="display:flex;gap:6px;margin-bottom:10px;">
-        ${tabs.map(t => `<button class="mini-btn ${allianceView===t.id?'buy':''}" style="flex:1;${allianceView===t.id?'background:rgba(212,162,76,0.14);border-color:var(--brass);color:var(--brass-bright);':''}" onclick="setAllianceView('${t.id}')">${t.label}</button>`).join('')}
+    <div class="alliance-hero">
+      <div class="alliance-hero-top">
+        <div class="alliance-hero-emblem">🏛️</div>
+        <div style="flex:1;min-width:0;">
+          <div class="alliance-hero-name">Alliances</div>
+          <div class="alliance-hero-meta">Team up with other players to trade, fight, and grow together.</div>
+        </div>
+      </div>
+      ${cooldown > 0 ? `<div style="background:rgba(184,92,82,0.12);border:1px solid var(--red);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--red);margin-top:12px;">⏳ You must wait ${Math.ceil(cooldown/3600000)}h before joining a new alliance.</div>` : ''}
+      <div class="alliance-tabbar">
+        ${tabs.map(t => `<button class="alliance-tab ${allianceView===t.id?'active':''}" onclick="setAllianceView('${t.id}')">${t.label}</button>`).join('')}
       </div>
     </div>
+    ${renderAllianceInvitesBox()}
     ${body}`;
 }
 
 function renderAllianceInvitesBox(){
   if(!allianceMyInvites.length) return '';
   return `
-    <div style="background:rgba(212,162,76,0.10);border:1px solid var(--brass);border-radius:8px;padding:10px;margin-bottom:10px;">
-      <div style="font-size:12px;font-weight:700;color:var(--brass-bright);margin-bottom:6px;">✉️ Pending Invitations</div>
+    <div class="alliance-notice-card">
+      <div class="alliance-notice-title">✉️ Pending Invitations (${allianceMyInvites.length})</div>
       ${allianceMyInvites.map(inv => `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
-          <div style="font-size:12px;color:var(--text);">Invited by <b>${inv.invitedBy}</b></div>
+        <div class="alliance-notice-row">
+          <div class="who">Invited by <b>${inv.invitedBy}</b></div>
           <div style="display:flex;gap:6px;">
             <button class="mini-btn buy" onclick="acceptAllianceInvite('${inv.allianceId}')">Accept</button>
             <button class="mini-btn" onclick="declineAllianceInvite('${inv.allianceId}')">Decline</button>
@@ -703,21 +749,24 @@ function renderAllianceBrowse(){
 
 function renderAllianceBrowseList(){
   if(!allianceBrowseResults.length){
-    return `<div style="text-align:center;padding:20px;color:var(--dim);font-size:12px;">${allianceBrowseSearched ? 'No alliances found.' : 'Search to find alliances to join.'}</div>`;
+    return `<div class="alliance-empty"><div class="ae-icon">🔍</div><div class="ae-text">${allianceBrowseSearched ? 'No alliances found.' : 'Search to find alliances to join.'}</div></div>`;
   }
   return allianceBrowseResults.map(a => {
     const full = (a.memberCount||0) >= (a.maxMembers||20);
+    const requested = allianceRequestedIds.has(a.id);
+    let action;
+    if(full) action = `<span class="alliance-status-chip full">Full</span>`;
+    else if(a.type==='open') action = `<button class="mini-btn buy" onclick="joinAllianceOpen('${a.id}')">Join</button>`;
+    else if(requested) action = `<span class="alliance-status-chip pending">📨 Requested</span>`;
+    else action = `<button class="mini-btn" onclick="requestJoinAlliance('${a.id}')">Request</button>`;
     return `
-    <div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;">
-      <div style="font-size:26px;">${a.emblem||'⚔️'}</div>
+    <div class="card alliance-list-card">
+      <div class="alliance-list-emblem">${a.emblem||'⚔️'}</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;color:var(--brass-bright);font-size:13px;">${a.name} <span style="color:var(--dim);font-size:11px;font-weight:400;">Lv.${a.level||1}</span></div>
-        <div style="font-size:11px;color:var(--dim);">${a.memberCount||0}/${a.maxMembers||20} members · ${a.type==='open'?`<img class=\"ui-icon\" src=\"${ICONS.globe}\" alt=\"🌐\">  Open`:'🔒 Closed'} · Leader: ${a.leaderName||'—'}</div>
+        <div class="alliance-list-name">${a.name} <span style="color:var(--dim);font-size:11px;font-weight:400;">Lv.${a.level||1}</span></div>
+        <div class="alliance-list-meta">${a.memberCount||0}/${a.maxMembers||20} members · ${a.type==='open'?`<img class=\"ui-icon\" src=\"${ICONS.globe}\" alt=\"🌐\">  Open`:'🔒 Closed'} · Leader: ${a.leaderName||'—'}</div>
       </div>
-      ${full ? `<span class="resource-chip" style="border-color:var(--red);color:var(--red);">Full</span>`
-        : a.type==='open'
-          ? `<button class="mini-btn buy" onclick="joinAllianceOpen('${a.id}')">Join</button>`
-          : `<button class="mini-btn" onclick="requestJoinAlliance('${a.id}')">Request</button>`}
+      ${action}
     </div>`;
   }).join('');
 }
@@ -730,12 +779,13 @@ function renderAllianceDashboard(){
   const nextLvl = allianceNextLevelInfo(alliance.level || 1);
   const pointsPct = nextLvl ? Math.min(100, ((alliance.points||0) - lvlInfo.cost) / (nextLvl.cost - lvlInfo.cost) * 100) : 100;
 
+  const manageBadge = allianceCan(role,'manageRequests') ? allianceRequests.length : 0;
   const tabs = [
     { id:'home',    label:'🏛️ Home' },
     { id:'members', label:'👥 Members' },
     { id:'chat',    label:'💬 Chat' },
   ];
-  if(allianceCan(role,'invite') || allianceCan(role,'editInfo')) tabs.push({ id:'manage', label:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️"> Manage` });
+  if(allianceCan(role,'invite') || allianceCan(role,'editInfo')) tabs.push({ id:'manage', label:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️"> Manage`, badge: manageBadge });
 
   let body = '';
   if(allianceView === 'members') body = renderAllianceMembers();
@@ -744,20 +794,20 @@ function renderAllianceDashboard(){
   else body = renderAllianceHome();
 
   return `
-    <div class="panel" style="margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-        <div style="font-size:34px;">${alliance.emblem||'⚔️'}</div>
+    <div class="alliance-hero">
+      <div class="alliance-hero-top">
+        <div class="alliance-hero-emblem">${alliance.emblem||'⚔️'}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);">${alliance.name}</div>
-          <div style="font-size:11px;color:var(--dim);">Level ${alliance.level||1} · ${alliance.memberCount||0}/${alliance.maxMembers||20} members · ${roleInfo.icon} ${roleInfo.name}</div>
+          <div class="alliance-hero-name">${alliance.name}</div>
+          <div class="alliance-hero-meta">${alliance.memberCount||0}/${alliance.maxMembers||20} members · ${roleInfo.icon} ${roleInfo.name}</div>
         </div>
       </div>
-      <div style="margin-bottom:4px;display:flex;justify-content:space-between;font-size:10px;color:var(--dim);">
-        <span>Lv.${alliance.level||1}</span><span>${nextLvl ? `${fmtG(alliance.points||0)}/${fmtG(nextLvl.cost)} pts` : 'Max level'}</span>
+      <div class="alliance-hero-progress">
+        <div class="alliance-hero-progress-labels"><span>Lv.${alliance.level||1}</span><span>${nextLvl ? `${fmtG(alliance.points||0)}/${fmtG(nextLvl.cost)} pts` : 'Max level'}</span></div>
+        <div class="bar-track" style="height:8px;"><div class="bar-fill" style="width:${pointsPct}%;background:var(--prestige);"></div></div>
       </div>
-      <div class="bar-track" style="height:8px;margin-bottom:10px;"><div class="bar-fill" style="width:${pointsPct}%;background:var(--prestige);"></div></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${tabs.map(t => `<button class="mini-btn ${allianceView===t.id?'buy':''}" style="flex:1;min-width:70px;${allianceView===t.id?'background:rgba(212,162,76,0.14);border-color:var(--brass);color:var(--brass-bright);':''}" onclick="setAllianceView('${t.id}')">${t.label}</button>`).join('')}
+      <div class="alliance-tabbar">
+        ${tabs.map(t => `<button class="alliance-tab ${allianceView===t.id?'active':''}" onclick="setAllianceView('${t.id}')">${t.label}${t.badge?`<span class="tab-badge">${t.badge}</span>`:''}</button>`).join('')}
       </div>
     </div>
     ${body}`;
@@ -947,20 +997,27 @@ function renderAllianceManage(){
     html += `
     <div class="panel" style="margin-bottom:10px;">
       <div class="panel-header">✉️ Invite a Player</div>
-      <div style="display:flex;gap:6px;">
-        <input id="allianceInviteInput" class="username-input" style="margin-bottom:0;flex:1;" placeholder="Username…">
+      <div style="display:flex;gap:6px;margin-bottom:${allianceSentInvites.length?'10px':'0'};">
+        <input id="allianceInviteInput" class="username-input" style="margin-bottom:0;flex:1;" placeholder="Username…" onkeydown="if(event.key==='Enter')inviteToAlliance()">
         <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="inviteToAlliance()">Invite</button>
       </div>
+      ${allianceSentInvites.length ? `
+        <div style="font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">Sent Invites (${allianceSentInvites.length})</div>
+        ${allianceSentInvites.map(inv => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
+            <div style="font-size:12px;color:var(--text);">${inv.username}</div>
+            <button class="mini-btn" onclick="cancelAllianceInvite('${inv.uid}')">Cancel</button>
+          </div>`).join('')}` : ''}
     </div>`;
   }
 
   if(canRequests && alliance.type === 'closed'){
     html += `
-    <div class="panel" style="margin-bottom:10px;">
-      <div class="panel-header">📨 Join Requests (${allianceRequests.length})</div>
+    <div class="alliance-notice-card">
+      <div class="alliance-notice-title">📨 Join Requests (${allianceRequests.length})</div>
       ${allianceRequests.length ? allianceRequests.map(r => `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
-          <div style="font-size:12px;color:var(--text);">${r.username}</div>
+        <div class="alliance-notice-row">
+          <div class="who">${r.username}</div>
           <div style="display:flex;gap:6px;">
             <button class="mini-btn buy" onclick="approveJoinRequest('${r.uid}','${r.username}')">Approve</button>
             <button class="mini-btn" onclick="rejectJoinRequest('${r.uid}')">Reject</button>
