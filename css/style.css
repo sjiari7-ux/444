@@ -504,6 +504,42 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 .stat-overview-box .label{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}
 .stat-overview-box .value{font-family:var(--font-head);font-weight:800;font-size:15px;color:var(--text);margin-top:4px;}
 
+/* --- alliance redesign: hero, tabbar, notification cards --- */
+.alliance-hero{position:relative;overflow:hidden;background:linear-gradient(160deg,rgba(224,152,58,0.14) 0%,rgba(39,28,16,0.85) 55%,rgba(12,8,5,0.9) 100%);border:1px solid var(--border-light);border-radius:16px;padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow-soft);}
+.alliance-hero::after{content:'';position:absolute;top:-40%;right:-15%;width:220px;height:220px;background:radial-gradient(circle,rgba(224,152,58,0.20) 0%,transparent 70%);pointer-events:none;}
+.alliance-hero-top{display:flex;align-items:center;gap:12px;position:relative;z-index:1;}
+.alliance-hero-emblem{width:52px;height:52px;flex-shrink:0;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;background:linear-gradient(150deg,var(--panel-light),var(--panel));border:1px solid var(--brass-dim);box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 4px 14px rgba(0,0,0,0.35);}
+.alliance-hero-name{font-family:var(--font-display);font-weight:800;font-size:17px;color:var(--brass-bright);letter-spacing:.01em;line-height:1.2;}
+.alliance-hero-meta{font-size:11px;color:var(--dim);margin-top:2px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.alliance-hero-progress{margin-top:12px;position:relative;z-index:1;}
+.alliance-hero-progress-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9.5px;color:var(--dim);margin-bottom:4px;}
+
+.alliance-tabbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;position:relative;z-index:1;}
+.alliance-tab{position:relative;flex:1;min-width:64px;display:flex;align-items:center;justify-content:center;gap:4px;padding:8px 6px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--dim);font-family:var(--font-body);font-size:11.5px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.alliance-tab:hover{color:var(--text);}
+.alliance-tab.active{color:var(--brass-bright);border-color:var(--brass);background:linear-gradient(160deg,rgba(224,152,58,0.18) 0%,rgba(224,152,58,0.05) 100%);box-shadow:0 0 0 1px rgba(224,152,58,0.12) inset;}
+.alliance-tab .tab-badge{position:absolute;top:-6px;right:-4px;background:var(--red);color:#fff;font-family:var(--font-mono);font-size:9px;font-weight:700;min-width:16px;height:16px;padding:0 3px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg);}
+
+.alliance-notice-card{background:linear-gradient(160deg,rgba(224,152,58,0.12) 0%,rgba(39,28,16,0.6) 100%);border:1px solid var(--brass);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+.alliance-notice-title{font-size:12px;font-weight:700;color:var(--brass-bright);display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.alliance-notice-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid rgba(224,152,58,0.18);}
+.alliance-notice-row:first-of-type{border-top:none;padding-top:2px;}
+.alliance-notice-row .who{font-size:12px;color:var(--text);}
+.alliance-notice-row .who b{color:var(--brass-bright);}
+
+.alliance-list-card{display:flex;align-items:center;gap:12px;padding:12px 13px;margin-bottom:8px;cursor:default;}
+.alliance-list-card:hover{transform:translateY(-1px);border-color:var(--brass-dim);box-shadow:var(--shadow-soft);}
+.alliance-list-emblem{width:42px;height:42px;flex-shrink:0;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(150deg,var(--panel-light),var(--panel-inset));border:1px solid var(--border-light);}
+.alliance-list-name{font-weight:700;color:var(--brass-bright);font-size:13px;}
+.alliance-list-meta{font-size:11px;color:var(--dim);margin-top:1px;}
+.alliance-status-chip{font-family:var(--font-mono);font-size:10.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--border);color:var(--dim);white-space:nowrap;}
+.alliance-status-chip.pending{border-color:var(--brass);color:var(--brass-bright);background:rgba(224,152,58,0.10);}
+.alliance-status-chip.full{border-color:var(--red);color:var(--red);}
+
+.alliance-empty{text-align:center;padding:28px 16px;color:var(--dim);}
+.alliance-empty .ae-icon{font-size:28px;margin-bottom:8px;opacity:.7;}
+.alliance-empty .ae-text{font-size:12px;}
+
 /* --- alliance overview: rankings + government (Country-page style) --- */
 .alliance-rank-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
 .alliance-rank-card{border:1px solid var(--border);border-radius:12px;padding:10px 11px;background:var(--panel);}
@@ -684,6 +720,8 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 .nav-item.active::before{content:'';position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:18px;height:2px;background:var(--brass);border-radius:2px;box-shadow:0 0 8px var(--brass);}
 .nav-icon{font-size:22px;line-height:1;filter:grayscale(0.3);transition:filter 0.2s;}
 .nav-item.active .nav-icon{filter:grayscale(0) drop-shadow(0 0 4px rgba(224,152,58,0.5));}
+.nav-item .nav-icon{position:relative;}
+.nav-item .nav-dot{position:absolute;top:-3px;right:-6px;background:var(--red);color:#fff;font-family:var(--font-mono);font-size:8.5px;font-weight:700;min-width:14px;height:14px;padding:0 3px;border-radius:7px;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg);line-height:1;}
 .nav-badge{position:absolute;top:0;right:4px;background:var(--red);color:#fff;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--bg);box-shadow:0 2px 6px rgba(0,0,0,0.4);animation:pulse 2s ease-in-out infinite;}
 .wrap{padding-bottom:90px;}
 
