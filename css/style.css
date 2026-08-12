@@ -540,6 +540,18 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 .alliance-empty .ae-icon{font-size:28px;margin-bottom:8px;opacity:.7;}
 .alliance-empty .ae-text{font-size:12px;}
 
+.alliance-hero-icons{position:absolute;top:14px;right:14px;display:flex;gap:8px;z-index:2;}
+.alliance-icon-btn{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;background:rgba(20,14,8,0.55);border:1px solid var(--border-light);color:var(--text);cursor:pointer;transition:transform .15s,border-color .15s,background .15s;backdrop-filter:blur(2px);}
+.alliance-icon-btn:hover{transform:translateY(-1px);border-color:var(--brass);background:rgba(20,14,8,0.75);}
+.alliance-icon-btn.discord{color:#8ea1e1;}
+.alliance-icon-btn.donate{color:#e0985a;}
+
+.donate-amount-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.donate-amount-row input{flex:1;min-width:0;background:var(--bg);border:1px dashed var(--red);border-radius:8px;padding:12px 14px;font-family:var(--font-mono);font-size:15px;color:var(--text);text-align:left;}
+.donate-step-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;border:1px solid var(--border-light);background:var(--panel-light);color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.donate-step-btn:hover{border-color:var(--brass);color:var(--brass-bright);}
+.donate-hint{font-size:11px;color:var(--dim);margin-bottom:16px;}
+
 /* --- alliance overview: rankings + government (Country-page style) --- */
 .alliance-rank-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
 .alliance-rank-card{border:1px solid var(--border);border-radius:12px;padding:10px 11px;background:var(--panel);}
