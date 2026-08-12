@@ -91,6 +91,7 @@ function startBattle(zoneId){
   state.battleActive = true;
   battleItemMenuOpen = false;
   battleCodexOpen = false;
+  updateMissionProgress('battles_started', 1);
   pushLog(state, `Entered ${zone.name} — ${monster.name} appears!`, 'gain');
   renderBody(); scheduleSave();
 }
@@ -141,6 +142,7 @@ function playerAttackAction(isSkill, skillKey){
   if(isCrit) dmg = Math.round(dmg * 2);
   if(isPierce) dmg = Math.max(1, Math.round(pStats.atk * 1.5));
   m.hp -= dmg;
+  updateMissionProgress('hits_landed', 1);
   bs.turns.push({ who:'player', dmg, crit:isCrit, pierce:isPierce, charge: chargeMult > 1 ? chargeMult : null, skill: skillName || null });
   if(chargeMult > 1) bs.chargeLevel = 0;
   if(m.hp <= 0){ m.hp = 0; bs.won = true; awardBattleRewards(); renderBody(); playBattleEffects(bs); scheduleSave(); return; }
@@ -231,7 +233,7 @@ function awardBattleRewards(){
   const crit = getCritChance(state);
   if(Math.random() < crit){ gold = Math.round(gold * 1.5); xp = Math.round(xp * 1.3); }
   state.gold += gold; state.totalGoldEarned += gold; state.combat.wins += 1;
-  const leveled = grantXp(state, xp); trackMission(state, 'wins', 1);
+  const leveled = grantXp(state, xp); updateMissionProgress('battles_won', 1);
   const loot = {};
   m.loot.forEach(l => { const amount = l.min + Math.floor(Math.random() * (l.max - l.min + 1)); if(amount > 0){ state.inv[l.item] = (state.inv[l.item] || 0) + amount; loot[l.item] = amount; } });
   const shards = 5 + Math.floor(Math.random() * 11); state.shards += shards;
