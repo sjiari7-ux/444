@@ -1058,6 +1058,7 @@ function renderAllianceMemberRow(m){
     && (m.role !== 'officer' || state.allianceRole === 'leader');
   const canDemote = allianceCan(state.allianceRole,'demote') && m.role !== 'leader' && m.role !== 'recruit' && allianceRankOf(m.role) < myRank;
   const canExempt = allianceCan(state.allianceRole,'removeInactive') && !isMe;
+  const hasActions = !isMe && (canPromote || canDemote || canExempt || canManage);
   const atRisk = isMemberAtRisk(m);
   const activity = memberActivityPct(m);
   const dotColor = activity >= 60 ? 'var(--green)' : activity >= 25 ? 'var(--brass-bright)' : 'var(--red)';
@@ -1067,17 +1068,54 @@ function renderAllianceMemberRow(m){
         <div style="font-size:20px;">${roleInfo.icon}</div>
         <div title="Activity ${activity}%" style="position:absolute;bottom:-2px;right:-2px;width:9px;height:9px;border-radius:50%;background:${dotColor};border:1.5px solid var(--panel);"></div>
       </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;color:var(--text);font-size:13px;">${m.username}${isMe?' <span style="color:var(--dim);font-size:11px;">(you)</span>':''}</div>
+      <div style="flex:1;min-width:0;${hasActions?'cursor:pointer;':''}" ${hasActions?`onclick="openMemberActionsModal('${m.uid}')"`:''}>
+        <div style="font-weight:700;color:var(--text);font-size:13px;${hasActions?'text-decoration:underline;text-decoration-color:var(--border-light);text-underline-offset:2px;':''}">${m.username}${isMe?' <span style="color:var(--dim);font-size:11px;">(you)</span>':''}</div>
         <div style="font-size:11px;color:var(--dim);">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)} · Activity ${activity}%${atRisk?' · <span style="color:var(--red);">Inactive</span>':''}${m.exempt?' · <span style="color:var(--green);">Exempt</span>':''}</div>
       </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
-        ${canPromote?`<button class="mini-btn" onclick="promoteMember('${m.uid}','${m.role}')" title="Promote"><img class="ui-icon" src="${ICONS.upgrade}" alt="⬆️"></button>`:''}
-        ${canDemote?`<button class="mini-btn" onclick="demoteMember('${m.uid}','${m.role}')" title="Demote">⬇️</button>`:''}
-        ${canExempt?`<button class="mini-btn" onclick="toggleMemberExempt('${m.uid}', ${!!m.exempt})" title="Toggle inactivity exemption">${m.exempt?'🔓':'🔒'}</button>`:''}
-        ${canManage?`<button class="mini-btn" style="color:var(--red);border-color:var(--red);" onclick="kickMember('${m.uid}','${m.role}')" title="Kick">✕</button>`:''}
+      ${hasActions?`<button class="mini-btn" onclick="openMemberActionsModal('${m.uid}')" title="Member actions">⋯</button>`:''}
+    </div>`;
+}
+
+function openMemberActionsModal(uid){
+  const m = (allianceData.members || []).find(x => x.uid === uid);
+  if(!m) return;
+  const roleInfo = ALLIANCE_ROLES[m.role] || ALLIANCE_ROLES.member;
+  const myRank = allianceRankOf(state.allianceRole);
+  const canManage = allianceCan(state.allianceRole,'kick') && allianceRankOf(m.role) < myRank;
+  const canPromote = allianceCan(state.allianceRole,'promote') && m.role !== 'leader' && allianceRankOf(m.role) < myRank
+    && (m.role !== 'officer' || state.allianceRole === 'leader');
+  const canDemote = allianceCan(state.allianceRole,'demote') && m.role !== 'leader' && m.role !== 'recruit' && allianceRankOf(m.role) < myRank;
+  const canExempt = allianceCan(state.allianceRole,'removeInactive') && m.uid !== UID;
+  const promoteTo = ALLIANCE_ROLES[nextRoleUp(m.role)];
+  const demoteTo = ALLIANCE_ROLES[nextRoleDown(m.role)];
+
+  let modal = document.getElementById('memberActionsModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'memberActionsModal';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div class="modal-overlay" style="z-index:130;" onclick="if(event.target===this)closeMemberActionsModal()">
+      <div class="modal-box" style="max-width:320px;">
+        <div class="modal-header">
+          <h3>${roleInfo.icon} ${m.username}</h3>
+          <button class="modal-close" onclick="closeMemberActionsModal()">✕</button>
+        </div>
+        <div style="padding:16px 18px;">
+          <div style="font-size:11px;color:var(--dim);margin-bottom:14px;">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)}</div>
+          ${canPromote?`<button class="member-action-btn" onclick="closeMemberActionsModal();promoteMember('${m.uid}','${m.role}')"><span class="icon">⬆️</span> Promote to ${promoteTo.name}</button>`:''}
+          ${canDemote?`<button class="member-action-btn" onclick="closeMemberActionsModal();demoteMember('${m.uid}','${m.role}')"><span class="icon">⬇️</span> Demote to ${demoteTo.name}</button>`:''}
+          ${canExempt?`<button class="member-action-btn" onclick="closeMemberActionsModal();toggleMemberExempt('${m.uid}', ${!!m.exempt})"><span class="icon">${m.exempt?'🔓':'🔒'}</span> ${m.exempt?'Remove Inactivity Exemption':'Exempt from Inactivity'}</button>`:''}
+          ${canManage?`<button class="member-action-btn danger" onclick="closeMemberActionsModal();kickMember('${m.uid}','${m.role}')"><span class="icon">✕</span> Remove from Alliance</button>`:''}
+          ${(!canPromote && !canDemote && !canExempt && !canManage)?`<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0;">No actions available for this member.</div>`:''}
+        </div>
       </div>
     </div>`;
+}
+function closeMemberActionsModal(){
+  const modal = document.getElementById('memberActionsModal');
+  if(modal) modal.remove();
 }
 
 function renderAllianceManage(){
