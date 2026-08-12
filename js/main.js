@@ -219,8 +219,8 @@ function renderBottomNav(){
   nav.innerHTML = tabs.map(t=>{
     let onclick;
     if(t.id==='alliance') onclick = 'openAllianceTab();';
-    else if(t.id==='leaderboard') onclick = 'stopAllianceChatListener();openLeaderboardTab();';
-    else onclick = `stopAllianceChatListener();activeTab='${t.id}';renderBody();`;
+    else if(t.id==='leaderboard') onclick = 'openLeaderboardTab();';
+    else onclick = `activeTab='${t.id}';renderBody();`;
     const dot = (t.id==='alliance' && allianceBadge>0) ? `<span class="nav-dot">${allianceBadge>9?'9+':allianceBadge}</span>` : '';
     return `<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${onclick}"><span class="nav-icon">${t.icon}${dot}</span><span>${t.label}</span></button>`;
   }).join('');
