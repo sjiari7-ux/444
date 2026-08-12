@@ -5,6 +5,7 @@
    ═══════════════════════════════════════════════════════════════ */
 
 /* ===== CONFIG ===== */
+const ALLIANCE_EMBLEMS = ['⚔️','🛡️','🐉','🦅','🐺','⭐','🔥','🌊','🏔️','💀','👑','🌙'];
 const ALLIANCE_ROLES = {
   leader:   { key:'leader',   name:'Leader',    icon:'👑', rank:5 },
   coleader: { key:'coleader', name:'Co-Leader', icon:'⭐', rank:4 },
@@ -54,6 +55,7 @@ let allianceChatUnread = 0;
 let allianceChatFirstLoad = true;
 let allianceError = '';
 let allianceCreateEmblem = '⚔️';
+let allianceEditEmblem = null;
 let allianceCreateType = 'open';
 
 /* ===== PERMISSIONS ===== */
@@ -739,7 +741,7 @@ function renderAllianceInvitesBox(){
 function renderAllianceCreateForm(){
   const canAfford = state.gold >= ALLIANCE_CREATE_COST;
   const meetsLevel = state.level >= ALLIANCE_CREATE_MIN_LEVEL;
-  const emblems = ['⚔️','🛡️','🐉','🦅','🐺','⭐','🔥','🌊','🏔️','💀','👑','🌙'];
+  const emblems = ALLIANCE_EMBLEMS;
   return `
     <div class="panel">
       <div class="panel-header">🏛️ Found a New Alliance</div>
@@ -947,9 +949,8 @@ function renderAllianceHome(){
       <div class="panel-header">🚪 Alliance Actions</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${canLeave ? `<button class="act-btn" style="width:auto;padding:9px 16px;border-color:var(--red);color:var(--red);" onclick="leaveAllianceConfirm()">🚪 Leave Alliance</button>` : ''}
-        ${state.allianceRole==='leader' ? `<button class="act-btn" style="width:auto;padding:9px 16px;border-color:var(--red);color:var(--red);" onclick="disbandAllianceConfirm()">💥 Disband Alliance</button>` : ''}
       </div>
-      ${canLeave ? `<div style="font-size:10px;color:var(--dim);margin-top:6px;">Leaving forfeits 50% of your contribution record and applies a 24h cooldown before joining another alliance.</div>` : `<div style="font-size:10px;color:var(--dim);margin-top:6px;">Disbanding splits the treasury among members by contribution and applies a 7-day cooldown before founding a new alliance.</div>`}
+      ${canLeave ? `<div style="font-size:10px;color:var(--dim);margin-top:6px;">Leaving forfeits 50% of your contribution record and applies a 24h cooldown before joining another alliance.</div>` : ''}
     </div>`;
 }
 
@@ -1059,9 +1060,16 @@ function renderAllianceManage(){
   }
 
   if(canEdit){
+    if(allianceEditEmblem === null) allianceEditEmblem = alliance.emblem || '⚔️';
     html += `
-    <div class="panel">
-      <div class="panel-header"><img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️"> Alliance Settings</div>
+    <div class="panel" style="margin-bottom:10px;">
+      <div class="panel-header"><img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️"> Alliance Profile</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Alliance Name</div>
+      <input id="allianceEditNameInput" class="username-input" style="margin-bottom:10px;" maxlength="20" value="${(alliance.name||'').replace(/"/g,'&quot;')}">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:6px;">Emblem</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:10px;">
+        ${ALLIANCE_EMBLEMS.map(e => `<button class="mini-btn ${allianceEditEmblem===e?'buy':''}" style="font-size:18px;padding:8px 0;${allianceEditEmblem===e?'background:rgba(212,162,76,0.14);border-color:var(--brass);':''}" onclick="allianceEditEmblem='${e}';renderBody();">${e}</button>`).join('')}
+      </div>
       <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Description</div>
       <input id="allianceEditDescInput" class="username-input" style="margin-bottom:10px;" maxlength="120" value="${(alliance.description||'').replace(/"/g,'&quot;')}">
       <div style="font-size:11px;color:var(--dim);margin-bottom:6px;">Alliance Type</div>
@@ -1069,24 +1077,60 @@ function renderAllianceManage(){
         <button class="mini-btn ${alliance.type==='open'?'buy':''}" style="flex:1;" onclick="updateAllianceType('open')"><img class="ui-icon" src="${ICONS.globe}" alt="🌐"> Open</button>
         <button class="mini-btn ${alliance.type==='closed'?'buy':''}" style="flex:1;" onclick="updateAllianceType('closed')">🔒 Closed</button>
       </div>
-      <button class="act-btn buy" style="width:100%;padding:10px;" onclick="updateAllianceDescription()">Save Description</button>
+      <button class="act-btn buy" style="width:100%;padding:10px;" onclick="saveAllianceProfile()">Save Changes</button>
+    </div>`;
+  }
+
+  if(state.allianceRole === 'leader'){
+    html += `
+    <div class="panel" style="border-color:var(--red);">
+      <div class="panel-header" style="color:var(--red);">💀 Danger Zone</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Disbanding splits the treasury among members by contribution and applies a 7-day cooldown before founding a new alliance. This cannot be undone.</div>
+      <button class="act-btn" style="width:100%;padding:10px;border-color:var(--red);color:var(--red);" onclick="disbandAllianceConfirm()">💥 Disband Alliance</button>
     </div>`;
   }
 
   return html || `<div class="panel"><div style="padding:20px;text-align:center;color:var(--dim);">No management permissions.</div></div>`;
 }
 
-async function updateAllianceDescription(){
+async function saveAllianceProfile(){
   if(!allianceCan(state.allianceRole,'editInfo') || !db) return;
-  const input = document.getElementById('allianceEditDescInput');
-  const desc = (input ? input.value : '').trim().slice(0, 120);
+  const nameInput = document.getElementById('allianceEditNameInput');
+  const descInput = document.getElementById('allianceEditDescInput');
+  const newName = (nameInput ? nameInput.value : '').trim();
+  const desc = (descInput ? descInput.value : '').trim().slice(0, 120);
+  const newEmblem = allianceEditEmblem || allianceData.alliance.emblem || '⚔️';
+  const oldName = allianceData.alliance.name || '';
+
+  if(newName.length < 3 || newName.length > 20){ showToast('❌','Name must be 3-20 characters.','error'); return; }
+  if(!/^[\p{L}\p{N} _\-]+$/u.test(newName)){ showToast('❌','Name contains disallowed characters.','error'); return; }
+
+  allianceLoading = true; renderBody();
   try{
-    await db.collection('alliances').doc(state.allianceId).update({ description: desc });
+    const allianceRef = db.collection('alliances').doc(state.allianceId);
+    if(newName.toLowerCase() !== oldName.toLowerCase()){
+      const oldKey = oldName.toLowerCase();
+      const newKey = newName.toLowerCase();
+      const newNameRef = db.collection('allianceNames').doc(newKey);
+      await db.runTransaction(async (tx) => {
+        const newNameDoc = await tx.get(newNameRef);
+        if(newNameDoc.exists) throw new Error('NAME_TAKEN');
+        tx.set(newNameRef, { allianceId: state.allianceId, name: newName });
+        tx.delete(db.collection('allianceNames').doc(oldKey));
+        tx.update(allianceRef, { name: newName, emblem: newEmblem, description: desc });
+      });
+    } else {
+      await allianceRef.update({ name: newName, emblem: newEmblem, description: desc });
+    }
     await loadMyAlliance();
-    showToast('✅ Saved','Alliance description updated.','success');
-  }catch(e){ console.error(e); }
-  renderBody();
+    showToast('✅ Saved','Alliance profile updated.','success');
+  }catch(e){
+    if(e.message === 'NAME_TAKEN') showToast('❌','That name is already taken.','error');
+    else { console.error(e); showToast('❌','Failed to save changes.','error'); }
+  }
+  allianceLoading = false; renderBody();
 }
+
 async function updateAllianceType(type){
   if(!allianceCan(state.allianceRole,'editInfo') || !db) return;
   try{
