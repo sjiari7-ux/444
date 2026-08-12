@@ -230,6 +230,9 @@ function grantXp(s, amount){
         }
         leveled = true;
     }
+    if(leveled && typeof updateMissionProgress === 'function'){
+        updateMissionProgress('level_reached', s.level - oldLevel);
+    }
     return leveled;
 }
 
