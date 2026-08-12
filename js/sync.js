@@ -219,15 +219,18 @@ function refreshLeaderboard(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ARCADIA MMO — Global Chat (server-wide, floating button + modal)
+   ARCADIA MMO — Unified Chat Drawer (Global + Alliance tabs,
+   one floating button + one overlay panel)
    ═══════════════════════════════════════════════════════════════ */
 let globalChatMsgs = [];
 let globalChatUnsub = null;
-let globalChatOpen = false;
 let globalChatUnread = 0;
 let globalChatFirstLoad = true;
 let lastGlobalChatSendTs = 0;
 const GLOBAL_CHAT_COOLDOWN_MS = 1500;
+
+let chatDrawerOpen = false;
+let chatActiveTab = 'global'; // 'global' | 'alliance'
 
 function startGlobalChatListener(){
   if(!db || globalChatUnsub) return;
@@ -239,9 +242,9 @@ function startGlobalChatListener(){
       const grew = !globalChatFirstLoad && msgs.length > globalChatMsgs.length;
       globalChatFirstLoad = false;
       globalChatMsgs = msgs;
-      if(globalChatOpen){
-        const el = document.getElementById('globalChatMsgs');
-        if(el){ el.innerHTML = renderGlobalChatMsgsHTML(); el.scrollTop = el.scrollHeight; }
+      if(chatDrawerOpen && chatActiveTab === 'global'){
+        const el = document.getElementById('chatDrawerMsgs');
+        if(el){ el.innerHTML = renderChatMsgsHTML(globalChatMsgs); el.scrollTop = el.scrollHeight; }
       } else if(grew){
         globalChatUnread++;
         renderGlobalChatFab();
@@ -252,21 +255,26 @@ function stopGlobalChatListener(){
   if(globalChatUnsub){ globalChatUnsub(); globalChatUnsub = null; }
 }
 
+function chatTotalUnread(){
+  return globalChatUnread + (typeof allianceChatUnread !== 'undefined' ? allianceChatUnread : 0);
+}
+
 function renderGlobalChatFab(){
   let btn = document.getElementById('globalChatFab');
   if(!btn){
     btn = document.createElement('button');
     btn.id = 'globalChatFab';
     btn.className = 'chat-fab';
-    btn.title = 'Global Chat';
-    btn.onclick = openGlobalChat;
+    btn.title = 'Chat';
+    btn.onclick = ()=> openChatDrawer();
     document.body.appendChild(btn);
   }
-  btn.innerHTML = `💬${globalChatUnread>0?`<span class="chat-fab-badge">${globalChatUnread>99?'99+':globalChatUnread}</span>`:''}`;
+  const total = chatTotalUnread();
+  btn.innerHTML = `💬${total>0?`<span class="chat-fab-badge">${total>99?'99+':total}</span>`:''}`;
 }
 
-function renderGlobalChatMsgsHTML(){
-  return globalChatMsgs.length ? globalChatMsgs.map(m=>{
+function renderChatMsgsHTML(msgs){
+  return (msgs && msgs.length) ? msgs.map(m=>{
     const name = (m.username || 'Player').replace(/</g,'&lt;');
     const text = (m.text || '').replace(/</g,'&lt;');
     const avatar = (m.avatar || '🧙').replace(/</g,'&lt;');
@@ -282,7 +290,7 @@ function renderGlobalChatMsgsHTML(){
         <div class="chat-msg-text">${text}</div>
       </div>
     </div>`;
-  }).join('') : `<div style="text-align:center;color:var(--dim);font-size:12px;padding:20px;">No messages yet. Say hello to Arcadia!</div>`;
+  }).join('') : `<div style="text-align:center;color:var(--dim);font-size:12px;padding:20px;">No messages yet. Say hello!</div>`;
 }
 
 async function viewChatProfile(uid){
@@ -336,39 +344,79 @@ function closeChatProfile(){
   if(modal) modal.remove();
 }
 
-function renderGlobalChatDrawerHTML(){
-  if(!db || !UID){
-    return `
-      <div class="chat-drawer-header">
-        <h3>🌐 Global Chat</h3>
-        <button class="modal-close" onclick="closeGlobalChat()">✕</button>
-      </div>
-      <div style="text-align:center;padding:30px 20px;color:var(--dim);font-size:13px;">Global Chat needs a cloud connection. Sign in to chat with other players.</div>`;
-  }
+function renderChatDrawerTabsHTML(){
+  const hasAlliance = !!(typeof state !== 'undefined' && state && state.allianceId);
+  const allianceUnreadCount = typeof allianceChatUnread !== 'undefined' ? allianceChatUnread : 0;
   return `
-    <div class="chat-drawer-header">
-      <h3>🌐 Global Chat</h3>
-      <button class="modal-close" onclick="closeGlobalChat()">✕</button>
-    </div>
-    <div id="globalChatMsgs" class="chat-drawer-msgs">${renderGlobalChatMsgsHTML()}</div>
-    <div class="chat-drawer-input-row">
-      <input id="globalChatInput" class="username-input" style="margin-bottom:0;flex:1;" maxlength="300" placeholder="Message everyone…" onkeydown="globalChatKeydown(event)">
-      <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="sendGlobalChatMsg()">Send</button>
+    <div class="chat-drawer-tabs">
+      <button class="chat-drawer-tab ${chatActiveTab==='global'?'active':''}" onclick="switchChatTab('global')">
+        🌐 Global${globalChatUnread>0 && chatActiveTab!=='global' ? `<span class="tab-dot">${globalChatUnread>9?'9+':globalChatUnread}</span>` : ''}
+      </button>
+      <button class="chat-drawer-tab ${chatActiveTab==='alliance'?'active':''} ${hasAlliance?'':'disabled'}" title="${hasAlliance?'':'Join an alliance to unlock'}" onclick="${hasAlliance?"switchChatTab('alliance')":''}">
+        🏛️ Alliance${allianceUnreadCount>0 && chatActiveTab!=='alliance' ? `<span class="tab-dot">${allianceUnreadCount>9?'9+':allianceUnreadCount}</span>` : ''}
+      </button>
     </div>`;
 }
 
-function globalChatOutsideClick(ev){
+function renderChatDrawerHTML(){
+  if(!db || !UID){
+    return `
+      <div class="chat-drawer-header">
+        <h3>💬 Chat</h3>
+        <button class="modal-close" onclick="closeChatDrawer()">✕</button>
+      </div>
+      <div style="text-align:center;padding:30px 20px;color:var(--dim);font-size:13px;">Chat needs a cloud connection. Sign in to chat with other players.</div>`;
+  }
+  const hasAlliance = !!(state && state.allianceId);
+  const onAlliance = chatActiveTab === 'alliance';
+  if(onAlliance && !hasAlliance) chatActiveTab = 'global';
+  const title = chatActiveTab === 'alliance' ? '🏛️ Alliance Chat' : '🌐 Global Chat';
+  const placeholder = chatActiveTab === 'alliance' ? 'Message your alliance…' : 'Message everyone…';
+  const sendFn = chatActiveTab === 'alliance' ? 'sendAllianceChatMsg()' : 'sendGlobalChatMsg()';
+  const keydownFn = chatActiveTab === 'alliance' ? 'allianceChatKeydown(event)' : 'globalChatKeydown(event)';
+  const msgs = chatActiveTab === 'alliance' ? (typeof allianceChatMsgs !== 'undefined' ? allianceChatMsgs : []) : globalChatMsgs;
+  return `
+    <div class="chat-drawer-header">
+      <h3>${title}</h3>
+      <button class="modal-close" onclick="closeChatDrawer()">✕</button>
+    </div>
+    ${renderChatDrawerTabsHTML()}
+    <div id="chatDrawerMsgs" class="chat-drawer-msgs">${renderChatMsgsHTML(msgs)}</div>
+    <div class="chat-drawer-input-row">
+      <input id="chatDrawerInput" class="username-input" style="margin-bottom:0;flex:1;" maxlength="300" placeholder="${placeholder}" onkeydown="${keydownFn}">
+      <button class="act-btn buy" style="width:auto;padding:0 16px;" onclick="${sendFn}">Send</button>
+    </div>`;
+}
+
+function switchChatTab(tab){
+  if(tab === 'alliance' && !(state && state.allianceId)) return;
+  chatActiveTab = tab;
+  if(tab === 'alliance'){ allianceChatUnread = 0; if(typeof startAllianceChatListener==='function') startAllianceChatListener(); }
+  else { globalChatUnread = 0; }
+  const drawer = document.getElementById('globalChatDrawer');
+  if(drawer) drawer.innerHTML = renderChatDrawerHTML();
+  const el = document.getElementById('chatDrawerMsgs');
+  if(el) el.scrollTop = el.scrollHeight;
+  const input = document.getElementById('chatDrawerInput');
+  if(input) input.focus();
+  renderGlobalChatFab();
+}
+
+function chatOutsideClick(ev){
   const drawer = document.getElementById('globalChatDrawer');
   const fab = document.getElementById('globalChatFab');
   if(!drawer) return;
   if(drawer.contains(ev.target) || (fab && fab.contains(ev.target))) return;
-  closeGlobalChat();
+  closeChatDrawer();
 }
-function globalChatEscClose(ev){ if(ev.key === 'Escape') closeGlobalChat(); }
+function chatEscClose(ev){ if(ev.key === 'Escape') closeChatDrawer(); }
 
-function openGlobalChat(){
-  globalChatOpen = true;
-  globalChatUnread = 0;
+function openChatDrawer(tab){
+  chatDrawerOpen = true;
+  if(tab === 'alliance' && !(state && state.allianceId)) tab = 'global';
+  chatActiveTab = tab || chatActiveTab || 'global';
+  if(chatActiveTab === 'alliance'){ allianceChatUnread = 0; if(typeof startAllianceChatListener==='function') startAllianceChatListener(); }
+  else globalChatUnread = 0;
   renderGlobalChatFab();
   let drawer = document.getElementById('globalChatDrawer');
   if(!drawer){
@@ -377,25 +425,29 @@ function openGlobalChat(){
     drawer.className = 'chat-drawer';
     document.body.appendChild(drawer);
   }
-  drawer.innerHTML = renderGlobalChatDrawerHTML();
+  drawer.innerHTML = renderChatDrawerHTML();
   requestAnimationFrame(()=> drawer.classList.add('open'));
-  const el = document.getElementById('globalChatMsgs');
+  const el = document.getElementById('chatDrawerMsgs');
   if(el) el.scrollTop = el.scrollHeight;
-  const input = document.getElementById('globalChatInput');
+  const input = document.getElementById('chatDrawerInput');
   if(input) input.focus();
-  document.addEventListener('click', globalChatOutsideClick, true);
-  document.addEventListener('keydown', globalChatEscClose);
+  document.addEventListener('click', chatOutsideClick, true);
+  document.addEventListener('keydown', chatEscClose);
   startGlobalChatListener();
 }
-function closeGlobalChat(){
-  globalChatOpen = false;
+function closeChatDrawer(){
+  chatDrawerOpen = false;
   const drawer = document.getElementById('globalChatDrawer');
   if(drawer) drawer.classList.remove('open');
-  document.removeEventListener('click', globalChatOutsideClick, true);
-  document.removeEventListener('keydown', globalChatEscClose);
+  document.removeEventListener('click', chatOutsideClick, true);
+  document.removeEventListener('keydown', chatEscClose);
 }
+// Back-compat aliases (older code/onclick handlers may still reference these names)
+function openGlobalChat(){ openChatDrawer('global'); }
+function closeGlobalChat(){ closeChatDrawer(); }
+
 async function sendGlobalChatMsg(){
-  const input = document.getElementById('globalChatInput');
+  const input = document.getElementById('chatDrawerInput');
   let text = input ? input.value.trim() : '';
   if(!text || !db || !UID) return;
   if(Date.now() - lastGlobalChatSendTs < GLOBAL_CHAT_COOLDOWN_MS) return;
