@@ -245,6 +245,7 @@ async function joinAllianceOpen(allianceId){
       tx.update(db.collection('players').doc(UID), { allianceId, allianceRole: 'recruit' });
     });
     state.allianceId = allianceId; state.allianceRole = 'recruit';
+    updateMissionProgress('alliance_joined', 1);
     scheduleSave();
     await loadMyAlliance();
     allianceView = 'home';
@@ -297,6 +298,7 @@ async function acceptAllianceInvite(allianceId){
       tx.update(db.collection('players').doc(UID), { allianceId, allianceRole: 'recruit' });
     });
     state.allianceId = allianceId; state.allianceRole = 'recruit';
+    updateMissionProgress('alliance_joined', 1);
     scheduleSave();
     await loadMyAlliance();
     allianceView = 'home';
@@ -413,6 +415,7 @@ async function donateToAlliance(resourceKey, amount){
       });
     });
     if(resourceKey === 'gold') state.gold -= amount; else state.inv[resourceKey] -= amount;
+    updateMissionProgress('alliance_donated', amount);
     scheduleSave();
     await loadMyAlliance();
     await checkAllianceLevelUp();
