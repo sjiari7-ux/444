@@ -126,7 +126,7 @@ async function startGame(){
   await initAllianceOnStart();
   render();
   setInterval(tick, TICK_MS);
-  setInterval(()=>{ updatePrices(); renderBody(); }, PRICE_TICK_MS);
+  setInterval(()=>{ updatePrices(); renderBodyUnlessTyping(); }, PRICE_TICK_MS);
   setInterval(syncToFirestore, SYNC_INTERVAL);
   loadUsername();
   renderGlobalChatFab();
@@ -139,6 +139,14 @@ function render(){
   renderBottomNav();
 }
 function renderBody(){ document.getElementById('app').innerHTML = renderBodyHTML(); }
+function isTypingInField(){
+  const ae = document.activeElement;
+  return !!(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.closest('#app'));
+}
+function renderBodyUnlessTyping(){
+  if(isTypingInField()) return;
+  renderBody();
+}
 function renderHeader(){
   const el = document.getElementById('header');
   if(!el) return;
