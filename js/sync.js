@@ -86,8 +86,8 @@ function firestoreToState(data){
     gold: data.gold || 100, energy: data.stamina || 100, maxEnergy: data.maxStamina || 100,
     lastEnergyTs: Date.now(), storageCap: 500,
     inv: inv, prices: prices, prevPrices: prevPrices, priceHistory: priceHistory, lastPriceTs: Date.now(),
-    combat: data.combat || { wins:0, losses:0 }, missions: null, leaderboard: null,
-    lastLbEvolve: Date.now(), log: [], lastTimestamp: Date.now(),
+    combat: data.combat || { wins:0, losses:0 }, missions: null,
+    log: [], lastTimestamp: Date.now(),
     prestige: data.prestige || { points:0, gatherBonus:0, sellBonus:0, energyBonus:0, storageBonus:0 },
     totalGoldEarned: data.totalGoldEarned || 100,
     skills: data.skills || { health:0, damage:0, defense:0, stamina:0, storage:0, profit:0 },
@@ -159,6 +159,63 @@ async function linkGoogleAccount(){
       alert('Account linking failed: ' + (err.message || 'Unknown error'));
     }
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ARCADIA MMO — Real Leaderboard (live query against players collection)
+   ═══════════════════════════════════════════════════════════════ */
+const LEADERBOARD_SIZE = 20;
+let leaderboardByGold = null;   // [{uid,name,avatar,level,gold}] or null = not loaded yet
+let leaderboardByLevel = null;
+let leaderboardLoading = false;
+let leaderboardError = '';
+let lastLeaderboardFetch = 0;
+const LEADERBOARD_REFRESH_MS = 30000; // don't hammer Firestore on every tab open
+
+function playerDocToLbRow(doc){
+  const d = doc.data();
+  return {
+    uid: doc.id,
+    name: d.username || 'Player',
+    avatar: d.avatar || '🧙',
+    level: d.level || 1,
+    gold: d.gold || 0,
+    me: doc.id === UID,
+  };
+}
+
+async function loadRealLeaderboard(force){
+  if(!db){ leaderboardError = 'Leaderboard needs a cloud connection.'; return; }
+  if(leaderboardLoading) return;
+  if(!force && leaderboardByGold && (Date.now() - lastLeaderboardFetch < LEADERBOARD_REFRESH_MS)) return;
+  leaderboardLoading = true;
+  leaderboardError = '';
+  try{
+    const [goldSnap, levelSnap] = await Promise.all([
+      db.collection('players').orderBy('gold', 'desc').limit(LEADERBOARD_SIZE).get(),
+      db.collection('players').orderBy('level', 'desc').limit(LEADERBOARD_SIZE).get(),
+    ]);
+    leaderboardByGold = goldSnap.docs.map(playerDocToLbRow);
+    leaderboardByLevel = levelSnap.docs.map(playerDocToLbRow);
+    lastLeaderboardFetch = Date.now();
+  }catch(e){
+    console.error('[Arcadia Leaderboard] Load failed:', e.code || e.name, e.message);
+    leaderboardError = e.code === 'permission-denied'
+      ? "Couldn't load the leaderboard (Firestore rules must allow read access to the players collection)."
+      : "Couldn't load the leaderboard right now.";
+  }
+  leaderboardLoading = false;
+}
+
+async function openLeaderboardTab(){
+  activeTab = 'leaderboard';
+  renderBody();
+  await loadRealLeaderboard(false);
+  renderBody();
+}
+
+function refreshLeaderboard(){
+  loadRealLeaderboard(true).then(renderBody);
 }
 
 /* ═══════════════════════════════════════════════════════════════
