@@ -672,7 +672,7 @@ function setAllianceView(v){
   allianceView = v;
   allianceError = '';
   if(v === 'browse' && !allianceBrowseSearched) browseAlliances();
-  if(v === 'manage'){ loadAllianceRequests().then(()=>{ if(typeof renderBottomNav==='function') renderBottomNav(); }); loadSentInvites().then(renderBody); }
+  if(v === 'manage'){ loadAllianceRequests().then(()=>{ if(typeof renderBottomNav==='function') renderBottomNav(); }); loadSentInvites().then(renderBodyUnlessTyping); }
   renderBody();
 }
 
