@@ -546,6 +546,12 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 .alliance-icon-btn.discord{color:#8ea1e1;}
 .alliance-icon-btn.donate{color:#e0985a;}
 
+.member-action-btn{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;margin-bottom:8px;border-radius:10px;border:1px solid var(--border-light);background:var(--panel-light);color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s;}
+.member-action-btn:hover{border-color:var(--brass);background:rgba(224,152,58,0.08);}
+.member-action-btn.danger{border-color:var(--red);color:var(--red);}
+.member-action-btn.danger:hover{background:rgba(184,92,82,0.10);}
+.member-action-btn .icon{font-size:17px;width:22px;text-align:center;flex-shrink:0;}
+
 .donate-amount-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
 .donate-amount-row input{flex:1;min-width:0;background:var(--bg);border:1px dashed var(--red);border-radius:8px;padding:12px 14px;font-family:var(--font-mono);font-size:15px;color:var(--text);text-align:left;}
 .donate-step-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;border:1px solid var(--border-light);background:var(--panel-light);color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
