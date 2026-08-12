@@ -404,9 +404,10 @@ const ZONE_MONSTERS = {
 };
 
 const ZONE_RESOURCES = {
-    forest: ['wood','herbs','food','water'],
-    cave: ['stone','iron','coal','silver'],
     plains: ['cotton','food','herbs','water'],
-    volcano: ['gold_ore','silver','magic_stones','coal'],
-    tundra: ['water','salt','zinc','iron'],
+    forest: ['wood','herbs','food','water'],
+    mountain: ['stone','iron','coal','zinc'],
+    cave: ['stone','iron','coal','silver'],
+    swamp: ['herbs','water','leather','salt'],
+    dark: ['magic_stones','gemstones','gold','lead'],
 };
