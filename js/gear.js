@@ -109,7 +109,7 @@ function renderGear(){
       <div class="forge-title">The Forge</div>
       <div class="forge-desc">Craft powerful gear from gathered materials. 36 recipes across 6 tiers.</div>
       <button class="forge-open-btn" onclick="openForge()">Open Forge</button>
-      <div class="forge-bag-count">Bag: <b>${state.gearBag.length}</b> / ${GEAR_BAG_LIMIT}</div>
+      <div class="forge-bag-count">Backpack: <b>${getTotalStorageUsed(state)}</b> / ${getStorageCap(state)}</div>
     </div>`;
 
   let forgeModal = '';
@@ -162,7 +162,7 @@ function renderGear(){
     const hasInputs = Object.keys(recipe.inputs).every(inp=> state.inv[inp] >= recipe.inputs[inp]);
     const cost = getEnergyCost(state, recipe.energyCost);
     const hasEnergy = state.energy >= cost;
-    const bagFull = state.gearBag.length >= GEAR_BAG_LIMIT;
+    const bagFull = getTotalStorageUsed(state) >= getStorageCap(state);
 
     const tierButtons = CRAFTABLE_GEAR[forgeSlot].map((r, idx)=>{
       const t = GEAR_TIERS[idx];
@@ -224,7 +224,7 @@ function renderGear(){
                   ${bagFull ? `<img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Bag Full` : (!hasInputs ? '❌ Missing Materials' : (!hasEnergy ? `<img class="ui-icon" src="${ICONS.energy}" alt="⚡"> Not Enough Energy` : `🔨 Forge ${customWeaponName.trim() || recipe.name}`))}
                 </button>`}
             </div>
-            <div style="font-size:11px;color:var(--dim);text-align:center;">Bag: <b>${state.gearBag.length}</b> / ${GEAR_BAG_LIMIT}</div>
+            <div style="font-size:11px;color:var(--dim);text-align:center;">Backpack: <b>${getTotalStorageUsed(state)}</b> / ${getStorageCap(state)}</div>
             ` : ''}
           </div>
         </div>
@@ -395,7 +395,7 @@ function craftGear(slot, tier){
   if(state.level < recipe.levelReq) return;
   const cost = getEnergyCost(state, recipe.energyCost);
   if(state.energy < cost){ pushLog(state, 'Not enough energy!', 'lose'); return; }
-  if(state.gearBag.length >= GEAR_BAG_LIMIT){ pushLog(state, 'Gear bag full!', 'lose'); return; }
+  if(getTotalStorageUsed(state) >= getStorageCap(state)){ pushLog(state, 'Backpack full!', 'lose'); return; }
   for(const inp in recipe.inputs){ if(state.inv[inp] < recipe.inputs[inp]){ pushLog(state, `Missing ${ITEMS[inp].name}!`, 'lose'); return; } }
   for(const inp in recipe.inputs){ state.inv[inp] -= recipe.inputs[inp]; }
   state.energy -= cost;
@@ -433,7 +433,7 @@ function equipGear(id){
 function unequipGear(slot){
   const gear = state.equipped[slot];
   if(!gear) return;
-  if(state.gearBag.length >= GEAR_BAG_LIMIT){ pushLog(state, 'Bag full! Cannot unequip.', 'lose'); return; }
+  if(getTotalStorageUsed(state) >= getStorageCap(state)){ pushLog(state, 'Backpack full! Cannot unequip.', 'lose'); return; }
   state.gearBag.push(gear);
   state.equipped[slot] = null;
   pushLog(state, `Unequipped ${gear.name}`, 'gear');
