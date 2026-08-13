@@ -317,7 +317,7 @@ const DAILY_MISSIONS = [
   { id:'daily_wins',    title:'Win 5 battles',                  target:5,   reward:{xp:40, gold:40},  icon:'🏆', track:'battles_won' },
   { id:'daily_eat',     title:'Eat 10 food items',              target:10,  reward:{xp:20},          icon:'🍞', track:'eat_food' },
   { id:'daily_potions', title:'Drink 5 energy potions',         target:5,   reward:{xp:20},          icon:'🧪', track:'used_potion' },
-  { id:'daily_donate',  title:'Donate 500 to your alliance',    target:500, reward:{xp:40, gold:20},  icon:'🏛️', track:'alliance_donated' },
+  { id:'daily_donate',  title:'Donate 500 to your kingdom',    target:500, reward:{xp:40, gold:20},  icon:'🏛️', track:'alliance_donated' },
 ];
 
 const WEEKLY_MISSIONS = [
@@ -328,7 +328,7 @@ const WEEKLY_MISSIONS = [
   { id:'weekly_equip',   title:'Equip 5 gear pieces',                     target:5,    reward:{xp:80,  gold:50},  icon:'🗡️', track:'gear_equipped' },
   { id:'weekly_upgrade', title:'Successfully upgrade gear 8 times',       target:8,    reward:{xp:120, gold:100}, icon:'⬆️', track:'gear_upgraded' },
   { id:'weekly_forge',   title:'Forge 5 gear items',                      target:5,    reward:{xp:90,  gold:60},  icon:'⚒️', track:'gear_crafted' },
-  { id:'weekly_donate',  title:'Donate 2000 to your alliance',            target:2000, reward:{xp:130, gold:80},  icon:'🏛️', track:'alliance_donated' },
+  { id:'weekly_donate',  title:'Donate 2000 to your kingdom',            target:2000, reward:{xp:130, gold:80},  icon:'🏛️', track:'alliance_donated' },
   { id:'weekly_potions', title:'Drink 15 energy potions',                 target:15,   reward:{xp:70,  gold:40},  icon:'🧪', track:'used_potion' },
 ];
 
@@ -341,8 +341,8 @@ const STARTING_MISSIONS = [
   { id:'first_hits',     title:'Land 20 hits in battle',       target:20,  reward:{xp:30,  gold:15},  icon:'💥', track:'hits_landed' },
   { id:'first_gear',     title:'Forge your first gear item',   target:1,   reward:{xp:40,  gold:25},  icon:'⚒️', track:'gear_crafted' },
   { id:'first_equip',    title:'Equip your first weapon',      target:1,   reward:{xp:40,  gold:30},  icon:'🗡️', track:'gear_equipped' },
-  { id:'first_alliance', title:'Join an alliance',             target:1,   reward:{xp:100, gold:100}, icon:'🏛️', track:'alliance_joined' },
-  { id:'first_donate',   title:'Donate to your alliance',      target:50,  reward:{xp:40,  gold:20},  icon:'🤝', track:'alliance_donated' },
+  { id:'first_alliance', title:'Pledge to a kingdom',             target:1,   reward:{xp:100, gold:100}, icon:'🏛️', track:'alliance_joined' },
+  { id:'first_donate',   title:'Donate to your kingdom',      target:50,  reward:{xp:40,  gold:20},  icon:'🤝', track:'alliance_donated' },
   { id:'first_company',  title:'Build your first company',     target:1,   reward:{xp:60,  gold:40},  icon:'🏭', track:'company_built' },
   { id:'first_skill',    title:'Upgrade a skill',              target:1,   reward:{xp:40,  gold:25},  icon:'🎯', track:'skill_upgraded' },
   { id:'level_5',        title:'Reach level 5',                target:5,   reward:{xp:50,  gold:50},  icon:'⭐', track:'level_reached' },
