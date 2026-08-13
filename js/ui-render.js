@@ -1357,7 +1357,7 @@ function renderKingdomMapSVG(myKingdom){
   const edges = ZONE_RING_ORDER.map((id, i) => [id, ZONE_RING_ORDER[(i + 1) % ZONE_RING_ORDER.length]]).concat([ZONE_CHORD]);
   const lines = edges.map(([a, b]) => {
     const A = ZONE_MAP_LAYOUT[a], B = ZONE_MAP_LAYOUT[b];
-    return `<line x1="${A.cx.toFixed(1)}" y1="${A.cy.toFixed(1)}" x2="${B.cx.toFixed(1)}" y2="${B.cy.toFixed(1)}" stroke="var(--border-light)" stroke-width="2" stroke-dasharray="4 5" opacity="0.55"/>`;
+    return `<line x1="${A.cx.toFixed(1)}" y1="${A.cy.toFixed(1)}" x2="${B.cx.toFixed(1)}" y2="${B.cy.toFixed(1)}" stroke="#4a341c" stroke-width="2" stroke-dasharray="4 5" opacity="0.55"/>`;
   }).join('');
 
   const regions = ZONES.map(z => {
@@ -1373,7 +1373,7 @@ function renderKingdomMapSVG(myKingdom){
     const taxPct = Math.round((ZONE_TAX_RATE[z.id] || 0) * 100);
     const fill = kd ? kd.color : '#3a3226';
     const fillOpacity = contested ? 0.26 : 0.55;
-    const strokeColor = mine ? 'var(--brass-bright)' : ((myKingdom && !mine && reachable) ? 'var(--green)' : 'var(--border-light)');
+    const strokeColor = mine ? '#ffc35c' : ((myKingdom && !mine && reachable) ? '#8bd44e' : '#4a341c');
     const strokeWidth = mine ? 3 : 1.5;
 
     const list = territoriesInZone(z.id);
@@ -1384,24 +1384,26 @@ function renderKingdomMapSVG(myKingdom){
       const ownerKd = t ? kingdomDef(t.ownerKingdom) : null;
       const pc = ownerKd ? ownerKd.color : '#544732';
       const px = pipStartX + idx * 13, py = L.cy + 18;
-      return `<rect x="${(px - 4).toFixed(1)}" y="${(py - 4).toFixed(1)}" width="8" height="8" rx="2" fill="${pc}" stroke="${isCap ? 'var(--brass-bright)' : 'rgba(0,0,0,0.4)'}" stroke-width="${isCap ? 1.4 : 0.6}"/>`;
+      return `<rect x="${(px - 4).toFixed(1)}" y="${(py - 4).toFixed(1)}" width="8" height="8" rx="2" fill="${pc}" stroke="${isCap ? '#ffc35c' : 'rgba(0,0,0,0.4)'}" stroke-width="${isCap ? 1.4 : 0.6}" pointer-events="none"/>`;
     }).join('');
 
     const tooltip = `${z.name} — ${contested ? 'Contested (no tax)' : (kd ? kd.emblem + ' ' + kd.name : 'Unclaimed')} — ${ownedCount}/${TERRITORIES_PER_ZONE} yours — ${taxPct}% tax${myKingdom && !mine ? (reachable ? ' — Reachable' : ' — Not bordering your land') : ''}`;
 
-    return `<g class="zone-region" style="cursor:pointer;" onclick="openZoneTerritoryView('${z.id}')"
-        onmouseover="this.querySelector('.zone-blob').style.filter='brightness(1.28)'"
-        onmouseout="this.querySelector('.zone-blob').style.filter='none'">
+    // Note: no inline onclick here — the wrapping .kingdom-map-wrap div below
+    // owns a single delegated click handler (handleKingdomMapClick) that reads
+    // data-zone off the nearest ancestor. This avoids any SVG-inline-handler
+    // quirks and keeps the whole shape (blob + pips + labels) reliably tappable.
+    return `<g class="zone-region" data-zone="${z.id}" pointer-events="all">
       <title>${tooltip}</title>
-      <path class="zone-blob" d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="${strokeWidth}" style="transition:filter 0.15s;"/>
-      <text x="${L.cx.toFixed(1)}" y="${(L.cy - 18).toFixed(1)}" text-anchor="middle" font-size="26" style="pointer-events:none;">${z.icon}</text>
-      <text x="${L.cx.toFixed(1)}" y="${(L.cy).toFixed(1)}" text-anchor="middle" font-family="Cairo, sans-serif" font-weight="700" font-size="13" fill="var(--brass-bright)" style="pointer-events:none;">${z.name}</text>
+      <path class="zone-blob" d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+      <text x="${L.cx.toFixed(1)}" y="${(L.cy - 18).toFixed(1)}" text-anchor="middle" font-size="26" pointer-events="none">${z.icon}</text>
+      <text x="${L.cx.toFixed(1)}" y="${(L.cy).toFixed(1)}" text-anchor="middle" font-family="Cairo, sans-serif" font-weight="700" font-size="13" fill="#ffc35c" pointer-events="none">${z.name}</text>
       ${pips}
-      <text x="${L.cx.toFixed(1)}" y="${(L.cy + 34).toFixed(1)}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="var(--dim)" style="pointer-events:none;">${contested ? '⚡ contested' : (kd ? kd.emblem + ' ' + kd.name : 'unclaimed')}</text>
+      <text x="${L.cx.toFixed(1)}" y="${(L.cy + 34).toFixed(1)}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#a8927a" pointer-events="none">${contested ? '⚡ contested' : (kd ? kd.emblem + ' ' + kd.name : 'unclaimed')}</text>
     </g>`;
   }).join('');
 
-  return `<div class="kingdom-map-wrap">
+  return `<div class="kingdom-map-wrap" onclick="handleKingdomMapClick(event)">
     <svg viewBox="0 0 600 600" style="width:100%;max-width:600px;display:block;margin:0 auto;">
       ${lines}
       ${regions}
@@ -1413,6 +1415,15 @@ function renderKingdomMapSVG(myKingdom){
     </div>
     <div style="margin-top:8px;font-size:10px;color:var(--dim);">Dashed lines = zone borders · <span style="color:var(--brass-bright);">brass outline</span> = your kingdom's ground · <span style="color:var(--green);">green outline</span> = reachable to attack</div>
   </div>`;
+}
+
+// Single delegated handler for the whole map — more reliable across browsers/webviews
+// than per-region inline onclick attributes on SVG <g> elements.
+function handleKingdomMapClick(ev){
+  const target = ev.target.closest ? ev.target.closest('[data-zone]') : null;
+  if(!target) return;
+  const zone = target.getAttribute('data-zone');
+  if(zone) openZoneTerritoryView(zone);
 }
 
 function renderKingdomMap(){
