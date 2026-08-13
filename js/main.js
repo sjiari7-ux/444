@@ -221,7 +221,7 @@ function renderBottomNav(){
     {id:'zones',icon:`<img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️">`,label:'Zones'},
     {id:'gear',icon:`<img class="ui-icon" src="${ICONS.defense_ui}" alt="🛡️">`,label:'Gear'},
     {id:'companies',icon:`<img class="ui-icon" src="${ICONS.business}" alt="🏭">`,label:'Biz'},
-    {id:'alliance',icon:`<img class="ui-icon" src="${ICONS.alliance}" alt="🏛️">`,label:'Alliance'},
+    {id:'alliance',icon:`<img class="ui-icon" src="${ICONS.alliance}" alt="🏛️">`,label:'Kingdom'},
     {id:'missions',icon:'📋',label:'Missions'},
     {id:'leaderboard',icon:'🏆',label:'Rank'},
     {id:'settings',icon:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️">`,label:'More'},
