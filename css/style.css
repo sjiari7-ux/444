@@ -16,10 +16,10 @@
 *{box-sizing:border-box;}html,body{margin:0;padding:0;}
 body{
   background:
-    radial-gradient(ellipse 1100px 560px at 15% -10%,rgba(224,152,58,0.10) 0%,transparent 60%),
-    radial-gradient(ellipse 900px 520px at 100% 0%,rgba(201,160,255,0.10) 0%,transparent 58%),
-    radial-gradient(ellipse 900px 900px at 90% 100%,rgba(255,107,71,0.06) 0%,transparent 55%),
-    radial-gradient(ellipse 700px 500px at 0% 100%,rgba(79,209,255,0.06) 0%,transparent 55%),
+    radial-gradient(ellipse 1100px 560px at 15% -10%,rgba(224,152,58,0.12) 0%,transparent 60%),
+    radial-gradient(ellipse 900px 520px at 100% 0%,rgba(255,195,92,0.09) 0%,transparent 58%),
+    radial-gradient(ellipse 900px 900px at 90% 100%,rgba(224,152,58,0.07) 0%,transparent 55%),
+    radial-gradient(ellipse 700px 500px at 0% 100%,rgba(138,85,24,0.10) 0%,transparent 55%),
     var(--bg);
   background-attachment:fixed;
   color:var(--text);font-family:var(--font-body);min-height:100vh;padding-bottom:60px;
@@ -35,9 +35,9 @@ h1,h2,h3{font-family:var(--font-head);font-weight:700;margin:0;}
 .topbar-v2{position:sticky;top:0;z-index:20;background:rgba(12,8,5,0.85);backdrop-filter:blur(16px) saturate(140%);border-bottom:1px solid var(--border);box-shadow:0 1px 0 rgba(224,152,58,0.10),0 6px 24px rgba(0,0,0,0.35);padding:10px 14px;}
 .topbar-main{display:flex;align-items:center;gap:10px;}
 .avatar-wrap{position:relative;flex-shrink:0;}
-.avatar-circle{width:44px;height:44px;clip-path:var(--hex);border-radius:0;background:linear-gradient(150deg,var(--brass-bright),var(--brass) 45%,var(--skill));display:flex;align-items:center;justify-content:center;font-size:20px;border:none;box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--brass-dim),0 4px 12px rgba(0,0,0,0.4);}
+.avatar-circle{width:44px;height:44px;clip-path:var(--hex);border-radius:0;background:linear-gradient(150deg,var(--brass-bright),var(--brass) 55%,var(--brass-dim));display:flex;align-items:center;justify-content:center;font-size:20px;border:none;box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--brass-dim),0 4px 12px rgba(0,0,0,0.4);}
 .avatar-level{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--brass);color:var(--brass-bright);font-family:var(--font-mono);font-size:9px;font-weight:700;min-width:20px;height:16px;padding:0 4px;border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.5);}
-.level-big{width:42px;height:42px;clip-path:var(--hex);border-radius:0;background:linear-gradient(150deg,var(--panel-light),var(--panel));box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--prestige);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--prestige);flex-shrink:0;}
+.level-big{width:42px;height:42px;clip-path:var(--hex);border-radius:0;background:linear-gradient(150deg,var(--panel-light),var(--panel));box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--brass);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--brass-bright);flex-shrink:0;}
 .stats-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
 .stat-row{display:flex;align-items:center;gap:6px;font-size:11px;}
 .stat-row .icon{font-size:14px;width:16px;text-align:center;flex-shrink:0;}
@@ -383,7 +383,7 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
   display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;
   background:
     radial-gradient(ellipse 700px 500px at 50% 30%,rgba(224,152,58,0.14) 0%,transparent 65%),
-    radial-gradient(ellipse 1000px 700px at 50% 100%,rgba(201,160,255,0.08) 0%,transparent 60%),
+    radial-gradient(ellipse 1000px 700px at 50% 100%,rgba(138,85,24,0.10) 0%,transparent 60%),
     var(--bg-deep);
 }
 .login-card{
@@ -1296,8 +1296,8 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
   align-items:center;
   gap:12px;
   padding:12px 16px;
-  background:linear-gradient(160deg,rgba(201,160,255,0.08),var(--panel));
-  border:1px solid rgba(201,160,255,0.2);
+  background:linear-gradient(160deg,rgba(224,152,58,0.08),var(--panel));
+  border:1px solid rgba(224,152,58,0.2);
   border-radius:12px;
   margin-bottom:14px;
 }
@@ -1306,7 +1306,7 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
   font-family:var(--font-head);
   font-weight:700;
   font-size:14px;
-  color:var(--prestige);
+  color:var(--brass-bright);
 }
 .pp-alliance-role{
   font-size:11px;
