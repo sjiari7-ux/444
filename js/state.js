@@ -43,6 +43,8 @@ function defaultState(){
         // Advanced Market
         marketTab: 'all', marketSearch: '', marketLevelFilter: 0,
         watchedItems: [], marketNotifications: [],
+        // Notifications (bell icon in header)
+        notifications: [],
         // Battle state
         battleLog: [],
         battleActive: false,
@@ -152,6 +154,7 @@ if (typeof s.accentColor !== 'string') s.accentColor = '#d4a24c';
     if(typeof s.marketLevelFilter !== 'number') s.marketLevelFilter = 0;
     if(!s.watchedItems) s.watchedItems = [];
     if(!s.marketNotifications) s.marketNotifications = [];
+    if(!s.notifications) s.notifications = [];
 
     // Migrate old gear (v4/v5) to v6 tier system
     function migrateGear(g){
