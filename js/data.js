@@ -290,7 +290,7 @@ const CLASS_DATA = {
     stats: { hp: 1.10, atk: 1.05, def: 1.05, spd: 1.05, dodge: 1.05, crit: 1.05 },
     skills: [
       { key: 'profitableDeal', name: 'Profitable Deal', nameAr: 'Profitable Deal', icon: '💰', desc: 'Increases sell prices', perLevel: { sellBonus: 0.03 } },
-      { key: 'deepPockets', name: 'Deep Pockets', nameAr: 'Deep Pockets', icon: '💼', desc: 'Increases gold storage capacity', perLevel: { goldCapBonus: 0.05 } },
+      { key: 'deepPockets', name: 'Deep Pockets', nameAr: 'Deep Pockets', icon: '💼', desc: 'Increases gold earned from battle victories', perLevel: { goldCapBonus: 0.05 } },
       { key: 'lucky', name: 'Lucky', nameAr: 'Lucky', icon: '🍀', desc: 'Extra loot chance from battles', perLevel: { lootBonus: 0.03 } },
     ],
     starterGear: { weapon: { tier: 0, name: 'Golden Dagger', slot: 'weapon', stats: { damage: 3 } }, armor: { tier: 0, name: 'Merchant Vest', slot: 'armor', stats: { defense: 0.03, health: 6 } } }
