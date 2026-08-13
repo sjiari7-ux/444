@@ -136,6 +136,7 @@ async function startGame(){
   setInterval(tick, TICK_MS);
   setInterval(()=>{ updatePrices(); renderBodyUnlessTyping(); }, PRICE_TICK_MS);
   setInterval(syncToFirestore, SYNC_INTERVAL);
+  if(typeof flushZoneTax === 'function') setInterval(flushZoneTax, SYNC_INTERVAL);
   loadUsername();
   renderGlobalChatFab();
   startGlobalChatListener();
@@ -372,12 +373,17 @@ function collect(key){
   const cap = getStorageCap(state);
   const used = getTotalStorageUsed(state);
   if(used >= cap){ pushLog(state, 'Storage full!', 'lose'); return; }
-  const amount = Math.min(cap - used, 5 + state.prestige.gatherBonus + Math.floor(state.level/3));
+  let amount = Math.min(cap - used, 5 + state.prestige.gatherBonus + Math.floor(state.level/3));
+  let taxPaid = 0;
+  if(typeof applyZoneTax === 'function' && state.zoneView){
+    const taxed = applyZoneTax(state.zoneView, key, amount);
+    amount = taxed.net; taxPaid = taxed.tax;
+  }
   state.inv[key] += amount;
   state.energy -= cost;
   grantXp(state, 1);
   updateMissionProgress('collected', amount);
-  pushLog(state, `+${amount} ${ITEMS[key].name}`, 'gain');
+  pushLog(state, taxPaid > 0 ? `+${amount} ${ITEMS[key].name} (-${taxPaid} taxed by the local kingdom)` : `+${amount} ${ITEMS[key].name}`, 'gain');
   renderBody(); scheduleSave();
 }
 function eat(){
