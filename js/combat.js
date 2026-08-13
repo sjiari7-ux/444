@@ -106,9 +106,10 @@ function playerAttackAction(isSkill, skillKey){
   const bs = battleState;
   const pStats = bs.playerStats;
   const m = bs.monster;
-  let dmg = Math.max(1, pStats.atk - m.def);
+  const effDef = m.def * (1 - (pStats.pierce || 0));
+  let dmg = Math.max(1, Math.round(pStats.atk - effDef));
   let isCrit = Math.random() < pStats.crit;
-  let isPierce = false;
+  let isPierce = (pStats.pierce || 0) > 0;
   let skillName = '';
   let manaCost = 0;
 
@@ -126,12 +127,16 @@ function playerAttackAction(isSkill, skillKey){
         state.mana -= manaCost; dmg = Math.max(1, Math.round(pStats.atk * 3));
         m.burnTurns = 3; m.burnDmg = Math.round(pStats.atk * 0.3); break;
       case 'fastHeal': manaCost = 10; if(state.mana < manaCost){ pushLog(state, 'Not enough mana!', 'lose'); return; }
-        state.mana -= manaCost; const healAmt = Math.round(bs.playerMaxHP * 0.3);
+        state.mana -= manaCost;
+        const healPct = 0.3 + getClassSkillLevel(state, 'fastHeal') * 0.02;
+        const healAmt = Math.round(bs.playerMaxHP * healPct);
         bs.playerHP = Math.min(bs.playerMaxHP, bs.playerHP + healAmt); state.health = bs.playerHP;
         bs.turns.push({ who:'skill', type:'heal', heal: healAmt, name: skillName });
         bs.turnCount++; afterPlayerAction(); return;
       case 'profitableDeal': manaCost = 5; if(state.mana < manaCost){ pushLog(state, 'Not enough mana!', 'lose'); return; }
-        state.mana -= manaCost; const stolen = Math.round(m.goldMin * 0.3 + Math.random() * (m.goldMax - m.goldMin) * 0.3);
+        state.mana -= manaCost;
+        const stealPct = 0.3 * (1 + getClassSkillLevel(state, 'profitableDeal') * 0.03);
+        const stolen = Math.round((m.goldMin + Math.random() * (m.goldMax - m.goldMin)) * stealPct);
         bs.rewards = bs.rewards || {}; bs.rewards.stolenGold = (bs.rewards.stolenGold || 0) + stolen;
         bs.turns.push({ who:'skill', type:'steal', gold: stolen, name: skillName });
         bs.turnCount++; afterPlayerAction(); return;
@@ -147,6 +152,7 @@ function playerAttackAction(isSkill, skillKey){
   if(m.hp <= 0){ m.hp = 0; bs.won = true; awardBattleRewards(); renderBody(); playBattleEffects(bs); scheduleSave(); return; }
   bs.turnCount++; afterPlayerAction();
 }
+
 
 function chargeAttack(){
   if(!battleState || battleState.won || battleState.lost || battleState.fled) return;
@@ -231,6 +237,9 @@ function awardBattleRewards(){
   if(bs.rewards && bs.rewards.stolenGold){ gold += bs.rewards.stolenGold; }
   const crit = getCritChance(state);
   if(Math.random() < crit){ gold = Math.round(gold * 1.5); xp = Math.round(xp * 1.3); }
+  if(state.playerClass === 'merchant'){
+    gold = Math.round(gold * (1 + getClassSkillLevel(state, 'deepPockets') * 0.05));
+  }
   state.gold += gold; state.totalGoldEarned += gold; state.combat.wins += 1;
   const leveled = grantXp(state, xp); updateMissionProgress('battles_won', 1);
   const loot = {};
@@ -241,11 +250,21 @@ function awardBattleRewards(){
   if(Math.random() < dropChance){ const tier = rollTier(state.level); const slots = Object.keys(GEAR_SLOTS); const slot = slots[Math.floor(Math.random()*slots.length)]; gearDrop = generateGear(slot, tier); if(state.gearBag.length < GEAR_BAG_LIMIT){ state.gearBag.push(gearDrop); } }
   let gemDrop = 0;
   if(Math.random() < 0.05 + (state.playerClass === 'merchant' ? getClassSkillLevel(state, 'lucky') * 0.03 : 0)){ gemDrop = 1 + Math.floor(Math.random() * 3); state.gems += gemDrop; }
+  let spiritHeal = 0;
+  if(state.playerClass === 'warrior'){
+    const lvl = getClassSkillLevel(state, 'warriorSpirit');
+    if(lvl > 0){
+      const maxH = getMaxHealth(state);
+      spiritHeal = Math.min(maxH - state.health, Math.round(maxH * lvl * 0.03));
+      if(spiritHeal > 0) state.health += spiritHeal;
+    }
+  }
   bs.rewards = { gold, xp, loot, shards, gearDrop, gemDrop, stolenGold: bs.rewards && bs.rewards.stolenGold ? bs.rewards.stolenGold : 0 };
   pushLog(state, `Victory! Defeated ${m.name} (+${gold}g, +${xp}xp)`, 'win');
   if(leveled){ pushLog(state, `Reached level ${state.level}! (+1 skill point)`, 'levelup'); showToast('Level Up!', `You reached level ${state.level}. +1 Skill Point`, 'levelup'); }
   if(gearDrop){ const t = GEAR_TIERS[gearDrop.tier]; pushLog(state, `Found [${t.symbol}] ${gearDrop.name}!`, 'gear'); }
   if(gemDrop > 0){ pushLog(state, `Found ${gemDrop} <img class="ui-icon" src="${ICONS.gem}" alt="💎"> Gem(s)!`, 'win'); }
+  if(spiritHeal > 0){ pushLog(state, `Warrior Spirit: +${spiritHeal} HP`, 'win'); }
   state.battleActive = false; renderHeader(); scheduleSave();
 }
 
