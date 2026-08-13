@@ -49,13 +49,16 @@ function checkMissionResets(){
 
 function updateMissionProgress(track, amount){
   if(!state.missions) return;
+  const isAbsolute = track === 'level_reached';
 
   ['daily','weekly'].forEach(type => {
     const pool = type === 'daily' ? DAILY_MISSIONS : WEEKLY_MISSIONS;
     pool.forEach(m => {
       if(m.track === track && !state.missions[type].claimed.includes(m.id)){
         const current = state.missions[type].progress[m.id] || 0;
-        state.missions[type].progress[m.id] = Math.min(m.target, current + amount);
+        state.missions[type].progress[m.id] = isAbsolute
+          ? Math.min(m.target, Math.max(current, amount))
+          : Math.min(m.target, current + amount);
       }
     });
   });
@@ -63,7 +66,9 @@ function updateMissionProgress(track, amount){
   STARTING_MISSIONS.forEach(m => {
     if(m.track === track && !state.missions.starting.claimed.includes(m.id)){
       const current = state.missions.starting.progress[m.id] || 0;
-      state.missions.starting.progress[m.id] = Math.min(m.target, current + amount);
+      state.missions.starting.progress[m.id] = isAbsolute
+        ? Math.min(m.target, Math.max(current, amount))
+        : Math.min(m.target, current + amount);
     }
   });
 }
@@ -301,7 +306,7 @@ function tick(){
   renderHeader();
 }
 function updatePrices(){
-  Object.keys(ITEMS).forEach(k=>{
+  Object.keys(MARKET_CATALOG).forEach(k=>{
     state.prevPrices[k] = state.prices[k];
     const change = (Math.random()-0.5)*0.3;
     state.prices[k] = Math.max(1, Math.round(state.prices[k]*(1+change)*10)/10);
@@ -358,6 +363,48 @@ function consumeEnergyPotion(key){
   state.energy = Math.min(getMaxEnergy(state), state.energy + p.energy);
   updateMissionProgress('used_potion', 1);
   pushLog(state, `Drank ${p.name} (+${p.energy}<img class="ui-icon" src="${ICONS.energy}" alt="⚡">)`, 'gain');
+  renderBody(); scheduleSave();
+}
+
+/* ===== MARKET FILTERS ===== */
+function setMarketTab(tab){
+  if(!state) {
+    console.warn('[Arcadia Market] State not initialized when setting market tab');
+    return;
+  }
+  state.marketTab = tab;
+  renderBody(); scheduleSave();
+}
+
+function setMarketSearch(val){
+  if(!state) {
+    console.warn('[Arcadia Market] State not initialized when setting market search');
+    return;
+  }
+  state.marketSearch = val;
+  const activeInput = document.querySelector('.market-search');
+  const selStart = activeInput ? activeInput.selectionStart : null;
+  const selEnd = activeInput ? activeInput.selectionEnd : null;
+  renderBody(); scheduleSave();
+  const newInput = document.querySelector('.market-search');
+  if(newInput){
+    newInput.focus();
+    if(selStart !== null){
+      try{ newInput.setSelectionRange(selStart, selEnd); }catch(e){
+        console.debug('[Arcadia Market] Could not restore selection range:', e.message);
+      }
+    }
+  }
+}
+
+function clearMarketFilters(){
+  if(!state) {
+    console.warn('[Arcadia Market] State not initialized when clearing filters');
+    return;
+  }
+  state.marketTab = 'all';
+  state.marketSearch = '';
+  state.marketLevelFilter = 0;
   renderBody(); scheduleSave();
 }
 
@@ -524,6 +571,22 @@ function doPrestige(){
   keepPrestige.sellBonus += 0.02;
   keepPrestige.energyBonus += 5;
   keepPrestige.storageBonus += 50;
+  // Account / profile / social data is not "run" progress — prestige should
+  // never touch it, even though it's not mentioned by the confirm modal.
+  const keepUsername = state.username;
+  const keepAvatar = state.avatar;
+  const keepBio = state.bio;
+  const keepLanguage = state.language;
+  const keepTheme = state.theme;
+  const keepFontSize = state.fontSize;
+  const keepAccentColor = state.accentColor;
+  const keepAllianceId = state.allianceId;
+  const keepAllianceRole = state.allianceRole;
+  const keepAllianceJoinCooldownUntil = state.allianceJoinCooldownUntil;
+  const keepAllianceDisbandCooldownUntil = state.allianceDisbandCooldownUntil;
+  const keepTotalAllianceDonated = state.totalAllianceDonated;
+  const keepWatchedItems = [...(state.watchedItems || [])];
+  const keepMarketNotifications = [...(state.marketNotifications || [])];
   state = defaultState();
   state.prestige = keepPrestige;
   state.gearBag = keepGear;
@@ -534,6 +597,20 @@ function doPrestige(){
   state.classSkills = keepClassSkills;
   state.classSkillPoints = keepClassPoints;
   state.classResets = keepClassResets;
+  state.username = keepUsername;
+  state.avatar = keepAvatar;
+  state.bio = keepBio;
+  state.language = keepLanguage;
+  state.theme = keepTheme;
+  state.fontSize = keepFontSize;
+  state.accentColor = keepAccentColor;
+  state.allianceId = keepAllianceId;
+  state.allianceRole = keepAllianceRole;
+  state.allianceJoinCooldownUntil = keepAllianceJoinCooldownUntil;
+  state.allianceDisbandCooldownUntil = keepAllianceDisbandCooldownUntil;
+  state.totalAllianceDonated = keepTotalAllianceDonated;
+  state.watchedItems = keepWatchedItems;
+  state.marketNotifications = keepMarketNotifications;
   pushLog(state, `Prestiged! Gained ${pts} prestige points.`, 'prestige');
   showToast('Prestige!', `+${pts} Points`, 'prestige');
   render(); scheduleSave();
