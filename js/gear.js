@@ -81,6 +81,25 @@ function selectBagItem(id){
   renderBody();
 }
 
+// If a Market item exists with the same slot ("sub") and the same name as a
+// Forge recipe (e.g. CRAFTABLE_GEAR.armor tier1 "Iron Armor" ↔
+// MARKET_CATALOG.armor_iron "Iron Armor"), reuse its real image icon in the
+// Forge instead of the recipe's plain emoji placeholder. sizePx controls the
+// rendered size explicitly (the source images aren't a fixed size, so we
+// don't rely on font-size/intrinsic size). Falls back to the recipe's own
+// emoji when no matching Market item (or no image) exists.
+function forgeRecipeIcon(slot, recipe, sizePx){
+  const match = Object.values(MARKET_CATALOG).find(it => it.sub === slot && it.name === recipe.name);
+  if(match && typeof match.icon === 'string' && match.icon.includes('<img')){
+    const srcMatch = match.icon.match(/src="([^"]+)"/);
+    if(srcMatch){
+      const alt = (match.icon.match(/alt="([^"]*)"/) || [,recipe.name])[1];
+      return `<img src="${srcMatch[1]}" alt="${alt}" style="width:${sizePx}px;height:${sizePx}px;object-fit:contain;vertical-align:middle;image-rendering:pixelated;image-rendering:crisp-edges;">`;
+    }
+  }
+  return recipe.icon;
+}
+
 
 // ─── Gear Rendering ───
 function renderGear(){
@@ -111,7 +130,7 @@ function renderGear(){
         const t = GEAR_TIERS[idx];
         const locked = state.level < r.levelReq;
         return `<div class="gear-inv-tile" style="--tc:${t.color};${locked?'opacity:0.45;':''}" onclick="selectForgeItem('${slot}',${idx})" title="${locked?'Requires level '+r.levelReq:r.name}">
-          <div class="it-icon">${r.icon}</div>
+          <div class="it-icon">${forgeRecipeIcon(slot, r, 26)}</div>
           <div class="it-name">${r.name}</div>
           <div class="it-badge">${t.symbol} ${info.icon}${locked?' 🔒':''}</div>
         </div>`;
@@ -180,7 +199,7 @@ function renderGear(){
             </div>
 
             <div class="forge-weapon-plate ${forgeReqOpen?'open':''}" style="--tc:${tier.color};" onclick="toggleForgeReq()">
-              <div class="fwp-icon">${recipe.icon}</div>
+              <div class="fwp-icon">${forgeRecipeIcon(forgeSlot, recipe, 48)}</div>
               <div class="fwp-name" style="color:${tier.color};">[${tier.symbol}] ${recipe.name}</div>
               <div class="fwp-hint">${forgeReqOpen ? 'Tap to hide requirements ▲' : 'Tap the weapon to view crafting requirements ▼'}</div>
             </div>
@@ -193,7 +212,7 @@ function renderGear(){
             ${forgeReqOpen ? `
             <div class="forge-recipe-box">
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                <div style="font-size:36px;">${recipe.icon}</div>
+                <div style="font-size:36px;">${forgeRecipeIcon(forgeSlot, recipe, 36)}</div>
                 <div>
                   <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:${tier.color};">[${tier.symbol}] ${customWeaponName.trim() || recipe.name}</div>
                   <div style="font-size:11px;color:var(--dim);margin-top:3px;">Lv.${recipe.levelReq} required · <img class="ui-icon" src="${ICONS.energy}" alt="⚡">${cost} energy · +${recipe.xp} XP</div>
