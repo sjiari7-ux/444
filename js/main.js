@@ -143,7 +143,7 @@ function render(){
   renderLog();
   renderBottomNav();
 }
-function renderBody(){ document.getElementById('app').innerHTML = renderBodyHTML(); }
+function renderBody(){ document.getElementById('app').innerHTML = renderBodyHTML(); if(typeof renderBottomNav === 'function') renderBottomNav(); }
 function isTypingInField(){
   const ae = document.activeElement;
   return !!(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.closest('#app'));
