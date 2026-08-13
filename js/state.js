@@ -267,6 +267,16 @@ function getStorageCap(s){
     return s.storageCap + s.prestige.storageBonus + s.skills.storage * SKILLS.storage.perLevel + getGearBonus(s, 'storage'); 
 }
 
+// Total backpack usage: every resource unit counts as 1 slot, and every
+// gear item sitting in the gear bag also counts as 1 slot against the
+// same shared cap (gear is stored in the same backpack as resources).
+function getTotalStorageUsed(s){
+    let used = 0;
+    for(const k in s.inv){ used += s.inv[k] || 0; }
+    used += (s.gearBag ? s.gearBag.length : 0);
+    return used;
+}
+
 function getEnergyCost(s, base){
     let reduction = Math.min(0.5, s.skills.stamina * 0.03);
     if(s.playerClass === 'mage'){
