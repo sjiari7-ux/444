@@ -16,48 +16,6 @@ function showError(msg){
   guestBtn.disabled = false;
 }
 
-/* ===== MARKET FILTER FUNCTIONS ===== */
-function setMarketTab(tab){
-  if(!state) {
-    console.warn('[Arcadia Market] State not initialized when setting market tab');
-    return;
-  }
-  state.marketTab = tab;
-  renderBody(); scheduleSave();
-}
-
-function setMarketSearch(val){
-  if(!state) {
-    console.warn('[Arcadia Market] State not initialized when setting market search');
-    return;
-  }
-  state.marketSearch = val;
-  const activeInput = document.querySelector('.market-search');
-  const selStart = activeInput ? activeInput.selectionStart : null;
-  const selEnd = activeInput ? activeInput.selectionEnd : null;
-  renderBody(); scheduleSave();
-  const newInput = document.querySelector('.market-search');
-  if(newInput){
-    newInput.focus();
-    if(selStart !== null){
-      try{ newInput.setSelectionRange(selStart, selEnd); }catch(e){
-        console.debug('[Arcadia Market] Could not restore selection range:', e.message);
-      }
-    }
-  }
-}
-
-function clearMarketFilters(){
-  if(!state) {
-    console.warn('[Arcadia Market] State not initialized when clearing filters');
-    return;
-  }
-  state.marketTab = 'all';
-  state.marketSearch = '';
-  state.marketLevelFilter = 0;
-  renderBody(); scheduleSave();
-}
-
 function setLoading(isLoading){
   googleBtn.disabled = isLoading;
   guestBtn.disabled = isLoading;
