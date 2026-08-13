@@ -369,8 +369,9 @@ function collect(key){
   const cost = getEnergyCost(state, 1);
   if(state.energy < cost){ pushLog(state, 'Not enough energy!', 'lose'); return; }
   const cap = getStorageCap(state);
-  if(state.inv[key] >= cap){ pushLog(state, 'Storage full!', 'lose'); return; }
-  const amount = Math.min(cap - state.inv[key], 5 + state.prestige.gatherBonus + Math.floor(state.level/3));
+  const used = getTotalStorageUsed(state);
+  if(used >= cap){ pushLog(state, 'Storage full!', 'lose'); return; }
+  const amount = Math.min(cap - used, 5 + state.prestige.gatherBonus + Math.floor(state.level/3));
   state.inv[key] += amount;
   state.energy -= cost;
   grantXp(state, 1);
@@ -461,8 +462,9 @@ function clearMarketFilters(){
 function buy(key, amount){
   const price = state.prices[key];
   const cap = getStorageCap(state);
+  const used = getTotalStorageUsed(state);
   if(amount === 'max') amount = Math.floor(state.gold / Math.ceil(price));
-  amount = Math.min(amount, cap - state.inv[key]);
+  amount = Math.min(amount, cap - used);
   if(amount <= 0) return;
   const cost = Math.ceil(price * amount);
   if(cost > state.gold){ pushLog(state, 'Not enough gold!', 'lose'); return; }
@@ -493,7 +495,8 @@ function craft(key){
   const cost = getEnergyCost(state, r.energyCost);
   if(state.energy < cost){ pushLog(state, 'Not enough energy!', 'lose'); return; }
   const cap = getStorageCap(state);
-  if(state.inv[key] + r.output > cap){ pushLog(state, 'Storage full!', 'lose'); return; }
+  const inputsSum = Object.values(r.inputs).reduce((a,b)=>a+b,0);
+  if(getTotalStorageUsed(state) - inputsSum + r.output > cap){ pushLog(state, 'Storage full!', 'lose'); return; }
   for(const inp in r.inputs){ if(state.inv[inp] < r.inputs[inp]){ pushLog(state, `Missing ${ITEMS[inp].name}!`, 'lose'); return; } }
   for(const inp in r.inputs){ state.inv[inp] -= r.inputs[inp]; }
   state.inv[key] += r.output;
@@ -509,9 +512,10 @@ function craftMax(key){
   if(state.level < r.minLevel) return;
   const cost = getEnergyCost(state, r.energyCost);
   const cap = getStorageCap(state);
+  const inputsSum = Object.values(r.inputs).reduce((a,b)=>a+b,0);
   let count = 0;
   while(state.energy >= cost){
-    if(state.inv[key] + r.output > cap) break;
+    if(getTotalStorageUsed(state) - inputsSum + r.output > cap) break;
     let can = true;
     for(const inp in r.inputs){ if(state.inv[inp] < r.inputs[inp]){ can=false; break; } }
     if(!can) break;
@@ -542,7 +546,7 @@ function selectClass(key){
   state.lastClassReset = 0;
   // Give starter gear
   Object.values(cls.starterGear).forEach(g=>{
-    if(state.gearBag.length < GEAR_BAG_LIMIT){
+    if(getTotalStorageUsed(state) < getStorageCap(state)){
       const gear = { ...g, id: Date.now()+Math.random(), upgradeLevel: 0 };
       const t = GEAR_TIERS[gear.tier];
       gear.sellValue = t.sellMin + Math.floor(Math.random()*(t.sellMax-t.sellMin));
@@ -719,7 +723,7 @@ function collectFromCompany(id){
   const c = state.companies.find(x=>x.id===id);
   if(!c || c.stored < 1 || c.disabled) return;
   const cap = getStorageCap(state);
-  const space = cap - state.inv[c.resource];
+  const space = cap - getTotalStorageUsed(state);
   if(space <= 0){ pushLog(state, 'Storage full!', 'lose'); return; }
   const amount = Math.min(Math.floor(c.stored), space);
   state.inv[c.resource] += amount;
