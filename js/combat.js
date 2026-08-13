@@ -243,11 +243,17 @@ function awardBattleRewards(){
   state.gold += gold; state.totalGoldEarned += gold; state.combat.wins += 1;
   const leveled = grantXp(state, xp); updateMissionProgress('battles_won', 1);
   const loot = {};
-  m.loot.forEach(l => { const amount = l.min + Math.floor(Math.random() * (l.max - l.min + 1)); if(amount > 0){ state.inv[l.item] = (state.inv[l.item] || 0) + amount; loot[l.item] = amount; } });
+  const lootCap = getStorageCap(state);
+  m.loot.forEach(l => {
+    let amount = l.min + Math.floor(Math.random() * (l.max - l.min + 1));
+    const space = lootCap - getTotalStorageUsed(state);
+    amount = Math.min(amount, Math.max(0, space));
+    if(amount > 0){ state.inv[l.item] = (state.inv[l.item] || 0) + amount; loot[l.item] = amount; }
+  });
   const shards = 5 + Math.floor(Math.random() * 11); state.shards += shards;
   const dropChance = 0.30 + (state.playerClass === 'merchant' ? getClassSkillLevel(state, 'lucky') * 0.03 : 0);
   let gearDrop = null;
-  if(Math.random() < dropChance){ const tier = rollTier(state.level); const slots = Object.keys(GEAR_SLOTS); const slot = slots[Math.floor(Math.random()*slots.length)]; gearDrop = generateGear(slot, tier); if(state.gearBag.length < GEAR_BAG_LIMIT){ state.gearBag.push(gearDrop); } }
+  if(Math.random() < dropChance){ const tier = rollTier(state.level); const slots = Object.keys(GEAR_SLOTS); const slot = slots[Math.floor(Math.random()*slots.length)]; gearDrop = generateGear(slot, tier); if(getTotalStorageUsed(state) < getStorageCap(state)){ state.gearBag.push(gearDrop); } }
   let gemDrop = 0;
   if(Math.random() < 0.05 + (state.playerClass === 'merchant' ? getClassSkillLevel(state, 'lucky') * 0.03 : 0)){ gemDrop = 1 + Math.floor(Math.random() * 3); state.gems += gemDrop; }
   let spiritHeal = 0;
