@@ -16,6 +16,7 @@ function defaultState(){
         log: [], lastTimestamp: Date.now(),
         prestige: { points: 0, gatherBonus: 0, sellBonus: 0, energyBonus: 0, storageBonus: 0 },
         totalGoldEarned: 150,
+        totalAllianceDonated: 0,
         skills: { health: 0, damage: 0, defense: 0, stamina: 0, storage: 0, profit: 0 },
         skillPoints: 0,
         health: 100,
@@ -82,6 +83,7 @@ function migrateState(s){
     if(!s.combat) s.combat = { wins: 0, losses: 0 };
     if(!s.prestige) s.prestige = { points: 0, gatherBonus: 0, sellBonus: 0, energyBonus: 0, storageBonus: 0 };
     if(typeof s.totalGoldEarned !== 'number') s.totalGoldEarned = s.gold;
+    if(typeof s.totalAllianceDonated !== 'number') s.totalAllianceDonated = 0;
     if(!s.skills) s.skills = { health: 0, damage: 0, defense: 0, stamina: 0, storage: 0, profit: 0 };
     if(typeof s.skillPoints !== 'number') s.skillPoints = 0;
     if(typeof s.health !== 'number') s.health = 100;
@@ -156,13 +158,7 @@ if (typeof s.accentColor !== 'string') s.accentColor = '#d4a24c';
         if(!g) return null;
         if(typeof g.tier === 'number') return g;
         const tier = g.rarity === 'legendary' ? 4 : 0;
-        return {
-        missions: {
-            daily: { progress: {}, claimed: [], lastReset: 0, completed: 0 },
-            weekly: { progress: {}, claimed: [], lastReset: 0, completed: 0 },
-            starting: { progress: {}, claimed: [], completed: 0 }
-        },
-        activeMissionTab: 'daily', ...g, tier, upgradeLevel: 0 };
+        return { ...g, tier, upgradeLevel: 0 };
     }
     s.equipped = Object.fromEntries(Object.entries(s.equipped).map(([k,v])=>[k,migrateGear(v)]));
     s.gearBag = s.gearBag.map(migrateGear).filter(Boolean);
@@ -231,7 +227,7 @@ function grantXp(s, amount){
         leveled = true;
     }
     if(leveled && typeof updateMissionProgress === 'function'){
-        updateMissionProgress('level_reached', s.level - oldLevel);
+        updateMissionProgress('level_reached', s.level);
     }
     return leveled;
 }
