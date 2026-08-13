@@ -37,6 +37,7 @@ function checkMissionResets(){
     state.missions.daily.completed = 0;
     state.missions.daily.lastReset = getNextDailyReset();
     pushLog(state, 'Daily missions have been reset!', 'prestige');
+    if(typeof addNotification === 'function') addNotification('daily_missions', '📋 Daily Missions Reset', 'New daily missions are available — go claim your rewards!');
   }
   if(now >= (state.missions.weekly.lastReset || 0)){
     state.missions.weekly.progress = {};
@@ -44,6 +45,7 @@ function checkMissionResets(){
     state.missions.weekly.completed = 0;
     state.missions.weekly.lastReset = getNextWeeklyReset();
     pushLog(state, 'Weekly missions have been reset!', 'prestige');
+    if(typeof addNotification === 'function') addNotification('weekly_missions', '📋 Weekly Missions Reset', 'New weekly missions are available — go claim your rewards!');
   }
 }
 
@@ -197,16 +199,12 @@ function renderHeader(){
           <div class="v3-gold-amount">${fmtG(state.gold)}</div>
         </div>
         <div class="v3-btns">
-          <button class="v3-btn backpack" onclick="activeTab='inventory';renderBody();" title="Backpack / Inventory"><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒" style="width:100%;height:100%;object-fit:contain;"></button>
-          <button class="v3-btn" onclick="activeTab='settings';renderBody();" title="Settings">⚙️</button>
-          <button class="v3-btn" onclick="logout()" title="Log out">🚪</button>
+          <button class="top-icon-btn" style="position:relative;" onclick="openNotifications()" title="Notifications">🔔${unreadNotificationCount()>0 ? `<span class="badge">${unreadNotificationCount()>9?'9+':unreadNotificationCount()}</span>` : ''}</button>
         </div>
       </div>
     </div>
     <div class="topbar-v3-sub">
       <div class="v3-sub-pill mp"><span class="v3-sub-dot mp"></span>${state.mana}/${state.maxMana} MP</div>
-      <div class="v3-sub-pill status"><span class="v3-sub-dot online"></span>Online</div>
-      <div class="v3-sub-pill user">👤 ${window.__playerUsername || "Player"}</div>
     </div>
   </div>`;
 }
@@ -259,6 +257,57 @@ async function loadState(){
     if(raw){ state = migrateState(JSON.parse(raw)); return; }
   }catch(e){}
   state = defaultState();
+}
+/* ===== NOTIFICATIONS (bell icon) ===== */
+function addNotification(type, title, body){
+  if(!state.notifications) state.notifications = [];
+  state.notifications.unshift({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    type, title, body, ts: Date.now(), read: false
+  });
+  if(state.notifications.length > 30) state.notifications.length = 30;
+  scheduleSave();
+  if(typeof renderHeader === 'function') renderHeader();
+}
+function unreadNotificationCount(){
+  return (state.notifications || []).filter(n => !n.read).length;
+}
+function timeAgo(ts){
+  const diff = Math.max(0, Date.now() - ts);
+  const m = Math.floor(diff / 60000);
+  if(m < 1) return 'just now';
+  if(m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if(h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+function openNotifications(){
+  const list = state.notifications || [];
+  const bodyHtml = list.length ? `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button class="mini-btn" onclick="clearAllNotifications();this.closest('.modal-overlay').remove();openNotifications();">Clear all</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${list.map(n => `
+        <div style="padding:10px 12px;border-radius:10px;background:var(--panel-light);border:1px solid var(--border);${n.read?'':'border-color:var(--brass);'}">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+            <div style="font-weight:700;font-size:13px;color:${n.read?'var(--text)':'var(--brass-bright)'};">${n.title}</div>
+            <div style="font-size:10px;color:var(--dim);flex-shrink:0;">${timeAgo(n.ts)}</div>
+          </div>
+          <div style="font-size:12px;color:var(--dim);margin-top:2px;">${n.body}</div>
+        </div>
+      `).join('')}
+    </div>
+  ` : `<div style="text-align:center;padding:24px 0;color:var(--dim);font-size:13px;">🔔 No notifications yet</div>`;
+  showModal('🔔 Notifications', bodyHtml);
+  (state.notifications || []).forEach(n => n.read = true);
+  scheduleSave();
+  renderHeader();
+}
+function clearAllNotifications(){
+  state.notifications = [];
+  scheduleSave();
+  renderHeader();
 }
 function showToast(title, body, cls){
   let container = document.getElementById('toast-container');
