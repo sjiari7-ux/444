@@ -122,6 +122,14 @@ function allianceTimeAgo(ts){
 
 /* ═══════════════════ FIRESTORE OPS ═══════════════════ */
 
+function knownAllianceStorageKey(){ return 'arcadia_known_alliance_' + (UID || 'anon'); }
+function markAllianceKnown(allianceId){
+  try{
+    if(allianceId) localStorage.setItem(knownAllianceStorageKey(), allianceId);
+    else localStorage.removeItem(knownAllianceStorageKey());
+  }catch(e){}
+}
+
 async function initAllianceOnStart(){
   if(!db || !UID) return;
   try{
@@ -132,6 +140,21 @@ async function initAllianceOnStart(){
       state.allianceRole = pdata.allianceRole || 'member';
       await loadMyAlliance();
       if(allianceData) allianceView = 'home';
+
+      // Detect a join that happened while we weren't in the app (e.g. an
+      // admin approved our pending request on their own session) and
+      // surface it as a notification instead of silently updating state.
+      let knownId = null;
+      try{ knownId = localStorage.getItem(knownAllianceStorageKey()); }catch(e){}
+      if(knownId !== pdata.allianceId){
+        if(typeof addNotification === 'function'){
+          const name = allianceData && allianceData.alliance ? allianceData.alliance.name : 'an alliance';
+          addNotification('alliance_accepted', '🏛️ Alliance Request Accepted', `You've been accepted into ${name}. Welcome aboard!`);
+        }
+        markAllianceKnown(pdata.allianceId);
+      }
+    } else {
+      markAllianceKnown(null);
     }
     state.allianceJoinCooldownUntil = pdata.allianceJoinCooldownUntil || 0;
     state.allianceDisbandCooldownUntil = pdata.allianceDisbandCooldownUntil || 0;
@@ -257,6 +280,7 @@ async function joinAllianceOpen(allianceId){
       tx.update(db.collection('players').doc(UID), { allianceId, allianceRole: 'recruit' });
     });
     state.allianceId = allianceId; state.allianceRole = 'recruit';
+    markAllianceKnown(allianceId);
     updateMissionProgress('alliance_joined', 1);
     scheduleSave();
     await loadMyAlliance();
@@ -322,6 +346,7 @@ async function acceptAllianceInvite(allianceId){
       tx.update(db.collection('players').doc(UID), { allianceId, allianceRole: 'recruit' });
     });
     state.allianceId = allianceId; state.allianceRole = 'recruit';
+    markAllianceKnown(allianceId);
     updateMissionProgress('alliance_joined', 1);
     scheduleSave();
     await loadMyAlliance();
@@ -657,6 +682,7 @@ async function leaveAlliance(){
     await db.collection('players').doc(UID).update({ allianceId: null, allianceRole: null, allianceJoinCooldownUntil: cooldownUntil });
     state.allianceId = null; state.allianceRole = null; state.allianceJoinCooldownUntil = cooldownUntil;
     allianceData = null; stopAllianceChatListener(); scheduleSave();
+    markAllianceKnown(null);
     allianceView = 'browse';
     showToast('🚪 Left Alliance','','success');
   }catch(e){ console.error(e); showToast('❌','Failed to leave.','error'); }
@@ -701,6 +727,7 @@ async function disbandAlliance(){
     state.allianceId = null; state.allianceRole = null;
     state.allianceDisbandCooldownUntil = Date.now() + ALLIANCE_DISBAND_COOLDOWN_MS;
     allianceData = null; stopAllianceChatListener(); scheduleSave();
+    markAllianceKnown(null);
     allianceView = 'browse';
     showToast('💥 Alliance Disbanded','Treasury distributed to members.','success');
   }catch(e){ console.error(e); showToast('❌','Failed to disband.','error'); }
