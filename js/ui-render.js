@@ -13,7 +13,7 @@ function renderBodyHTML(){
     case 'companies': return renderCompanies();
     case 'alliance': return renderAlliance();
     case 'settings': return renderSettings();
-    case 'zones': return state.zoneView ? renderZoneView() : renderZones();
+    case 'zones': return renderZonesTab();
     default: return '';
   }
 }
@@ -1289,6 +1289,99 @@ function hmsUntil(ts){
 /* ===== COMPANY HELPERS ===== */
 
 // ─── Zone Rendering ───
+function renderZonesTab(){
+  const toggle = `<div class="wrap animate-fade" style="padding-bottom:0;">
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="act-btn ${zoneSubTab==='adventure'?'buy':''}" style="width:auto;padding:7px 16px;font-size:12px;" onclick="setZoneSubTab('adventure')">⚔️ Adventure</button>
+      <button class="act-btn ${zoneSubTab==='territory'?'buy':''}" style="width:auto;padding:7px 16px;font-size:12px;" onclick="setZoneSubTab('territory')"><img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️" style="width:14px;height:14px;vertical-align:-2px;"> Kingdom Map</button>
+    </div>
+  </div>`;
+  const body = zoneSubTab === 'territory'
+    ? renderKingdomMap()
+    : (state.zoneView ? renderZoneView() : renderZones());
+  return toggle + body;
+}
+
+// ─── Kingdom Territory Map ───
+function renderKingdomMap(){
+  if(!db){
+    return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">
+      🔌 Kingdom warfare requires cloud save (Firebase) to be configured.
+    </div>`;
+  }
+  if(!territoryLoaded){
+    loadTerritories();
+    return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading the realm map…</div>`;
+  }
+  if(territoryZoneView) return renderZoneOutposts(territoryZoneView);
+
+  const myKingdom = state.allianceId;
+
+  return `<div class="wrap animate-fade">
+    <header class="hero" style="margin-bottom:14px;">
+      <h1 style="font-size:22px;"><img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️" style="width:22px;height:22px;vertical-align:-4px;"> Kingdom Map</h1>
+      <p style="color:var(--dim);font-size:12px;">Six zones, six kingdoms. You can only attack outposts in a zone bordering land your kingdom already holds.</p>
+    </header>
+    ${!myKingdom ? `<div class="panel" style="padding:12px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:14px;">Pledge allegiance to a kingdom in the Kingdom tab to take part in territory warfare.</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));">
+      ${ZONES.map(z => {
+        const controllerId = zoneController(z.id);
+        const kd = kingdomDef(controllerId);
+        const mine = kingdomOwnsAnyIn(myKingdom, z.id);
+        const reachable = kingdomHasFootholdNear(myKingdom, z.id);
+        const ownedCount = territoriesInZone(z.id).filter(t => t.ownerKingdom === myKingdom).length;
+        return `<div onclick="openZoneTerritoryView('${z.id}')"
+          style="background:var(--panel-light);border:1px solid ${mine ? 'var(--brass)' : 'var(--border)'};border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;"
+          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.25)'"
+          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+          <div style="font-size:34px;">${z.icon}</div>
+          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-top:6px;">${z.name}</div>
+          <div style="font-size:11px;color:${kd ? kd.color : 'var(--dim)'};margin-top:4px;">${kd ? kd.emblem + ' ' + kd.name : 'Unclaimed'}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);margin-top:6px;">${ownedCount}/${TERRITORIES_PER_ZONE} outposts yours</div>
+          ${myKingdom && !mine ? `<div style="font-size:10px;margin-top:6px;color:${reachable ? 'var(--green)' : 'var(--red)'};font-weight:600;">${reachable ? '⚔️ Reachable' : '🔒 Not bordering your land'}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function renderZoneOutposts(zone){
+  const z = ZONES.find(x => x.id === zone);
+  if(!z) return '';
+  const list = territoriesInZone(zone);
+  const myKingdom = state.allianceId;
+  const reachable = kingdomHasFootholdNear(myKingdom, zone);
+  const borderNames = (ZONE_ADJACENCY[zone] || []).map(a => (ZONES.find(x => x.id === a) || {}).name || a).join(', ');
+
+  return `<div class="wrap animate-fade">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button class="act-btn" style="width:auto;padding:6px 12px;font-size:11px;" onclick="closeZoneTerritoryView()">← Back to Map</button>
+      <div style="font-size:26px;">${z.icon}</div>
+      <div>
+        <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);">${z.name} Outposts</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">Borders: ${borderNames}</div>
+      </div>
+    </div>
+    ${myKingdom && !reachable ? `<div class="panel" style="padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;">🔒 Your kingdom doesn't hold ground here or in a bordering zone yet — you can't attack these outposts until it does.</div>` : ''}
+    ${!myKingdom ? `<div class="panel" style="padding:10px 14px;color:var(--dim);font-size:12px;margin-bottom:12px;">Pledge allegiance to a kingdom to attack or reinforce outposts.</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));">
+      ${list.map(t => {
+        const kd = kingdomDef(t.ownerKingdom);
+        const mine = t.ownerKingdom === myKingdom;
+        const canAttack = myKingdom && !mine && reachable;
+        return `<div class="card" style="padding:14px;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">${t.id.toUpperCase()}</div>
+          <div style="font-size:12px;font-weight:700;color:${kd ? kd.color : 'var(--dim)'};margin:6px 0;">${kd ? kd.emblem + ' ' + kd.name : 'Unclaimed'}</div>
+          <div style="font-size:11px;color:var(--dim);">🛡️ ${t.defense} defense</div>
+          ${mine
+            ? `<button class="act-btn buy" style="margin-top:8px;width:100%;font-size:11px;" onclick="reinforceTerritory('${t.id}')">Reinforce (${TERRITORY_REINFORCE_GOLD}g)</button>`
+            : `<button class="act-btn ${canAttack ? 'copper' : ''}" style="margin-top:8px;width:100%;font-size:11px;" ${canAttack ? '' : 'disabled'} onclick="attackTerritory('${t.id}')">${!myKingdom ? 'Join a kingdom' : (canAttack ? '⚔️ Attack' : '🔒 Unreachable')}</button>`}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
 function renderZones(){
   return `<div class="wrap animate-fade">
     <header class="hero" style="margin-bottom:18px;">
