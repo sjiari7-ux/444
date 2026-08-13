@@ -137,7 +137,7 @@ async function loadUsername(){
 function logout(){
   if(confirm('Do you want to log out? Your progress will be saved.')){
     stopGlobalChatListener();
-    syncToFirestore().then(()=>{
+    Promise.all([syncToFirestore(), (typeof flushZoneTax==='function'?flushZoneTax():Promise.resolve())]).then(()=>{
       if (auth) auth.signOut().then(()=>{ location.reload(); });
       else location.reload();
     });
