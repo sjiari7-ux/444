@@ -356,8 +356,8 @@ function renderChatDrawerTabsHTML(){
       <button class="chat-drawer-tab ${chatActiveTab==='global'?'active':''}" onclick="switchChatTab('global')">
         🌐 Global${globalChatUnread>0 && chatActiveTab!=='global' ? `<span class="tab-dot">${globalChatUnread>9?'9+':globalChatUnread}</span>` : ''}
       </button>
-      <button class="chat-drawer-tab ${chatActiveTab==='alliance'?'active':''} ${hasAlliance?'':'disabled'}" title="${hasAlliance?'':'Join an alliance to unlock'}" onclick="${hasAlliance?"switchChatTab('alliance')":''}">
-        🏛️ Alliance${allianceUnreadCount>0 && chatActiveTab!=='alliance' ? `<span class="tab-dot">${allianceUnreadCount>9?'9+':allianceUnreadCount}</span>` : ''}
+      <button class="chat-drawer-tab ${chatActiveTab==='alliance'?'active':''} ${hasAlliance?'':'disabled'}" title="${hasAlliance?'':'Join a kingdom to unlock'}" onclick="${hasAlliance?"switchChatTab('alliance')":''}">
+        🏰 Kingdom${allianceUnreadCount>0 && chatActiveTab!=='alliance' ? `<span class="tab-dot">${allianceUnreadCount>9?'9+':allianceUnreadCount}</span>` : ''}
       </button>
     </div>`;
 }
@@ -374,8 +374,8 @@ function renderChatDrawerHTML(){
   const hasAlliance = !!(state && state.allianceId);
   const onAlliance = chatActiveTab === 'alliance';
   if(onAlliance && !hasAlliance) chatActiveTab = 'global';
-  const title = chatActiveTab === 'alliance' ? '🏛️ Alliance Chat' : '🌐 Global Chat';
-  const placeholder = chatActiveTab === 'alliance' ? 'Message your alliance…' : 'Message everyone…';
+  const title = chatActiveTab === 'alliance' ? '🏰 Kingdom Chat' : '🌐 Global Chat';
+  const placeholder = chatActiveTab === 'alliance' ? 'Message your kingdom…' : 'Message everyone…';
   const sendFn = chatActiveTab === 'alliance' ? 'sendAllianceChatMsg()' : 'sendGlobalChatMsg()';
   const keydownFn = chatActiveTab === 'alliance' ? 'allianceChatKeydown(event)' : 'globalChatKeydown(event)';
   const msgs = chatActiveTab === 'alliance' ? (typeof allianceChatMsgs !== 'undefined' ? allianceChatMsgs : []) : globalChatMsgs;
