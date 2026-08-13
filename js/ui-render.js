@@ -78,13 +78,14 @@ function renderInventory(){
   const storagePct = Math.min(100, (totalItems/cap)*100);
 
   // Only show items that player actually has (quantity > 0)
-  const ownedKeys = Object.keys(ITEMS).filter(key => (state.inv[key] || 0) > 0);
+  const ownedKeys = Object.keys(MARKET_CATALOG).filter(key => (state.inv[key] || 0) > 0);
 
   const allCards = ownedKeys.map(key=>{
-    const it = ITEMS[key];
+    const it = MARKET_CATALOG[key];
     const qty = state.inv[key] || 0;
     const pct = Math.min(100, (qty/cap)*100);
     const isResource = RESOURCES[key] !== undefined;
+    const isWeapon = WEAPONS[key] !== undefined;
     const isBread = BREAD_TIERS[key] !== undefined;
     const isEnergy = ENERGY_POTION_TIERS[key] !== undefined;
     const isHealthPotion = key === 'health_potion';
@@ -106,7 +107,7 @@ function renderInventory(){
       <div class="bar-track"><div class="bar-fill ${isResource?'':'warn'}" style="width:${pct}%"></div></div>
       <div style="display:flex;justify-content:space-between;margin-top:4px;">
         <span style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;">${pct.toFixed(0)}%</span>
-        <span style="font-size:10px;color:var(--dim);">${isResource?'Resource':(isBread||isEnergy||isHealthPotion?'Consumable':'Good')}</span>
+        <span style="font-size:10px;color:var(--dim);">${isResource?'Resource':(isBread||isEnergy||isHealthPotion?'Consumable':(isWeapon?'Weapon':'Good'))}</span>
       </div>
       ${consumeBtn}
     </div>`;
@@ -482,7 +483,7 @@ function renderClass(){
       else if(ef==='healBonus') label = `+${(total*100).toFixed(0)}% healing`;
       else if(ef==='hpBonus') label = `+${total} max HP`;
       else if(ef==='sellBonus') label = `+${(total*100).toFixed(0)}% sell price`;
-      else if(ef==='goldCapBonus') label = `+${(total*100).toFixed(0)}% gold cap`;
+      else if(ef==='goldCapBonus') label = `+${(total*100).toFixed(0)}% battle gold`;
       else if(ef==='lootBonus') label = `+${(total*100).toFixed(0)}% loot chance`;
       else if(ef==='magicResist') label = `+${(total*100).toFixed(0)}% magic resist`;
       effects.push(label);
@@ -851,18 +852,25 @@ async function changeUsername(newName) {
         showToast('Error', 'Contains invalid characters', 'lose');
         return;
     }
+    if (newName === state.username) return;
     try {
         if (db) {
-            const doc = await db.collection('usernames').doc(newName).get();
-            if (doc.exists) {
-                showToast('Error', 'Username already taken', 'lose');
-                return;
-            }
-            if (state.username) {
-                await db.collection('usernames').doc(state.username).delete();
-            }
-            await db.collection('usernames').doc(newName).set({ uid: UID });
-            await db.collection('players').doc(UID).update({ username: newName });
+            const oldName = state.username;
+            const newNameRef = db.collection('usernames').doc(newName);
+            const playerRef = db.collection('players').doc(UID);
+            await db.runTransaction(async (tx) => {
+                const nameDoc = await tx.get(newNameRef);
+                if (nameDoc.exists) {
+                    const err = new Error('This name was just taken by another player.');
+                    err.code = 'username-taken';
+                    throw err;
+                }
+                if (oldName) {
+                    tx.delete(db.collection('usernames').doc(oldName));
+                }
+                tx.set(newNameRef, { uid: UID });
+                tx.update(playerRef, { username: newName });
+            });
         }
         state.username = newName;
         window.__playerUsername = newName;
@@ -871,7 +879,11 @@ async function changeUsername(newName) {
         renderBody();
         scheduleSave();
     } catch (e) {
-        showToast('Error', 'Failed to change username', 'lose');
+        if (e.code === 'username-taken') {
+            showToast('Error', 'Username already taken', 'lose');
+        } else {
+            showToast('Error', 'Failed to change username', 'lose');
+        }
         console.error(e);
     }
 }
@@ -980,6 +992,7 @@ function openAchievementsModal() {
             <div>💎 Gems: <b style="color:var(--text);">${state.gems}</b></div>
             <div>🎯 Skill Points: <b style="color:var(--text);">${state.skillPoints}</b></div>
             <div>💰 Total Gold Earned: <b style="color:var(--text);">${fmtG(state.totalGoldEarned)}</b></div>
+            <div>🤝 Total Donated to Alliances: <b style="color:var(--text);">${fmtG(state.totalAllianceDonated || 0)}</b></div>
             <div>✨ Prestige Points: <b style="color:var(--prestige);">${state.prestige.points}</b></div>
         </div>
     `;
