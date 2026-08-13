@@ -1302,7 +1302,119 @@ function renderZonesTab(){
   return toggle + body;
 }
 
-// ─── Kingdom Territory Map ───
+// ─── Kingdom Territory Map — real hand-drawn SVG map ───
+// Layout mirrors the exact adjacency graph in ZONE_ADJACENCY (territory.js):
+// a 6-node ring (forest→plains→mountain→swamp→dark→cave→forest) plus one
+// chord (plains↔swamp), so the borders drawn on the map are always truthful.
+const ZONE_RING_ORDER = ['forest', 'plains', 'mountain', 'swamp', 'dark', 'cave'];
+const ZONE_CHORD = ['plains', 'swamp'];
+
+function buildZoneMapLayout(){
+  const center = 300, ringR = 205, blobR = 92;
+  const layout = {};
+  ZONE_RING_ORDER.forEach((id, i) => {
+    const angle = (-90 + i * 60) * Math.PI / 180;
+    layout[id] = { cx: center + ringR * Math.cos(angle), cy: center + ringR * Math.sin(angle), r: blobR };
+  });
+  return layout;
+}
+const ZONE_MAP_LAYOUT = buildZoneMapLayout();
+
+// Fixed per-zone jitter tables give each territory an organic, hand-drawn
+// coastline instead of a perfect hexagon — deterministic, so the map never
+// "shifts" between renders.
+const ZONE_BLOB_JITTER = {
+  forest:   [1.00, 0.86, 1.10, 0.90, 1.05, 0.82, 1.14, 0.94, 1.02, 0.90],
+  plains:   [0.92, 1.10, 0.86, 1.06, 0.94, 1.14, 0.82, 1.00, 1.10, 0.90],
+  mountain: [1.10, 0.90, 1.02, 0.86, 1.14, 1.00, 0.90, 1.06, 0.86, 1.10],
+  swamp:    [0.86, 1.06, 0.94, 1.14, 0.90, 1.00, 1.10, 0.82, 1.02, 0.94],
+  dark:     [1.00, 0.82, 1.14, 0.90, 1.06, 0.86, 1.10, 0.94, 1.00, 1.06],
+  cave:     [0.94, 1.10, 0.82, 1.00, 0.86, 1.14, 0.90, 1.06, 1.00, 0.90],
+};
+
+function catmullRomClosedPath(pts){
+  const n = pts.length;
+  let d = '';
+  for(let i = 0; i < n; i++){
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    if(i === 0) d += `M ${p1[0].toFixed(1)} ${p1[1].toFixed(1)} `;
+    d += `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)} `;
+  }
+  return d + 'Z';
+}
+function zoneBlobPath(cx, cy, r, jitters){
+  const n = jitters.length;
+  const pts = jitters.map((j, i) => {
+    const a = (Math.PI * 2 * i / n) - Math.PI / 2;
+    return [cx + Math.cos(a) * r * j, cy + Math.sin(a) * r * j];
+  });
+  return catmullRomClosedPath(pts);
+}
+
+function renderKingdomMapSVG(myKingdom){
+  const edges = ZONE_RING_ORDER.map((id, i) => [id, ZONE_RING_ORDER[(i + 1) % ZONE_RING_ORDER.length]]).concat([ZONE_CHORD]);
+  const lines = edges.map(([a, b]) => {
+    const A = ZONE_MAP_LAYOUT[a], B = ZONE_MAP_LAYOUT[b];
+    return `<line x1="${A.cx.toFixed(1)}" y1="${A.cy.toFixed(1)}" x2="${B.cx.toFixed(1)}" y2="${B.cy.toFixed(1)}" stroke="var(--border-light)" stroke-width="2" stroke-dasharray="4 5" opacity="0.55"/>`;
+  }).join('');
+
+  const regions = ZONES.map(z => {
+    const L = ZONE_MAP_LAYOUT[z.id];
+    const path = zoneBlobPath(L.cx, L.cy, L.r, ZONE_BLOB_JITTER[z.id]);
+    const controllerId = zoneController(z.id);
+    const kd = kingdomDef(controllerId);
+    const taxOwner = zoneTaxOwner(z.id);
+    const contested = !taxOwner;
+    const mine = kingdomOwnsAnyIn(myKingdom, z.id);
+    const reachable = kingdomHasFootholdNear(myKingdom, z.id);
+    const ownedCount = territoriesInZone(z.id).filter(t => t.ownerKingdom === myKingdom).length;
+    const taxPct = Math.round((ZONE_TAX_RATE[z.id] || 0) * 100);
+    const fill = kd ? kd.color : '#3a3226';
+    const fillOpacity = contested ? 0.26 : 0.55;
+    const strokeColor = mine ? 'var(--brass-bright)' : ((myKingdom && !mine && reachable) ? 'var(--green)' : 'var(--border-light)');
+    const strokeWidth = mine ? 3 : 1.5;
+
+    const list = territoriesInZone(z.id);
+    const slots = list.length ? list : Array.from({ length: TERRITORIES_PER_ZONE });
+    const pipStartX = L.cx - ((slots.length - 1) * 13) / 2;
+    const pips = slots.map((t, idx) => {
+      const isCap = idx === 0;
+      const ownerKd = t ? kingdomDef(t.ownerKingdom) : null;
+      const pc = ownerKd ? ownerKd.color : '#544732';
+      const px = pipStartX + idx * 13, py = L.cy + 18;
+      return `<rect x="${(px - 4).toFixed(1)}" y="${(py - 4).toFixed(1)}" width="8" height="8" rx="2" fill="${pc}" stroke="${isCap ? 'var(--brass-bright)' : 'rgba(0,0,0,0.4)'}" stroke-width="${isCap ? 1.4 : 0.6}"/>`;
+    }).join('');
+
+    const tooltip = `${z.name} — ${contested ? 'Contested (no tax)' : (kd ? kd.emblem + ' ' + kd.name : 'Unclaimed')} — ${ownedCount}/${TERRITORIES_PER_ZONE} yours — ${taxPct}% tax${myKingdom && !mine ? (reachable ? ' — Reachable' : ' — Not bordering your land') : ''}`;
+
+    return `<g class="zone-region" style="cursor:pointer;" onclick="openZoneTerritoryView('${z.id}')"
+        onmouseover="this.querySelector('.zone-blob').style.filter='brightness(1.28)'"
+        onmouseout="this.querySelector('.zone-blob').style.filter='none'">
+      <title>${tooltip}</title>
+      <path class="zone-blob" d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="${strokeWidth}" style="transition:filter 0.15s;"/>
+      <text x="${L.cx.toFixed(1)}" y="${(L.cy - 18).toFixed(1)}" text-anchor="middle" font-size="26" style="pointer-events:none;">${z.icon}</text>
+      <text x="${L.cx.toFixed(1)}" y="${(L.cy).toFixed(1)}" text-anchor="middle" font-family="Cairo, sans-serif" font-weight="700" font-size="13" fill="var(--brass-bright)" style="pointer-events:none;">${z.name}</text>
+      ${pips}
+      <text x="${L.cx.toFixed(1)}" y="${(L.cy + 34).toFixed(1)}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="var(--dim)" style="pointer-events:none;">${contested ? '⚡ contested' : (kd ? kd.emblem + ' ' + kd.name : 'unclaimed')}</text>
+    </g>`;
+  }).join('');
+
+  return `<div class="kingdom-map-wrap">
+    <svg viewBox="0 0 600 600" style="width:100%;max-width:600px;display:block;margin:0 auto;">
+      ${lines}
+      ${regions}
+    </svg>
+  </div>
+  <div class="panel" style="margin-top:12px;padding:10px 14px;">
+    <div style="display:flex;flex-wrap:wrap;gap:10px 16px;font-size:11px;">
+      ${KINGDOMS.map(k => `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:${k.color};display:inline-block;"></span>${k.emblem} ${k.name}</span>`).join('')}
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--dim);">Dashed lines = zone borders · <span style="color:var(--brass-bright);">brass outline</span> = your kingdom's ground · <span style="color:var(--green);">green outline</span> = reachable to attack</div>
+  </div>`;
+}
+
 function renderKingdomMap(){
   if(!db){
     return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">
@@ -1323,28 +1435,7 @@ function renderKingdomMap(){
       <p style="color:var(--dim);font-size:12px;">Six zones, six kingdoms. You can only attack outposts in a zone bordering land your kingdom already holds.</p>
     </header>
     ${!myKingdom ? `<div class="panel" style="padding:12px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:14px;">Pledge allegiance to a kingdom in the Kingdom tab to take part in territory warfare.</div>` : ''}
-    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));">
-      ${ZONES.map(z => {
-        const controllerId = zoneController(z.id);
-        const kd = kingdomDef(controllerId);
-        const taxOwner = zoneTaxOwner(z.id);
-        const contested = !taxOwner;
-        const mine = kingdomOwnsAnyIn(myKingdom, z.id);
-        const reachable = kingdomHasFootholdNear(myKingdom, z.id);
-        const ownedCount = territoriesInZone(z.id).filter(t => t.ownerKingdom === myKingdom).length;
-        const taxPct = Math.round((ZONE_TAX_RATE[z.id] || 0) * 100);
-        return `<div onclick="openZoneTerritoryView('${z.id}')"
-          style="background:var(--panel-light);border:1px solid ${mine ? 'var(--brass)' : 'var(--border)'};border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;"
-          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.25)'"
-          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
-          <div style="font-size:34px;">${z.icon}</div>
-          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-top:6px;">${z.name}</div>
-          <div style="font-size:11px;color:${contested ? 'var(--dim)' : (kd ? kd.color : 'var(--dim)')};margin-top:4px;">${contested ? '⚡ Contested (no tax)' : (kd ? kd.emblem + ' ' + kd.name : 'Unclaimed')}</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);margin-top:6px;">${ownedCount}/${TERRITORIES_PER_ZONE} outposts yours · ${taxPct}% tax</div>
-          ${myKingdom && !mine ? `<div style="font-size:10px;margin-top:6px;color:${reachable ? 'var(--green)' : 'var(--red)'};font-weight:600;">${reachable ? '⚔️ Reachable' : '🔒 Not bordering your land'}</div>` : ''}
-        </div>`;
-      }).join('')}
-    </div>
+    ${renderKingdomMapSVG(myKingdom)}
   </div>`;
 }
 
