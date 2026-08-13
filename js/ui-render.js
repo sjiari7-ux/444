@@ -1537,7 +1537,6 @@ function showPlayerProfile(playerData){
       ${isSelf ? '' : `
         <div style="display:flex;gap:8px;margin-top:14px;">
           <button class="act-btn" style="flex:1;" onclick="showToast('Coming Soon','Private messaging will be available soon!','win')">💬 Message</button>
-          <button class="act-btn buy" style="flex:1;" onclick="showToast('Coming Soon','Alliance invite will be available soon!','win')">🏛️ Invite to Alliance</button>
         </div>
       `}
     </div>
