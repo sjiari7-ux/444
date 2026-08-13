@@ -240,6 +240,11 @@ function awardBattleRewards(){
   if(state.playerClass === 'merchant'){
     gold = Math.round(gold * (1 + getClassSkillLevel(state, 'deepPockets') * 0.05));
   }
+  let taxPaid = 0;
+  if(typeof applyZoneTax === 'function' && bs.zoneId){
+    const taxed = applyZoneTax(bs.zoneId, 'gold', gold);
+    gold = taxed.net; taxPaid = taxed.tax;
+  }
   state.gold += gold; state.totalGoldEarned += gold; state.combat.wins += 1;
   const leveled = grantXp(state, xp); updateMissionProgress('battles_won', 1);
   const loot = {};
@@ -265,8 +270,8 @@ function awardBattleRewards(){
       if(spiritHeal > 0) state.health += spiritHeal;
     }
   }
-  bs.rewards = { gold, xp, loot, shards, gearDrop, gemDrop, stolenGold: bs.rewards && bs.rewards.stolenGold ? bs.rewards.stolenGold : 0 };
-  pushLog(state, `Victory! Defeated ${m.name} (+${gold}g, +${xp}xp)`, 'win');
+  bs.rewards = { gold, xp, loot, shards, gearDrop, gemDrop, taxPaid, stolenGold: bs.rewards && bs.rewards.stolenGold ? bs.rewards.stolenGold : 0 };
+  pushLog(state, taxPaid > 0 ? `Victory! Defeated ${m.name} (+${gold}g, -${taxPaid}g tax, +${xp}xp)` : `Victory! Defeated ${m.name} (+${gold}g, +${xp}xp)`, 'win');
   if(leveled){ pushLog(state, `Reached level ${state.level}! (+1 skill point)`, 'levelup'); showToast('Level Up!', `You reached level ${state.level}. +1 Skill Point`, 'levelup'); }
   if(gearDrop){ const t = GEAR_TIERS[gearDrop.tier]; pushLog(state, `Found [${t.symbol}] ${gearDrop.name}!`, 'gear'); }
   if(gemDrop > 0){ pushLog(state, `Found ${gemDrop} <img class="ui-icon" src="${ICONS.gem}" alt="💎"> Gem(s)!`, 'win'); }
@@ -360,6 +365,7 @@ function renderBattle(){
       <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:24px;color:var(--green);">Victory!</div>
       <div style="display:flex;flex-direction:column;gap:8px;min-width:220px;">
         <div style="display:flex;justify-content:space-between;background:var(--panel-light);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;"><span><img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙"> Gold</span><b style="color:var(--brass-bright);">${bs.rewards.gold}</b></div>
+        ${bs.rewards.taxPaid ? `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);padding:0 16px;"><span>🏛️ Zone tax</span><span>-${bs.rewards.taxPaid}g</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;background:var(--panel-light);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;"><span>✨ XP</span><b style="color:var(--prestige);">${bs.rewards.xp}</b></div>
         ${bs.rewards.shards ? `<div style="display:flex;justify-content:space-between;background:var(--panel-light);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;"><span><img class="ui-icon" src="${ICONS.shard}" alt="🔷"> Shards</span><b style="color:var(--skill);">${bs.rewards.shards}</b></div>` : ''}
         ${bs.rewards.gemDrop ? `<div style="display:flex;justify-content:space-between;background:var(--panel-light);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;"><span><img class="ui-icon" src="${ICONS.gem}" alt="💎"> Gems</span><b style="color:var(--gem);">${bs.rewards.gemDrop}</b></div>` : ''}
