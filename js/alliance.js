@@ -30,7 +30,6 @@ const ALLIANCE_LEVELS = [
 
 const ALLIANCE_CREATE_MIN_LEVEL = 5;
 const ALLIANCE_CREATE_COST = 5000;
-const ALLIANCE_LEAVE_LOSS_PCT = 0.5;
 const ALLIANCE_JOIN_COOLDOWN_MS = 24 * 60 * 60 * 1000;      // 24h
 const ALLIANCE_DISBAND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const ALLIANCE_RECRUIT_TRIAL_MS = 3 * 24 * 60 * 60 * 1000;   // 3 days
@@ -141,6 +140,7 @@ async function initAllianceOnStart(){
       startAllianceChatListener();
     } else {
       await checkMyAllianceInvites();
+      await loadMyRequestedAlliances();
     }
   }catch(e){ console.error('Alliance init failed', e); }
 }
@@ -292,6 +292,14 @@ async function checkMyAllianceInvites(){
     const snap = await db.collectionGroup('invites').where('uid','==',UID).get();
     allianceMyInvites = snap.docs.map(d => ({ allianceId: d.ref.parent.parent.id, ...d.data() }));
   }catch(e){ console.error('Invite check failed (composite index may be required)', e); allianceMyInvites = []; }
+}
+
+async function loadMyRequestedAlliances(){
+  if(!db || state.allianceId){ allianceRequestedIds = new Set(); return; }
+  try{
+    const snap = await db.collectionGroup('requests').where('uid','==',UID).get();
+    allianceRequestedIds = new Set(snap.docs.map(d => d.ref.parent.parent.id));
+  }catch(e){ console.error('Pending request check failed (composite index may be required)', e); }
 }
 
 async function acceptAllianceInvite(allianceId){
@@ -481,6 +489,7 @@ async function donateToAlliance(resourceKey, amount){
       });
     });
     if(resourceKey === 'gold') state.gold -= amount; else state.inv[resourceKey] -= amount;
+    state.totalAllianceDonated = (state.totalAllianceDonated || 0) + amount;
     updateMissionProgress('alliance_donated', amount);
     scheduleSave();
     await loadMyAlliance();
@@ -622,8 +631,20 @@ async function toggleMemberExempt(targetUid, exempt){
   renderBody();
 }
 
+async function warnMember(targetUid, targetName){
+  if(!allianceCan(state.allianceRole,'removeInactive') || !db) return;
+  try{
+    await db.collection('alliances').doc(state.allianceId).collection('members').doc(targetUid).update({
+      warnings: firebase.firestore.FieldValue.increment(1),
+    });
+    await loadMyAlliance();
+    showToast('⚠️ Warned', `${targetName || 'Member'} has been warned for inactivity.`, 'success');
+  }catch(e){ console.error(e); }
+  renderBody();
+}
+
 async function leaveAllianceConfirm(){
-  if(!confirm('Leave the alliance? You will lose 50% of your contribution record and must wait 24h before joining another.')) return;
+  if(!confirm('Leave the alliance? You must wait 24h before joining another. Your lifetime donation total is kept, but you will no longer get a treasury share if this alliance disbands.')) return;
   await leaveAlliance();
 }
 async function leaveAlliance(){
@@ -662,8 +683,9 @@ async function disbandAlliance(){
       const goldShare = Math.floor(goldPool * share);
       if(m.uid === UID){
         state.gold += goldShare;
+        state.totalGoldEarned += goldShare;
       } else if(goldShare > 0){
-        batch.update(db.collection('players').doc(m.uid), { gold: firebase.firestore.FieldValue.increment(goldShare) });
+        batch.update(db.collection('players').doc(m.uid), { gold: firebase.firestore.FieldValue.increment(goldShare), totalGoldEarned: firebase.firestore.FieldValue.increment(goldShare) });
       }
       batch.update(db.collection('players').doc(m.uid), {
         allianceId: null, allianceRole: null,
@@ -1070,7 +1092,7 @@ function renderAllianceMemberRow(m){
       </div>
       <div style="flex:1;min-width:0;${hasActions?'cursor:pointer;':''}" ${hasActions?`onclick="openMemberActionsModal('${m.uid}')"`:''}>
         <div style="font-weight:700;color:var(--text);font-size:13px;${hasActions?'text-decoration:underline;text-decoration-color:var(--border-light);text-underline-offset:2px;':''}">${m.username}${isMe?' <span style="color:var(--dim);font-size:11px;">(you)</span>':''}</div>
-        <div style="font-size:11px;color:var(--dim);">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)} · Activity ${activity}%${atRisk?' · <span style="color:var(--red);">Inactive</span>':''}${m.exempt?' · <span style="color:var(--green);">Exempt</span>':''}</div>
+        <div style="font-size:11px;color:var(--dim);">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)} · Activity ${activity}%${atRisk?' · <span style="color:var(--red);">Inactive</span>':''}${m.exempt?' · <span style="color:var(--green);">Exempt</span>':''}${(m.warnings||0)>0?` · <span style="color:var(--brass-bright);">⚠️ ${m.warnings}</span>`:''}</div>
       </div>
       ${hasActions?`<button class="mini-btn" onclick="openMemberActionsModal('${m.uid}')" title="Member actions">⋯</button>`:''}
     </div>`;
@@ -1103,9 +1125,10 @@ function openMemberActionsModal(uid){
           <button class="modal-close" onclick="closeMemberActionsModal()">✕</button>
         </div>
         <div style="padding:16px 18px;">
-          <div style="font-size:11px;color:var(--dim);margin-bottom:14px;">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)}</div>
+          <div style="font-size:11px;color:var(--dim);margin-bottom:14px;">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)}${(m.warnings||0)>0?` · <span style="color:var(--brass-bright);">⚠️ ${m.warnings} warning${m.warnings===1?'':'s'}</span>`:''}</div>
           ${canPromote?`<button class="member-action-btn" onclick="closeMemberActionsModal();promoteMember('${m.uid}','${m.role}')"><span class="icon">⬆️</span> Promote to ${promoteTo.name}</button>`:''}
           ${canDemote?`<button class="member-action-btn" onclick="closeMemberActionsModal();demoteMember('${m.uid}','${m.role}')"><span class="icon">⬇️</span> Demote to ${demoteTo.name}</button>`:''}
+          ${canExempt?`<button class="member-action-btn" onclick="closeMemberActionsModal();warnMember('${m.uid}','${m.username}')"><span class="icon">⚠️</span> Warn for Inactivity</button>`:''}
           ${canExempt?`<button class="member-action-btn" onclick="closeMemberActionsModal();toggleMemberExempt('${m.uid}', ${!!m.exempt})"><span class="icon">${m.exempt?'🔓':'🔒'}</span> ${m.exempt?'Remove Inactivity Exemption':'Exempt from Inactivity'}</button>`:''}
           ${canManage?`<button class="member-action-btn danger" onclick="closeMemberActionsModal();kickMember('${m.uid}','${m.role}')"><span class="icon">✕</span> Remove from Alliance</button>`:''}
           ${(!canPromote && !canDemote && !canExempt && !canManage)?`<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0;">No actions available for this member.</div>`:''}
@@ -1166,8 +1189,9 @@ function renderAllianceManage(){
       <div style="font-size:11px;color:var(--dim);margin-bottom:8px;">Members inactive 7+ days with activity below 10% are flagged. Exempt them below or remove them from the Members tab.</div>
       ${atRiskMembers.length ? atRiskMembers.map(m => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
-          <div style="font-size:12px;color:var(--red);">${m.username} — ${memberActivityPct(m)}% activity</div>
+          <div style="font-size:12px;color:var(--red);">${m.username} — ${memberActivityPct(m)}% activity${(m.warnings||0)>0?` <span style="color:var(--brass-bright);">(⚠️${m.warnings})</span>`:''}</div>
           <div style="display:flex;gap:6px;">
+            <button class="mini-btn" onclick="warnMember('${m.uid}','${m.username}')">Warn</button>
             <button class="mini-btn" onclick="toggleMemberExempt('${m.uid}', ${!!m.exempt})">Exempt</button>
             <button class="mini-btn" style="color:var(--red);border-color:var(--red);" onclick="kickMember('${m.uid}','${m.role}')">Remove</button>
           </div>
