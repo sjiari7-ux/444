@@ -74,7 +74,7 @@ function renderProduction(){
 
 function renderInventory(){
   const cap = getStorageCap(state);
-  const totalItems = Object.values(state.inv).reduce((a,b)=>a+b,0);
+  const totalItems = getTotalStorageUsed(state);
   const storagePct = Math.min(100, (totalItems/cap)*100);
 
   // Only show items that player actually has (quantity > 0)
@@ -124,7 +124,7 @@ function renderInventory(){
   return `
     <div class="panel" style="margin-bottom:14px;padding:12px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span style="font-size:13px;color:var(--dim);">Total Storage Used</span>
+        <span style="font-size:13px;color:var(--dim);">Total Backpack Used (resources + gear)</span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--brass-bright);">${fmtG(totalItems)} / ${fmtG(cap)}</span>
       </div>
       <div class="bar-track" style="height:10px;"><div class="bar-fill ${storagePct>90?'warn':''}" style="width:${storagePct}%"></div></div>
@@ -140,7 +140,8 @@ function renderCrafting(){
     const g = GOODS[key];
     const locked = state.level < r.minLevel;
     const hasInputs = Object.keys(r.inputs).every(inp=> state.inv[inp] >= r.inputs[inp]);
-    const hasSpace = state.inv[key]+r.output <= cap;
+    const inputsSum = Object.values(r.inputs).reduce((a,b)=>a+b,0);
+    const hasSpace = getTotalStorageUsed(state) - inputsSum + r.output <= cap;
     const cost = getEnergyCost(state, r.energyCost);
     const hasEnergy = state.energy >= cost;
     const inputsHtml = Object.keys(r.inputs).map(inp=>{
@@ -207,9 +208,10 @@ function renderMarket(){
     const trendUp = price >= prev;
     const trendPct = prev > 0 ? ((price/prev)-1)*100 : 0;
     const owned = state.inv[key];
-    const canBuy1 = state.gold >= price && state.inv[key]+1<=cap;
-    const canBuy10 = state.gold >= price*10 && state.inv[key]+10<=cap;
-    const canBuyMax = state.gold >= Math.ceil(price) && state.inv[key]<cap;
+    const used = getTotalStorageUsed(state);
+    const canBuy1 = state.gold >= price && used+1<=cap;
+    const canBuy10 = state.gold >= price*10 && used+10<=cap;
+    const canBuyMax = state.gold >= Math.ceil(price) && used<cap;
     const canSell1 = owned >= 1;
     const canSell10 = owned >= 10;
     const canSellMax = owned >= 1;
@@ -316,7 +318,7 @@ function renderCompanies(){
     const maxCap = rate * 24;
     const pct = maxCap > 0 ? (c.stored / maxCap) * 100 : 0;
     const canCollect = c.stored >= 1 && !c.disabled;
-    const space = cap - state.inv[c.resource];
+    const space = cap - getTotalStorageUsed(state);
     const canUpgrade = c.engineLevel < 10;
     const upgradeCost = canUpgrade ? ENGINE_UPGRADE_COST[c.engineLevel + 1] : 0;
     const hasSteel = state.inv.steel >= upgradeCost;
