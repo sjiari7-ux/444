@@ -50,6 +50,7 @@ function stateToFirestore(s){
     marketTab: s.marketTab, marketSearch: s.marketSearch,
     marketLevelFilter: s.marketLevelFilter,
     watchedItems: s.watchedItems, marketNotifications: s.marketNotifications,
+    notifications: s.notifications,
     // Alliance (membership is the source of truth on the players doc;
     // allianceId/allianceRole are also updated directly by alliance.js actions)
     allianceId: s.allianceId, allianceRole: s.allianceRole,
@@ -105,6 +106,7 @@ function firestoreToState(data){
     marketTab: data.marketTab || 'all', marketSearch: data.marketSearch || '',
     marketLevelFilter: data.marketLevelFilter || 0,
     watchedItems: data.watchedItems || [], marketNotifications: data.marketNotifications || [],
+    notifications: data.notifications || [],
     // Alliance
     allianceId: data.allianceId || null, allianceRole: data.allianceRole || null,
     allianceJoinCooldownUntil: data.allianceJoinCooldownUntil || 0,
