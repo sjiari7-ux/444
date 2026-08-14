@@ -317,102 +317,102 @@ function setZoneSubTab(tab){
    ARCADIA WORLD MAP — Realistic Continent Shapes
    ═══════════════════════════════════════════════════════════ */
 const ARCADIA_WORLD = {
-  plains:   { label:'Europe',        color:'#2d68b8', names:['Royal Plains','Silverfield','Windcrest','Kingsroad','Valoria'] },
-  forest:   { label:'Asia',          color:'#23865d', names:['Jade Capital','Bamboo Vale','Dragon Gate','Emerald Hills','Misty Peaks'] },
-  swamp:    { label:'Arab World',    color:'#c58a22', names:['Golden Oasis','Sundfall Dunes','Palm Haven','Sandspire','Al-Madina'] },
-  mountain: { label:'Africa',        color:'#a53b32', names:["Lion's Den",'Baobab Wilds','Ivory Coast','Kilim Cliffs','Savannah'] },
-  cave:     { label:'North America', color:'#b75b25', names:["Eagle's Peak",'Pine Ridge','Great Lakes','Rocky Vale','Stormhold'] },
-  dark:     { label:'South America', color:'#70449d', names:['Sun Temple','Amazonia','Silver Mine','Misty Jungle','Jade Falls'] },
+  plains:   { label:'Europe',        color:'#3b6cb5', names:['Nordic Realm','British Isles','Central Europe','Mediterranean','Iberia'] },
+  forest:   { label:'Asia',          color:'#d4a843', names:['Siberia','East Asia','Central Asia','Indian Subcontinent','Southeast Asia'] },
+  swamp:    { label:'Arab World',    color:'#c17f24', names:['Levant & Anatolia','Mesopotamia','Hejaz','Eastern Arabia','Nile Valley'] },
+  mountain: { label:'Africa',        color:'#4a9b5e', names:['North Africa','West Africa','Horn of Africa','Central Africa','South Africa'] },
+  cave:     { label:'North America', color:'#b03a2e', names:['Alaska & Pacific NW','Canada','Western USA','Eastern USA','Mexico & Central'] },
+  dark:     { label:'South America', color:'#7d3c98', names:['Northern Andes','Brazil','Western Andes','Southern Cone','Patagonia'] },
 };
 
-/* Realistic geographic positions */
+/* Realistic geographic positions — world map layout */
 const WORLD_CONTINENTS = {
-  plains:   {x:400,y:140, label:'EUROPE', terrain:'PLAIN'},
-  forest:   {x:720,y:150, label:'ASIA', terrain:'FOREST'},
-  swamp:    {x:580,y:290, label:'ARAB WORLD', terrain:'DESERT'},
-  mountain: {x:400,y:380, label:'AFRICA', terrain:'MOUNTAIN'},
-  cave:     {x:140,y:180, label:'NORTH AMERICA', terrain:'CAVE'},
-  dark:     {x:220,y:440, label:'SOUTH AMERICA', terrain:'DARK'},
+  plains:   {x:480,y:150, label:'EUROPE', terrain:'PLAIN'},
+  forest:   {x:800,y:170, label:'ASIA', terrain:'FOREST'},
+  swamp:    {x:620,y:280, label:'ARAB WORLD', terrain:'DESERT'},
+  mountain: {x:500,y:380, label:'AFRICA', terrain:'MOUNTAIN'},
+  cave:     {x:160,y:180, label:'NORTH AMERICA', terrain:'CAVE'},
+  dark:     {x:260,y:460, label:'SOUTH AMERICA', terrain:'DARK'},
 };
 
 /* Realistic continent shapes (5 territories each) */
 const WORLD_TERRITORY_SHAPES = {
   // ─── EUROPE ───
   plains: [
-    /* 1 Scandinavia & UK (NW) */
-    [[15,10],[55,5],[75,25],[55,50],[25,45]],
-    /* 2 Western Europe (W) */
-    [[25,45],[55,50],[65,80],[40,95],[15,75]],
-    /* 3 Central/Eastern Europe (E) */
-    [[55,50],[75,25],[110,35],[100,75],[65,80]],
-    /* 4 Italy/Balkans (SE) */
-    [[40,95],[65,80],[100,75],[80,115],[50,110]],
-    /* 5 Iberia (SW) */
-    [[15,75],[40,95],[50,110],[25,125],[5,100]]
+    /* 1 Nordic Realm (Scandinavia) */
+    [[15,5],[55,0],[75,20],[55,45],[25,40]],
+    /* 2 British Isles */
+    [[5,35],[35,30],[45,55],[20,65],[0,50]],
+    /* 3 Central Europe */
+    [[25,40],[55,45],[65,75],[40,90],[15,70]],
+    /* 4 Mediterranean (Italy/Balkans) */
+    [[40,90],[65,75],[100,70],[80,110],[50,105]],
+    /* 5 Iberia */
+    [[5,75],[15,70],[40,90],[50,105],[25,125],[5,100]]
   ],
   // ─── ASIA ───
   forest: [
-    /* 1 Siberia/Russia North */
-    [[10,10],[80,5],[120,25],[100,55],[30,45]],
-    /* 2 Central Asia (W) */
-    [[30,45],[100,55],[90,90],[40,95],[20,70]],
-    /* 3 East Asia/China (E) */
-    [[100,55],[120,25],[155,45],[140,95],[90,90]],
-    /* 4 India/South Asia (SW) */
-    [[20,70],[40,95],[70,130],[35,145],[15,105]],
-    /* 5 Southeast Asia (SE) */
-    [[40,95],[90,90],[140,95],[120,140],[70,130]]
+    /* 1 Siberia */
+    [[10,5],[80,0],[120,20],[100,50],[30,40]],
+    /* 2 East Asia/China */
+    [[100,50],[120,20],[155,40],[140,90],[90,85]],
+    /* 3 Central Asia */
+    [[30,40],[100,50],[90,85],[40,90],[20,65]],
+    /* 4 Indian Subcontinent */
+    [[20,65],[40,90],[70,125],[35,140],[15,100]],
+    /* 5 Southeast Asia */
+    [[40,90],[90,85],[140,90],[120,135],[70,125]]
   ],
   // ─── ARAB WORLD ───
   swamp: [
-    /* 1 Turkey/Levant (N) */
-    [[15,15],[70,10],[95,30],[65,50],[20,40]],
-    /* 2 Iraq/Persia (NE) */
-    [[65,50],[95,30],[120,45],[100,80],[70,70]],
-    /* 3 Arabia West (W) */
-    [[20,40],[65,50],[70,70],[45,115],[15,95]],
-    /* 4 Arabia East (E) */
-    [[70,70],[100,80],[110,110],[75,125],[45,115]],
-    /* 5 Egypt/Nile (SW) */
-    [[15,95],[45,115],[75,125],[55,155],[20,135]]
+    /* 1 Levant & Anatolia */
+    [[15,10],[70,5],[95,25],[65,45],[20,35]],
+    /* 2 Mesopotamia */
+    [[65,45],[95,25],[120,40],[100,75],[70,65]],
+    /* 3 Hejaz (West Arabia) */
+    [[20,35],[65,45],[70,65],[45,110],[15,90]],
+    /* 4 Eastern Arabia */
+    [[70,65],[100,75],[110,105],[75,120],[45,110]],
+    /* 5 Nile Valley */
+    [[15,90],[45,110],[75,120],[55,150],[20,130]]
   ],
   // ─── AFRICA ───
   mountain: [
-    /* 1 North Africa (N) */
-    [[20,15],[80,10],[110,30],[90,60],[30,50]],
-    /* 2 West Africa (W) */
-    [[30,50],[90,60],[80,105],[25,115],[10,80]],
-    /* 3 East Africa/Horn (E) */
-    [[90,60],[110,30],[140,50],[130,110],[80,105]],
-    /* 4 Central Africa (C) */
-    [[25,115],[80,105],[130,110],[110,150],[40,140]],
-    /* 5 South Africa (S) */
-    [[40,140],[110,150],[95,185],[50,195],[30,165]]
+    /* 1 North Africa */
+    [[20,10],[80,5],[110,25],[90,55],[30,45]],
+    /* 2 West Africa */
+    [[30,45],[90,55],[80,100],[25,110],[10,75]],
+    /* 3 Horn of Africa */
+    [[90,55],[110,25],[140,45],[130,105],[80,100]],
+    /* 4 Central Africa */
+    [[25,110],[80,100],[130,105],[110,145],[40,135]],
+    /* 5 South Africa */
+    [[40,135],[110,145],[95,180],[50,190],[30,160]]
   ],
   // ─── NORTH AMERICA ───
   cave: [
     /* 1 Alaska & Pacific NW */
-    [[5,5],[40,0],[55,25],[45,55],[15,50]],
-    /* 2 Canada (N) */
-    [[45,55],[55,25],[100,20],[110,55],[80,75]],
-    /* 3 USA West */
-    [[15,50],[45,55],[80,75],[70,115],[25,105]],
-    /* 4 USA East */
-    [[80,75],[110,55],[135,75],[125,115],[70,115]],
-    /* 5 Mexico/Central America */
-    [[25,105],[70,115],[125,115],[100,155],[45,145]]
+    [[10,5],[50,0],[65,25],[55,55],[20,50]],
+    /* 2 Canada */
+    [[55,25],[110,20],[125,55],[95,75],[55,55]],
+    /* 3 Western USA */
+    [[20,50],[55,55],[95,75],[85,115],[30,105]],
+    /* 4 Eastern USA */
+    [[95,75],[125,55],[145,75],[135,115],[85,115]],
+    /* 5 Mexico & Central America */
+    [[30,105],[85,115],[135,115],[110,155],[50,145]]
   ],
   // ─── SOUTH AMERICA ───
   dark: [
-    /* 1 North (Colombia/Venezuela) */
+    /* 1 Northern Andes (Colombia/Venezuela) */
     [[25,15],[75,10],[100,35],[70,55],[20,45]],
-    /* 2 East (Brazil) */
+    /* 2 Brazil */
     [[70,55],[100,35],[125,80],[90,115],[55,90]],
-    /* 3 West (Peru/Ecuador) */
+    /* 3 Western Andes (Peru/Ecuador) */
     [[20,45],[70,55],[55,90],[20,100],[5,70]],
-    /* 4 South (Argentina) */
+    /* 4 Southern Cone (Argentina) */
     [[55,90],[90,115],[75,160],[40,170],[35,125]],
-    /* 5 SW (Chile/Andes) */
+    /* 5 Patagonia/Chile */
     [[20,100],[55,90],[35,125],[40,170],[15,150]]
   ],
 };
