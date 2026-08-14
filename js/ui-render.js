@@ -1318,34 +1318,86 @@ const ARCADIA_WORLD = {
 // World-space centres for the six continents. Each continent is split into
 // five irregular but touching parcels using a common local 2x3 organic grid.
 const WORLD_CONTINENTS = {
-  plains:   {x:260,y:180}, forest:{x:690,y:170}, swamp:{x:790,y:390},
-  mountain: {x:390,y:420}, cave:{x:165,y:410}, dark:{x:570,y:510}
+  plains:   {x:245,y:150, label:'EUROPE', terrain:'PLAIN'},
+  forest:   {x:650,y:125, label:'ASIA', terrain:'FOREST'},
+  swamp:    {x:730,y:390, label:'ARAB WORLD', terrain:'DESERT'},
+  mountain: {x:350,y:405, label:'AFRICA', terrain:'MOUNTAIN'},
+  cave:     {x:120,y:385, label:'NORTH AMERICA', terrain:'CAVE'},
+  dark:     {x:520,y:510, label:'SOUTH AMERICA', terrain:'DARK'},
 };
-const WORLD_CELLS = [
-  // Shared vertices are intentionally reused between neighbouring territories.
-  // This prevents gaps/overlaps and creates believable continuous borders.
-  [[0,18],[96,0],[104,92],[8,112]],
-  [[96,0],[214,12],[208,98],[104,92]],
-  [[8,112],[104,92],[92,194],[-14,178]],
-  [[104,92],[208,98],[224,184],[92,194]],
-  [[-14,178],[92,194],[224,184],[202,246],[92,264],[18,238]],
-];
 
-function worldTerritoryPath(cx,cy,idx){
-  const pts=WORLD_CELLS[idx].map(p=>[cx+p[0],cy+p[1]]);
-  // Slightly rounded SVG corners while keeping every shared border identical.
+// Hand-shaped geographic silhouettes. Each group contains exactly five
+// contiguous, irregular parcels. The geometry follows the user's requested
+// climate/terrain descriptions rather than a rectangular grid.
+const WORLD_TERRITORY_SHAPES = {
+  plains: [
+    [[20,72],[54,38],[105,28],[148,42],[151,94],[121,112],[79,106],[46,122]],
+    [[105,28],[157,12],[210,27],[242,55],[226,101],[190,113],[151,94],[148,42]],
+    [[20,72],[46,122],[79,106],[121,112],[104,161],[55,171],[19,141]],
+    [[121,112],[190,113],[226,101],[245,142],[220,185],[165,179],[104,161]],
+    [[55,171],[104,161],[165,179],[220,185],[202,224],[151,246],[92,231],[45,206]],
+  ],
+  forest: [
+    [[20,70],[55,30],[116,18],[150,40],[137,91],[95,108],[51,101]],
+    [[137,91],[150,40],[210,28],[252,53],[245,105],[202,124],[166,111]],
+    [[51,101],[95,108],[137,91],[166,111],[149,164],[101,174],[57,153]],
+    [[166,111],[202,124],[245,105],[268,145],[243,190],[194,184],[149,164]],
+    [[101,174],[149,164],[194,184],[243,190],[218,228],[167,246],[113,230]],
+  ],
+  swamp: [
+    [[18,78],[58,45],[105,42],[128,77],[108,118],[65,128],[29,111]],
+    [[128,77],[105,42],[158,27],[211,44],[225,83],[194,119],[158,112],[108,118]],
+    [[225,83],[255,70],[281,99],[273,145],[238,164],[194,119]],
+    [[29,111],[65,128],[108,118],[158,112],[194,119],[176,165],[126,180],[78,168]],
+    [[78,168],[126,180],[176,165],[238,164],[220,207],[167,234],[113,220],[66,195]],
+  ],
+  mountain: [
+    [[43,26],[96,18],[139,35],[145,77],[119,106],[71,100],[38,72]],
+    [[38,72],[71,100],[119,106],[105,151],[61,159],[24,127]],
+    [[119,106],[145,77],[181,95],[194,139],[160,169],[105,151]],
+    [[61,159],[105,151],[160,169],[176,202],[132,224],[82,211],[46,188]],
+    [[176,202],[160,169],[194,139],[235,158],[248,196],[220,232],[170,246],[132,224]],
+  ],
+  cave: [
+    [[58,16],[102,28],[128,63],[111,101],[72,108],[39,79]],
+    [[111,101],[128,63],[171,74],[196,112],[178,150],[136,145]],
+    [[39,79],[72,108],[111,101],[136,145],[104,177],[58,166],[24,128]],
+    [[136,145],[178,150],[218,178],[204,220],[154,215],[104,177]],
+    [[58,166],[104,177],[154,215],[142,244],[89,251],[44,218]],
+  ],
+  dark: [
+    [[60,16],[105,24],[133,55],[118,94],[82,101],[49,73]],
+    [[49,73],[82,101],[118,94],[147,121],[130,160],[87,155],[54,128]],
+    [[118,94],[133,55],[169,79],[184,120],[147,121]],
+    [[87,155],[130,160],[147,121],[184,120],[194,164],[165,205],[116,195]],
+    [[116,195],[165,205],[194,164],[220,189],[210,232],[172,258],[130,246]],
+  ],
+};
+
+function worldTerritoryPath(cx,cy,zone,idx){
+  const raw=(WORLD_TERRITORY_SHAPES[zone]||[])[idx]||[];
+  const pts=raw.map(p=>[cx+p[0],cy+p[1]]);
+  if(!pts.length) return '';
   const n=pts.length;
   let d='';
   for(let i=0;i<n;i++){
     const prev=pts[(i-1+n)%n], cur=pts[i], next=pts[(i+1)%n];
-    const cut=10;
-    const a=[cur[0]+(prev[0]-cur[0])*cut/Math.hypot(prev[0]-cur[0],prev[1]-cur[1]), cur[1]+(prev[1]-cur[1])*cut/Math.hypot(prev[0]-cur[0],prev[1]-cur[1])];
-    const b=[cur[0]+(next[0]-cur[0])*cut/Math.hypot(next[0]-cur[0],next[1]-cur[1]), cur[1]+(next[1]-cur[1])*cut/Math.hypot(next[0]-cur[0],next[1]-cur[1])];
-    if(i===0) d=`M ${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
+    const cut=Math.min(9,Math.hypot(next[0]-cur[0],next[1]-cur[1])*0.16);
+    const pd=Math.hypot(prev[0]-cur[0],prev[1]-cur[1])||1;
+    const nd=Math.hypot(next[0]-cur[0],next[1]-cur[1])||1;
+    const a=[cur[0]+(prev[0]-cur[0])*cut/pd,cur[1]+(prev[1]-cur[1])*cut/pd];
+    const b=[cur[0]+(next[0]-cur[0])*cut/nd,cur[1]+(next[1]-cur[1])*cut/nd];
+    if(i===0)d=`M ${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
     else d+=` L ${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
     d+=` Q ${cur[0].toFixed(1)} ${cur[1].toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
   }
   return d+' Z';
+}
+
+function worldTerritoryCentroid(zone,idx){
+  const c=WORLD_CONTINENTS[zone], pts=WORLD_TERRITORY_SHAPES[zone][idx];
+  const x=pts.reduce((a,p)=>a+p[0],0)/pts.length, y=pts.reduce((a,p)=>a+p[1],0)/pts.length;
+  return {x:c.x+x,y:c.y+y};
 }
 
 function worldTerritoryId(zone,idx){ return `${zone}_${idx+1}`; }
@@ -1392,8 +1444,8 @@ function searchArcadiaTerritory(v){
   }
 }
 function focusArcadiaTerritory(zone,idx){
-  const c=WORLD_CONTINENTS[zone]; const cell=WORLD_CELLS[idx];
-  const px=c.x+cell.reduce((a,p)=>a+p[0],0)/cell.length, py=c.y+cell.reduce((a,p)=>a+p[1],0)/cell.length;
+  const c=WORLD_CONTINENTS[zone]; const pt=worldTerritoryCentroid(zone,idx);
+  const px=pt.x, py=pt.y;
   arcadiaMapZoom=Math.max(1.35,arcadiaMapZoom); arcadiaMapPan={x:520-px*arcadiaMapZoom,y:350-py*arcadiaMapZoom}; renderArcadiaMapTransform();
 }
 function handleArcadiaMapClick(ev){
@@ -1413,15 +1465,15 @@ function renderKingdomMapSVG(myKingdom){
   const world=[...Object.entries(ARCADIA_WORLD)];
   const territories=world.flatMap(([zone,z])=>z.names.map((name,idx)=>({zone,z,name,idx,meta:worldTerritoryMeta(zone,idx)})));
   const svgTerritories=territories.map(o=>{
-    const c=WORLD_CONTINENTS[o.zone], path=worldTerritoryPath(c.x,c.y,o.idx), t=o.meta.t;
+    const c=WORLD_CONTINENTS[o.zone], path=worldTerritoryPath(c.x,c.y,o.zone,o.idx), t=o.meta.t;
     const kd=t&&kingdomDef(t.ownerKingdom), mine=t&&t.ownerKingdom===myKingdom, selected=arcadiaMapSelected===o.meta.id;
     const fill=kd?kd.color:o.z.color, opacity=kd?.75:.62;
     return `<g class="world-territory ${selected?'selected':''}" data-territory="${o.meta.id}">
       <path d="${path}" fill="${fill}" fill-opacity="${opacity}" stroke="rgba(10,16,18,.92)" stroke-width="3.2" stroke-linejoin="round"/>
       <path d="${path}" fill="none" stroke="${mine?'#ffe27a':'rgba(210,192,145,.72)'}" stroke-width="${mine?3.2:1.35}" stroke-linejoin="round"/>
-      ${o.idx===0?'<text class="capital-crown" x="'+(c.x+54)+'" y="'+(c.y+48)+'">♛</text>':''}
-      <text class="territory-label" x="${c.x+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[0],0)/WORLD_CELLS[o.idx].length}" y="${c.y+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[1],0)/WORLD_CELLS[o.idx].length+5}" text-anchor="middle">${o.name}</text>
-      <text class="territory-id" x="${c.x+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[0],0)/WORLD_CELLS[o.idx].length}" y="${c.y+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[1],0)/WORLD_CELLS[o.idx].length+21}" text-anchor="middle">${o.z.label}</text>
+      ${o.idx===0?'<text class="capital-crown" x="'+(worldTerritoryCentroid(o.zone,o.idx).x)+'" y="'+(worldTerritoryCentroid(o.zone,o.idx).y-22)+'">♛</text>':''}
+      <text class="territory-label" x="${worldTerritoryCentroid(o.zone,o.idx).x}" y="${worldTerritoryCentroid(o.zone,o.idx).y+4}" text-anchor="middle">${o.name}</text>
+      <text class="territory-id" x="${worldTerritoryCentroid(o.zone,o.idx).x}" y="${worldTerritoryCentroid(o.zone,o.idx).y+20}" text-anchor="middle">${o.z.label}</text>
     </g>`;
   }).join('');
   return `<div class="arcadia-map-shell">
