@@ -1436,6 +1436,14 @@ function renderKingdomMap(){
     loadTerritories();
     return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading the realm map…</div>`;
   }
+  if(territoryLoadError){
+    return `<div class="panel" style="padding:30px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+      <div style="color:var(--red);font-weight:700;margin-bottom:6px;">Couldn't load the realm map</div>
+      <div style="color:var(--dim);font-size:12px;max-width:420px;margin:0 auto 16px;">${territoryLoadError}</div>
+      <button class="btn btn-primary" onclick="retryLoadTerritories()">🔄 Retry</button>
+    </div>`;
+  }
   if(territoryZoneView) return renderZoneOutposts(territoryZoneView);
 
   const myKingdom = state.allianceId;
