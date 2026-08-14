@@ -73,6 +73,7 @@ let territoryLoading = false;
 let territoryZoneView = null;  // zone id currently expanded in the map UI, or null for the overview
 let zoneSubTab = 'adventure';  // 'adventure' | 'territory' — sub-tab inside the Zones nav tab
 let pendingTax = {};           // { [kingdomId]: { [resourceKey]: amount } } accrued locally, flushed to Firestore periodically
+let territoryLoadError = null; // last load/seed failure message (e.g. Firestore rules blocking 'territories'/'meta'), or null
 
 /* ===== SEED & LOAD ===== */
 async function ensureTerritoriesSeeded(){
@@ -112,13 +113,30 @@ async function loadTerritories(force){
     snap.docs.forEach(d => { next[d.id] = { id: d.id, ...d.data() }; });
     territoryData = next;
     territoryLoaded = true;
+    territoryLoadError = null;
   }catch(e){
     console.error('[Arcadia Territory] Load failed:', e.code || e.name, e.message);
+    // Mark as "loaded" (attempted) even on failure so the UI doesn't loop calling
+    // loadTerritories() on every render — instead it shows territoryLoadError with
+    // a manual retry button. Permission-denied here almost always means the
+    // 'territories'/'meta' collections are missing from the Firestore security rules.
+    territoryLoaded = true;
+    territoryLoadError = e.code === 'permission-denied'
+      ? "Firestore blocked access to the 'territories' collection. Add read/write rules for 'territories' and 'meta' in the Firebase console."
+      : (e.message || 'Failed to load territories.');
   }
   territoryLoading = false;
   // Lazy loads (triggered from inside a render pass) need to repaint once data lands,
   // the same way loadKingdomsList() does for the kingdom browse list.
   if(typeof renderBody === 'function' && activeTab === 'zones') renderBody();
+}
+
+async function retryLoadTerritories(){
+  territoryLoaded = false;
+  territoryLoadError = null;
+  await ensureTerritoriesSeeded();
+  await loadTerritories(true);
+  if(typeof renderBody === 'function') renderBody();
 }
 
 async function initTerritoryOnStart(){
