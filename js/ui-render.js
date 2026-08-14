@@ -1310,18 +1310,18 @@ function renderZonesTab(){
 const ARCADIA_TERRITORY_NAMES = {
   plains:   ['Royal Plains','Silverfield','Windcrest','Kingsroad','Valoria'],
   forest:   ['Jade Capital','Bamboo Vale','Dragon Gate','Misty Peaks','Emerald Wilds'],
-  swamp:    ['Golden Oasis','Sunfall Dunes','Palm Haven','Sandspire','Al-Madina'],
-  mountain: ['Lion\'s Den','Baobab Wilds','Ivory Coast','Kilim Cliffs','Savannah'],
+  swamp:    ['Oasis of Stars','Sunfall Dunes','Palm Haven','Sandspire','Al-Madina'],
+  mountain: ['Lion\'s Den','Baobab Wilds','Serengeti Plains','Kilimanjaro Peak','Victoria Falls'],
   cave:     ['Eagle\'s Peak','Pine Ridge','Great Falls','Rocky Vale','Frontier Hold'],
-  dark:     ['Sun Temple','Amazonia','Silver Mine','Misty Jungle','Obsidian Ruins'],
+  dark:     ['Shadow Temple','Amazonia','Silver Mine','Misty Jungle','Obsidian Ruins'],
 };
 
 const ARCADIA_ZONE_META = {
   plains:   { color:'#2563eb', accent:'#60a5fa', icon:'🛡️', kingdom:'europe', terrain:'PLAIN' },
   forest:   { color:'#059669', accent:'#34d399', icon:'🐉', kingdom:'asia', terrain:'FOREST' },
-  swamp:    { color:'#ca8a04', accent:'#facc15', icon:'☪️', kingdom:'arab_world', terrain:'OASIS' },
-  mountain: { color:'#b91c1c', accent:'#fb7185', icon:'🗿', kingdom:'africa', terrain:'MOUNTAIN' },
-  cave:     { color:'#c2410c', accent:'#fb923c', icon:'🪶', kingdom:'north_america', terrain:'CAVE' },
+  swamp:    { color:'#ca8a04', accent:'#facc15', icon:'☪️', kingdom:'arab_world', terrain:'DESERT' },
+  mountain: { color:'#b91c1c', accent:'#fb7185', icon:'🗿', kingdom:'africa', terrain:'SAVANNAH' },
+  cave:     { color:'#c2410c', accent:'#fb923c', icon:'🪶', kingdom:'north_america', terrain:'WILDERNESS' },
   dark:     { color:'#7e22ce', accent:'#c084fc', icon:'☠️', kingdom:'south_america', terrain:'DARK' },
 };
 
