@@ -1302,244 +1302,188 @@ function renderZonesTab(){
   return toggle + body;
 }
 
-// ─── ARCADIA WORLD TERRITORY MAP — interactive SVG world map ───
-// 30 real territory objects: 6 kingdoms × 5 lands. The map is pure SVG/HTML/JS:
-// no PNG map background. Pan, wheel/touch zoom, territory selection and actions
-// are handled in the browser while Firestore remains the source of ownership/defense.
-
-const ARCADIA_TERRITORY_NAMES = {
-  plains:   ['Royal Plains','Silverfield','Windcrest','Kingsroad','Valoria'],
-  forest:   ['Jade Capital','Bamboo Vale','Dragon Gate','Misty Peaks','Emerald Wilds'],
-  swamp:    ['Oasis of Stars','Sunfall Dunes','Palm Haven','Sandspire','Al-Madina'],
-  mountain: ['Lion\'s Den','Baobab Wilds','Serengeti Plains','Kilimanjaro Peak','Victoria Falls'],
-  cave:     ['Eagle\'s Peak','Pine Ridge','Great Falls','Rocky Vale','Frontier Hold'],
-  dark:     ['Shadow Temple','Amazonia','Silver Mine','Misty Jungle','Obsidian Ruins'],
+// ─── ARCADIA WORLD MAP — geographic-style interactive SVG ───
+// 30 real SVG territory objects: 6 kingdoms × 5 named territories.
+// The map is deliberately built from vectors (not a PNG) so every land parcel
+// remains clickable, selectable, zoomable and recolourable from Firestore state.
+const ARCADIA_WORLD = {
+  plains:   { label:'Europe',        color:'#2d68b8', names:['Royal Plains','Silverfield','Windcrest','Kingsroad','Valoria'] },
+  forest:   { label:'Asia',          color:'#23865d', names:['Jade Capital','Bamboo Vale','Dragon Gate','Emerald Hills','Misty Peaks'] },
+  swamp:    { label:'Arab World',    color:'#c58a22', names:['Golden Oasis','Sundfall Dunes','Palm Haven','Sandspire','Al-Madina'] },
+  mountain: { label:'Africa',        color:'#a53b32', names:["Lion's Den",'Baobab Wilds','Ivory Coast','Kilim Cliffs','Savannah'] },
+  cave:     { label:'North America', color:'#b75b25', names:["Eagle's Peak",'Pine Ridge','Great Lakes','Rocky Vale','Stormhold'] },
+  dark:     { label:'South America', color:'#70449d', names:['Sun Temple','Amazonia','Silver Mine','Misty Jungle','Jade Falls'] },
 };
 
-const ARCADIA_ZONE_META = {
-  plains:   { color:'#2563eb', accent:'#60a5fa', icon:'🛡️', kingdom:'europe', terrain:'PLAIN' },
-  forest:   { color:'#059669', accent:'#34d399', icon:'🐉', kingdom:'asia', terrain:'FOREST' },
-  swamp:    { color:'#ca8a04', accent:'#facc15', icon:'☪️', kingdom:'arab_world', terrain:'DESERT' },
-  mountain: { color:'#b91c1c', accent:'#fb7185', icon:'🗿', kingdom:'africa', terrain:'SAVANNAH' },
-  cave:     { color:'#c2410c', accent:'#fb923c', icon:'🪶', kingdom:'north_america', terrain:'WILDERNESS' },
-  dark:     { color:'#7e22ce', accent:'#c084fc', icon:'☠️', kingdom:'south_america', terrain:'DARK' },
+// World-space centres for the six continents. Each continent is split into
+// five irregular but touching parcels using a common local 2x3 organic grid.
+const WORLD_CONTINENTS = {
+  plains:   {x:260,y:180}, forest:{x:690,y:170}, swamp:{x:790,y:390},
+  mountain: {x:390,y:420}, cave:{x:165,y:410}, dark:{x:570,y:510}
 };
-
-// Six contiguous-looking kingdom regions, each subdivided into exactly five lands.
-// Coordinates are deliberately fixed so the world never shifts between renders.
-const ARCADIA_CLUSTERS = {
-  plains:   { x:95,  y:80,  w:485, h:255 },
-  forest:   { x:575, y:80,  w:500, h:270 },
-  swamp:    { x:1080,y:300, w:425, h:265 },
-  dark:     { x:900, y:565, w:410, h:255 },
-  cave:     { x:420, y:585, w:430, h:250 },
-  mountain: { x:75,  y:350, w:430, h:265 },
-};
-
-// A five-cell tiling: four outer lands + a central capital. The polygons share
-// boundaries, so clicking a land always selects a real, independent territory.
-const ARCADIA_CELL_POLYS = [
-  // Top-left: irregular northern/western borders
-  [[0,0],[0.18,0.02],[0.35,0.01],[0.52,0.04],[0.48,0.22],[0.44,0.38],[0.47,0.47],[0.38,0.52],[0.22,0.48],[0.08,0.55],[0,0.54],[0.02,0.35],[0.01,0.18]],
-  // Top-right: irregular northern/eastern borders  
-  [[0.52,0.04],[0.68,0.01],[0.85,0.03],[1,0],[1,0.15],[0.98,0.32],[1,0.51],[0.92,0.48],[0.78,0.52],[0.65,0.46],[0.55,0.50],[0.47,0.47],[0.44,0.38],[0.48,0.22]],
-  // Bottom-left: irregular western/southern borders
-  [[0,0.54],[0.08,0.55],[0.22,0.48],[0.38,0.52],[0.47,0.47],[0.50,0.72],[0.42,0.78],[0.35,0.92],[0.22,0.98],[0.10,1],[0,1],[0.03,0.82],[0.01,0.68]],
-  // Bottom-right: irregular eastern/southern borders
-  [[0.47,0.47],[0.55,0.50],[0.65,0.46],[0.78,0.52],[0.92,0.48],[1,0.51],[1,0.68],[0.97,0.82],[1,1],[0.85,0.97],[0.72,0.99],[0.60,0.94],[0.50,0.72],[0.42,0.78]],
-  // Center capital: irregular blob shape
-  [[0.47,0.47],[0.55,0.43],[0.62,0.38],[0.68,0.45],[0.72,0.52],[0.68,0.62],[0.60,0.68],[0.52,0.72],[0.44,0.68],[0.38,0.60],[0.40,0.52],[0.42,0.45]],
+const WORLD_CELLS = [
+  [[0,0],[108,8],[95,102],[0,96]],
+  [[108,8],[218,0],[214,100],[95,102]],
+  [[0,96],[95,102],[88,198],[-12,184]],
+  [[95,102],[214,100],[225,194],[88,198]],
+  [[-12,184],[88,198],[225,194],[180,260],[35,246]],
 ];
-
-// Per-zone silhouette profile: bends the shared cell polygons so each kingdom's
-// landmass reads like its real-world counterpart instead of an identical blob.
-// width(y): horizontal scale at row y (0=north edge, 1=south edge), 1=full width.
-// skew(y): horizontal drift at row y, as a fraction of cluster width.
-const ARCADIA_ZONE_TAPER = {
-  plains:   { width: () => 1,               skew: () => 0 },                              // Europe — jagged coastline, no strong taper
-  forest:   { width: y => 0.92 + 0.08 * y,  skew: y => 0.03 * y },                         // Asia — broad, bulges slightly toward the southeast
-  swamp:    { width: y => 1 - 0.50 * y,     skew: () => 0 },                               // Arab World — wide north, tapers to a peninsula point south
-  dark:     { width: y => 1 - 0.55 * y,     skew: y => 0.07 * Math.sin(Math.PI * y) },     // South America — long tapering cone, curves as it runs south
-  cave:     { width: y => 1 - 0.35 * y,     skew: y => -0.06 * y },                        // North America — wide north, funnels into a narrow isthmus south
-  mountain: { width: y => 1 - 0.45 * y,     skew: y => 0.02 * Math.sin(Math.PI * (y - .25)) }, // Africa — wide Sahara north, tapers toward the Cape south
-};
-function arcadiaTaperedPoly(poly, zone){
-  const t = ARCADIA_ZONE_TAPER[zone] || ARCADIA_ZONE_TAPER.plains;
-  return poly.map(([px, py]) => {
-    const w = Math.max(0.3, Math.min(1, t.width(py)));
-    const nx = Math.max(0, Math.min(1, 0.5 + (px - 0.5) * w + t.skew(py)));
-    return [nx, py];
-  });
+function worldTerritoryPath(cx,cy,idx){
+  // Add small deterministic offsets to make borders feel natural rather than grid-like.
+  const jitter=[
+    [[-8,4],[2,-6],[-5,5],[4,3]],
+    [[2,-6],[8,4],[5,-4],[-5,5]],
+    [[-5,5],[5,-3],[-7,7],[3,2]],
+    [[5,-3],[-3,4],[8,-5],[-7,7]],
+    [[3,2],[-7,7],[4,4],[-8,-2],[2,-6]],
+  ][idx];
+  const pts=WORLD_CELLS[idx].map((p,i)=>[cx+p[0]+jitter[i][0],cy+p[1]+jitter[i][1]]);
+  return pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ')+' Z';
+}
+function worldTerritoryId(zone,idx){ return `${zone}_${idx+1}`; }
+function worldTerritoryMeta(zone,idx){
+  const z=ARCADIA_WORLD[zone];
+  const id=worldTerritoryId(zone,idx);
+  const t=territoryData[id];
+  return {z,id,t,name:(z?.names?.[idx]||id),capital:idx===0};
 }
 
-let arcadiaMapState = { scale:1, x:0, y:0, dragging:false, moved:false, sx:0, sy:0, ox:0, oy:0, selected:null };
-
-function arcadiaEsc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function arcadiaTerritoryName(zone, idx){ return (ARCADIA_TERRITORY_NAMES[zone] || [])[idx-1] || `${zone} Territory ${idx}`; }
-function arcadiaPolyPoints(cluster, poly){
-  return poly.map(([px,py]) => `${(cluster.x+px*cluster.w).toFixed(1)},${(cluster.y+py*cluster.h).toFixed(1)}`).join(' ');
+let arcadiaMapZoom=1, arcadiaMapPan={x:0,y:0}, arcadiaMapSelected=null;
+function clampWorldZoom(z){ return Math.max(.65,Math.min(2.8,z)); }
+function resetArcadiaMap(){ arcadiaMapZoom=1; arcadiaMapPan={x:0,y:0}; arcadiaMapSelected=null; renderBody(); }
+function zoomArcadiaMap(delta){ arcadiaMapZoom=clampWorldZoom(arcadiaMapZoom+delta); renderArcadiaMapTransform(); }
+function renderArcadiaMapTransform(){
+  const g=document.getElementById('arcadia-world-layer'); if(!g) return;
+  g.setAttribute('transform',`translate(${arcadiaMapPan.x} ${arcadiaMapPan.y}) scale(${arcadiaMapZoom})`);
+  const readout=document.getElementById('arcadia-zoom-readout'); if(readout) readout.textContent=Math.round(arcadiaMapZoom*100)+'%';
 }
-function arcadiaCentroid(cluster, poly){
-  const pts=poly.map(([px,py])=>[cluster.x+px*cluster.w,cluster.y+py*cluster.h]);
-  return [pts.reduce((a,p)=>a+p[0],0)/pts.length,pts.reduce((a,p)=>a+p[1],0)/pts.length];
+function selectArcadiaTerritory(id){ arcadiaMapSelected=id; renderArcadiaMapSelection(); }
+function renderArcadiaMapSelection(){
+  document.querySelectorAll('#arcadia-world-layer .world-territory').forEach(el=>el.classList.toggle('selected',el.dataset.territory===arcadiaMapSelected));
+  const panel=document.getElementById('arcadia-territory-info');
+  if(!panel) return;
+  const t=Object.values(territoryData).find(x=>x.id===arcadiaMapSelected);
+  if(!t){ panel.innerHTML='<div class="map-info-empty">Select a territory on the map.</div>'; return; }
+  const idx=Math.max(0,parseInt(t.id.split('_').pop(),10)-1), z=ARCADIA_WORLD[t.zone]||ARCADIA_WORLD.plains;
+  const kd=kingdomDef(t.ownerKingdom); const capital=idx===0;
+  const canReach=kingdomHasFootholdNear(state.allianceId,t.zone), mine=t.ownerKingdom===state.allianceId;
+  panel.innerHTML=`<div class="map-info-title">${capital?'🏛️ ':''}${z.names[idx]}</div>
+    <div class="map-info-sub">${kd?kd.emblem+' '+kd.name:'Unclaimed'} · ${z.label}</div>
+    <div class="map-stat"><span>Defense</span><b>${t.defense}</b></div>
+    <div class="map-stat"><span>Status</span><b>${capital?'Capital':(mine?'Controlled':canReach?'Reachable':'Bordered')}</b></div>
+    <div class="map-stat"><span>Tax</span><b>${Math.round((ZONE_TAX_RATE[t.zone]||0)*100)}%</b></div>
+    ${capital?'<div class="map-capital-note">Capital territory — protected and cannot be captured.</div>':''}
+    <div class="map-actions">${mine?`<button class="act-btn buy" onclick="reinforceTerritory('${t.id}')">Reinforce</button>`:`<button class="act-btn copper" ${(!state.allianceId||!canReach||capital)?'disabled':''} onclick="attackTerritory('${t.id}')">⚔️ Attack</button>`}
+      <button class="act-btn" onclick="openZoneTerritoryView('${t.zone}')">View Outposts</button></div>`;
 }
-function arcadiaOwnerColor(t, zone){
-  const kd=t && t.ownerKingdom ? kingdomDef(t.ownerKingdom) : null;
-  return kd?.color || ARCADIA_ZONE_META[zone].color;
+function searchArcadiaTerritory(v){
+  const q=(v||'').trim().toLowerCase(); if(!q) return;
+  for(const [zone,z] of Object.entries(ARCADIA_WORLD)){
+    const idx=z.names.findIndex(n=>n.toLowerCase().includes(q));
+    if(idx>=0){ const id=worldTerritoryId(zone,idx); selectArcadiaTerritory(id); focusArcadiaTerritory(zone,idx); return; }
+  }
 }
-function arcadiaTerritory(zone, idx){
-  const id=territoryDocId(zone,idx);
-  const t=territoryData[id] || {id,zone,ownerKingdom:ARCADIA_ZONE_META[zone].kingdom,defense:TERRITORY_BASE_DEFENSE};
-  return {...t, displayName:arcadiaTerritoryName(zone,idx)};
+function focusArcadiaTerritory(zone,idx){
+  const c=WORLD_CONTINENTS[zone]; const cell=WORLD_CELLS[idx];
+  const px=c.x+cell.reduce((a,p)=>a+p[0],0)/cell.length, py=c.y+cell.reduce((a,p)=>a+p[1],0)/cell.length;
+  arcadiaMapZoom=Math.max(1.35,arcadiaMapZoom); arcadiaMapPan={x:520-px*arcadiaMapZoom,y:350-py*arcadiaMapZoom}; renderArcadiaMapTransform();
 }
-
-function arcadiaMapTransform(){
-  const world=document.getElementById('arcadia-map-world');
-  if(world) world.setAttribute('transform',`translate(${arcadiaMapState.x.toFixed(1)} ${arcadiaMapState.y.toFixed(1)}) scale(${arcadiaMapState.scale.toFixed(3)})`);
-  const z=document.getElementById('arcadia-map-zoom-label');
-  if(z) z.textContent=`${Math.round(arcadiaMapState.scale*100)}%`;
+function handleArcadiaMapClick(ev){
+  const el=ev.target.closest?.('.world-territory'); if(!el) return;
+  selectArcadiaTerritory(el.dataset.territory);
 }
-function arcadiaMapZoom(factor, clientX, clientY){
-  const wrap=document.getElementById('arcadia-map-viewport');
-  if(!wrap) return;
-  const r=wrap.getBoundingClientRect();
-  const px=((clientX??(r.left+r.width/2))-r.left)/r.width*1600;
-  const py=((clientY??(r.top+r.height/2))-r.top)/r.height*900;
-  const old=arcadiaMapState.scale;
-  const next=Math.max(.65,Math.min(2.8,old*factor));
-  const k=next/old;
-  arcadiaMapState.x=px-(px-arcadiaMapState.x)*k;
-  arcadiaMapState.y=py-(py-arcadiaMapState.y)*k;
-  arcadiaMapState.scale=next;
-  arcadiaMapClamp(); arcadiaMapTransform();
+function bindArcadiaMapInteractions(){
+  const viewport=document.getElementById('arcadia-map-viewport'); if(!viewport||viewport.dataset.bound) return;
+  viewport.dataset.bound='1'; let drag=false,lastX=0,lastY=0,moved=false;
+  viewport.addEventListener('pointerdown',e=>{ if(e.target.closest('.world-territory')) return; drag=true;moved=false;lastX=e.clientX;lastY=e.clientY;viewport.setPointerCapture?.(e.pointerId); });
+  viewport.addEventListener('pointermove',e=>{ if(!drag)return; const dx=e.clientX-lastX,dy=e.clientY-lastY; if(Math.abs(dx)+Math.abs(dy)>2)moved=true; arcadiaMapPan.x+=dx;arcadiaMapPan.y+=dy;lastX=e.clientX;lastY=e.clientY;renderArcadiaMapTransform(); });
+  viewport.addEventListener('pointerup',()=>{drag=false;}); viewport.addEventListener('pointercancel',()=>{drag=false;});
+  viewport.addEventListener('wheel',e=>{e.preventDefault();zoomArcadiaMap(e.deltaY<0?.12:-.12);},{passive:false});
+  viewport.addEventListener('click',handleArcadiaMapClick);
 }
-function arcadiaMapClamp(){
-  const s=arcadiaMapState.scale;
-  const minX=1600-(1600*s), minY=900-(900*s);
-  arcadiaMapState.x=Math.max(minX-120,Math.min(120,arcadiaMapState.x));
-  arcadiaMapState.y=Math.max(minY-120,Math.min(120,arcadiaMapState.y));
-}
-function arcadiaMapWheel(ev){ ev.preventDefault(); arcadiaMapZoom(ev.deltaY<0?1.14:.88,ev.clientX,ev.clientY); }
-function arcadiaMapPointerDown(ev){
-  if(ev.button!==undefined && ev.button!==0) return;
-  arcadiaMapState.dragging=true; arcadiaMapState.moved=false;
-  arcadiaMapState.sx=ev.clientX; arcadiaMapState.sy=ev.clientY;
-  arcadiaMapState.ox=arcadiaMapState.x; arcadiaMapState.oy=arcadiaMapState.y;
-  ev.currentTarget.setPointerCapture?.(ev.pointerId);
-}
-function arcadiaMapPointerMove(ev){
-  if(!arcadiaMapState.dragging) return;
-  const dx=ev.clientX-arcadiaMapState.sx,dy=ev.clientY-arcadiaMapState.sy;
-  if(Math.abs(dx)+Math.abs(dy)>5) arcadiaMapState.moved=true;
-  arcadiaMapState.x=arcadiaMapState.ox+dx; arcadiaMapState.y=arcadiaMapState.oy+dy;
-  arcadiaMapClamp(); arcadiaMapTransform();
-}
-function arcadiaMapPointerUp(){ arcadiaMapState.dragging=false; }
-function arcadiaMapReset(){ arcadiaMapState={...arcadiaMapState,scale:1,x:0,y:0,dragging:false,moved:false}; arcadiaMapTransform(); }
-
-function arcadiaSelectTerritory(zone, idx){
-  if(arcadiaMapState.moved) return;
-  const id=territoryDocId(zone,idx);
-  arcadiaMapState.selected=id;
-  document.querySelectorAll('#arcadia-map-world .arcadia-territory').forEach(el=>el.classList.toggle('selected',el.dataset.tid===id));
-  const t=arcadiaTerritory(zone,idx);
-  const panel=document.getElementById('arcadia-territory-panel');
-  if(panel) panel.innerHTML=arcadiaTerritoryPanel(t,zone,idx);
-}
-
-function arcadiaTerritoryPanel(t,zone,idx){
-  const meta=ARCADIA_ZONE_META[zone], kd=kingdomDef(t.ownerKingdom), mine=state.allianceId && t.ownerKingdom===state.allianceId;
-  const reachable=kingdomHasFootholdNear(state.allianceId,zone);
-  const capital=idx===TERRITORY_CAPITAL_INDEX;
-  const canAttack=!!state.allianceId && !mine && reachable && !capital;
-  const color=kd?.color||meta.color;
-  return `<div class="arcadia-detail-head" style="--territory-accent:${arcadiaEsc(color)}">
-    <div class="arcadia-detail-image ${zone}"><span>${meta.icon}</span><small>${meta.terrain}</small></div>
-    <div><div class="arcadia-detail-title">${arcadiaEsc(t.displayName)}</div><div class="arcadia-detail-sub">${arcadiaEsc(kd?.name||'Unclaimed')} · ${arcadiaEsc(meta.terrain)}</div></div>
-  </div>
-  <div class="arcadia-detail-grid">
-    <div><span>STATUS</span><b>${mine?'YOUR LAND':capital?'CAPITAL':t.ownerKingdom?'OWNED':'UNCLAIMED'}</b></div>
-    <div><span>DEFENSE</span><b>🛡️ ${Number(t.defense||0)} / 100</b></div>
-    <div><span>TERRITORY</span><b>${idx} / ${TERRITORIES_PER_ZONE}</b></div>
-    <div><span>KINGDOM</span><b style="color:${arcadiaEsc(color)}">${arcadiaEsc(kd?.emblem||'•')} ${arcadiaEsc(kd?.name||'Unknown')}</b></div>
-  </div>
-  <div class="arcadia-detail-note">${capital?'🏛️ Capital territory — permanently protected and cannot be captured.':reachable?'⚔️ This territory is reachable from your kingdom frontier.':'🔒 Not currently reachable from your kingdom frontier.'}</div>
-  <div class="arcadia-detail-actions">
-    <button class="act-btn" onclick="openZoneTerritoryView('${arcadiaEsc(zone)}')">🗺️ View Outposts</button>
-    ${mine ? `<button class="act-btn buy" onclick="reinforceTerritory('${arcadiaEsc(t.id)}')">🛡️ Reinforce · ${TERRITORY_REINFORCE_GOLD}g</button>` : `<button class="act-btn ${canAttack?'copper':''}" ${canAttack?'':'disabled'} onclick="attackTerritory('${arcadiaEsc(t.id)}')">⚔️ ${canAttack?'Attack':'Locked'}</button>`}
+function renderKingdomMapSVG(myKingdom){
+  const world=[...Object.entries(ARCADIA_WORLD)];
+  const territories=world.flatMap(([zone,z])=>z.names.map((name,idx)=>({zone,z,name,idx,meta:worldTerritoryMeta(zone,idx)})));
+  const svgTerritories=territories.map(o=>{
+    const c=WORLD_CONTINENTS[o.zone], path=worldTerritoryPath(c.x,c.y,o.idx), t=o.meta.t;
+    const kd=t&&kingdomDef(t.ownerKingdom), mine=t&&t.ownerKingdom===myKingdom, selected=arcadiaMapSelected===o.meta.id;
+    const fill=kd?kd.color:o.z.color, opacity=kd?.75:.62;
+    return `<g class="world-territory ${selected?'selected':''}" data-territory="${o.meta.id}">
+      <path d="${path}" fill="${fill}" fill-opacity="${opacity}" stroke="#e8d8ae" stroke-width="2.2"/>
+      <path d="${path}" fill="none" stroke="${mine?'#ffe27a':'rgba(0,0,0,.55)'}" stroke-width="${mine?3.8:1}"/>
+      ${o.idx===0?'<text class="capital-crown" x="'+(c.x+54)+'" y="'+(c.y+48)+'">♛</text>':''}
+      <text class="territory-label" x="${c.x+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[0],0)/WORLD_CELLS[o.idx].length}" y="${c.y+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[1],0)/WORLD_CELLS[o.idx].length+5}" text-anchor="middle">${o.name}</text>
+      <text class="territory-id" x="${c.x+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[0],0)/WORLD_CELLS[o.idx].length}" y="${c.y+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[1],0)/WORLD_CELLS[o.idx].length+21}" text-anchor="middle">${o.z.label}</text>
+    </g>`;
+  }).join('');
+  return `<div class="arcadia-map-shell">
+    <div class="arcadia-map-toolbar"><div><b>ARCADIA WORLD</b><span>30 territories · 6 kingdoms</span></div><div class="map-search"><input placeholder="Search territory…" onkeydown="if(event.key==='Enter')searchArcadiaTerritory(this.value)"><button onclick="searchArcadiaTerritory(this.previousElementSibling.value)">⌕</button></div><button class="map-tool" onclick="resetArcadiaMap()">◎ World</button></div>
+    <div id="arcadia-map-viewport" class="arcadia-map-viewport">
+      <svg viewBox="0 0 1040 700" aria-label="ARCADIA World Map">
+        <defs><filter id="mapGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="sea" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#081d2b"/><stop offset="1" stop-color="#031018"/></linearGradient></defs>
+        <rect width="1040" height="700" fill="url(#sea)"/>
+        <g opacity=".16" stroke="#6b8b92"><path d="M0 140H1040M0 280H1040M0 420H1040M0 560H1040"/><path d="M130 0V700M260 0V700M390 0V700M520 0V700M650 0V700M780 0V700M910 0V700"/></g>
+        <g id="arcadia-world-layer">${svgTerritories}</g>
+      </svg>
+      <div class="map-compass">N<br><span>✦</span></div>
+      <div class="map-zoom"><button onclick="zoomArcadiaMap(.15)">+</button><span id="arcadia-zoom-readout">100%</span><button onclick="zoomArcadiaMap(-.15)">−</button></div>
+      <div class="map-legend"><b>LEGEND</b><span><i class="legend-swatch own"></i>Your kingdom</span><span><i class="legend-swatch"></i>Other kingdom</span><span>♛ Capital</span></div>
+    </div>
+    <div class="arcadia-map-bottom"><div class="kingdom-strip">${KINGDOMS.map(k=>`<span><i style="background:${k.color}"></i>${k.emblem} ${k.name}</span>`).join('')}</div><div id="arcadia-territory-info" class="map-info"><div class="map-info-empty">Select a territory on the map.</div></div></div>
   </div>`;
 }
-
-function renderArcadiaWorldMap(myKingdom){
-  const world=[];
-  const edges=[];
-  const zoneOrder=['plains','forest','swamp','dark','cave','mountain'];
-  // Decorative macro-region links reinforce the feeling of a single connected world.
-  [['plains','forest'],['forest','cave'],['cave','dark'],['dark','swamp'],['swamp','mountain'],['mountain','plains'],['plains','swamp']].forEach(([a,b])=>{
-    const A=ARCADIA_CLUSTERS[a],B=ARCADIA_CLUSTERS[b];
-    const ax=A.x+A.w/2,ay=A.y+A.h/2,bx=B.x+B.w/2,by=B.y+B.h/2;
-    edges.push(`<path d="M${ax},${ay} C${(ax+bx)/2},${ay-55} ${(ax+bx)/2},${by+55} ${bx},${by}" class="arcadia-route"/>`);
-  });
-  zoneOrder.forEach(zone=>{
-    const c=ARCADIA_CLUSTERS[zone],meta=ARCADIA_ZONE_META[zone];
-    world.push(`<rect x="${c.x-8}" y="${c.y-8}" width="${c.w+16}" height="${c.h+16}" rx="34" fill="url(#grad-${zone})" opacity=".08" class="arcadia-kingdom-halo"/>`);
-    for(let i=1;i<=5;i++){
-      const poly=ARCADIA_CELL_POLYS[i-1],t=arcadiaTerritory(zone,i),kd=kingdomDef(t.ownerKingdom),fill=kd?.color||meta.color;
-      const [cx,cy]=arcadiaCentroid(c,poly);
-      const selected=t.id===arcadiaMapState.selected;
-      const capital=i===TERRITORY_CAPITAL_INDEX;
-      const defense=Math.min(100,Number(t.defense||0));
-      world.push(`<g class="arcadia-territory ${selected?'selected':''}" data-tid="${arcadiaEsc(t.id)}" data-zone="${zone}" data-idx="${i}" onclick="arcadiaSelectTerritory('${zone}',${i})">
-        <polygon points="${arcadiaPolyPoints(c,poly)}" fill="${arcadiaEsc(fill)}" fill-opacity=".48" stroke="${arcadiaEsc(meta.accent)}" stroke-width="${selected?5:2}" vector-effect="non-scaling-stroke"/>
-        <polygon points="${arcadiaPolyPoints(c,poly)}" class="arcadia-territory-inner" fill="url(#terrain-${zone})" opacity=".34" pointer-events="none"/>
-        <g transform="translate(${cx.toFixed(1)} ${cy.toFixed(1)})" pointer-events="none">
-          <text class="arcadia-land-name" y="-5">${i}. ${arcadiaEsc(t.displayName)}</text>
-          <text class="arcadia-land-meta" y="16">${capital?'♛ CAPITAL':'⚑ LAND'} · ${defense} DEF</text>
-        </g>
-        ${capital?`<text x="${cx.toFixed(1)}" y="${(cy-32).toFixed(1)}" class="arcadia-capital" pointer-events="none">♛</text>`:''}
-      </g>`);
-    }
-    const kdHome=kingdomDef(meta.kingdom), label=kdHome?.name||meta.terrain;
-    world.push(`<g pointer-events="none"><rect x="${c.x+12}" y="${c.y+12}" width="${Math.min(150,c.w-24)}" height="27" rx="13" class="arcadia-kingdom-label"/><text x="${c.x+27}" y="${c.y+31}" class="arcadia-kingdom-label-text">${arcadiaEsc(label.toUpperCase())}</text></g>`);
-  });
-  return `<svg id="arcadia-map-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-label="ARCADIA World Map">
-    <defs>
-      ${Object.entries(ARCADIA_ZONE_META).map(([z,m])=>`<linearGradient id="grad-${z}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m.accent}"/><stop offset="1" stop-color="${m.color}"/></linearGradient><pattern id="terrain-${z}" width="42" height="42" patternUnits="userSpaceOnUse"><circle cx="8" cy="10" r="1.5" fill="${m.accent}" opacity=".28"/><path d="M2 31l8-8 8 8 9-12 12 12" fill="none" stroke="${m.accent}" stroke-opacity=".15"/></pattern>`).join('')}
-      <filter id="arcadia-glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      <radialGradient id="world-bg"><stop offset="0" stop-color="#102638"/><stop offset=".65" stop-color="#07131e"/><stop offset="1" stop-color="#02070c"/></radialGradient>
-    </defs>
-    <rect width="1600" height="900" fill="url(#world-bg)"/>
-    <g opacity=".75">${Array.from({length:55},(_,i)=>`<circle cx="${(i*283)%1580+10}" cy="${(i*157)%870+10}" r="${i%3===0?2:1}" fill="#c8e5ff" opacity=".${2+(i%5)}"/>`).join('')}</g>
-    <g id="arcadia-map-world">${edges.join('')}${world.join('')}</g>
-    <g pointer-events="none" transform="translate(800 455)"><circle r="88" fill="#050b12" fill-opacity=".82" stroke="#d6a94b" stroke-width="2"/><circle r="76" fill="none" stroke="#d6a94b" stroke-opacity=".28"/><text y="-7" text-anchor="middle" class="arcadia-logo">ARCADIA</text><text y="20" text-anchor="middle" class="arcadia-logo-sub">WORLD</text></g>
-  </svg>`;
-}
-
 function renderKingdomMap(){
   if(!db) return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🔌 Kingdom warfare requires cloud save (Firebase) to be configured.</div>`;
-  if(!territoryLoaded){ loadTerritories(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading the realm map…</div>`; }
-  if(territoryLoadError) return `<div class="panel" style="padding:30px;text-align:center;"><div style="font-size:32px;margin-bottom:8px;">⚠️</div><div style="color:var(--red);font-weight:700;margin-bottom:6px;">Couldn't load the realm map</div><div style="color:var(--dim);font-size:12px;max-width:420px;margin:0 auto 16px;">${territoryLoadError}</div><button class="btn btn-primary" onclick="retryLoadTerritories()">🔄 Retry</button></div>`;
+  if(!territoryLoaded){ loadTerritories(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading the world map…</div>`; }
+  if(territoryLoadError) return `<div class="panel" style="padding:30px;text-align:center;"><div style="font-size:32px">⚠️</div><div style="color:var(--red);font-weight:700">Couldn't load the world map</div><div style="color:var(--dim);font-size:12px;margin:8px 0 16px">${territoryLoadError}</div><button class="btn btn-primary" onclick="retryLoadTerritories()">🔄 Retry</button></div>`;
   if(territoryZoneView) return renderZoneOutposts(territoryZoneView);
   const myKingdom=state.allianceId;
-  const first=arcadiaMapState.selected ? arcadiaMapState.selected.split('_') : null;
-  const selZone=first?.[0],selIdx=Number(first?.[1]);
-  const selectedT=selZone&&selIdx?arcadiaTerritory(selZone,selIdx):arcadiaTerritory('plains',1);
-  return `<div class="wrap animate-fade arcadia-map-page">
-    <header class="hero arcadia-map-header"><div><h1 style="font-size:22px;">🗺️ ARCADIA World Map</h1><p>30 territories · 6 kingdoms · drag to explore · scroll/pinch to zoom · click any land to inspect it.</p></div><div class="arcadia-map-hint">${myKingdom?'⚔️ Your frontier is highlighted':'👑 Choose a kingdom to join the conquest'}</div></header>
-    <div class="arcadia-map-shell">
-      <aside class="arcadia-map-left"><div class="arcadia-side-title">KINGDOMS</div>${KINGDOMS.map(k=>`<div class="arcadia-kingdom-item"><span class="arcadia-kingdom-dot" style="background:${arcadiaEsc(k.color)}"></span><span>${arcadiaEsc(k.name)}</span><b>5</b></div>`).join('')}<div class="arcadia-side-divider"></div><div class="arcadia-side-title">LEGEND</div><div class="arcadia-legend"><span>♛ Capital</span><span>⚑ Territory</span><span>✦ Selected</span><span>🟢 Reachable</span></div></aside>
-      <div id="arcadia-map-viewport" class="arcadia-map-viewport" onwheel="arcadiaMapWheel(event)" onpointerdown="arcadiaMapPointerDown(event)" onpointermove="arcadiaMapPointerMove(event)" onpointerup="arcadiaMapPointerUp(event)" onpointercancel="arcadiaMapPointerUp(event)">${renderArcadiaWorldMap(myKingdom)}<div class="arcadia-map-controls"><button onclick="arcadiaMapZoom(1.18)">+</button><span id="arcadia-map-zoom-label">${Math.round(arcadiaMapState.scale*100)}%</span><button onclick="arcadiaMapZoom(.85)">−</button><button onclick="arcadiaMapReset()">⌖</button></div><div class="arcadia-map-compass">N<br><span>◆</span></div></div>
-      <aside id="arcadia-territory-panel" class="arcadia-map-right">${arcadiaTerritoryPanel(selectedT,selZone||'plains',selIdx||1)}</aside>
-    </div>
-  </div>`;
+  setTimeout(()=>{bindArcadiaMapInteractions(); renderArcadiaMapTransform(); renderArcadiaMapSelection();},0);
+  return `<div class="wrap animate-fade"><header class="hero" style="margin-bottom:10px;"><h1 style="font-size:22px">🗺️ World Map</h1><p style="color:var(--dim);font-size:12px">Drag to move · Scroll to zoom · Click a territory to inspect it</p></header>${!myKingdom?`<div class="panel" style="padding:10px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:10px">Pledge allegiance to a kingdom to participate in territory warfare.</div>`:''}${renderKingdomMapSVG(myKingdom)}</div>`;
 }
 
 function renderZoneOutposts(zone){
-  const z=ZONES.find(x=>x.id===zone); if(!z) return '';
-  const list=territoriesInZone(zone),myKingdom=state.allianceId,reachable=kingdomHasFootholdNear(myKingdom,zone);
-  const borderNames=(ZONE_ADJACENCY[zone]||[]).map(a=>(ZONES.find(x=>x.id===a)||{}).name||a).join(', ');
-  const taxOwner=zoneTaxOwner(zone),taxKd=kingdomDef(taxOwner),taxPct=Math.round((ZONE_TAX_RATE[zone]||0)*100);
-  return `<div class="wrap animate-fade"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><button class="act-btn" style="width:auto;padding:6px 12px;font-size:11px;" onclick="closeZoneTerritoryView()">← Back to Map</button><div style="font-size:26px;">${z.icon}</div><div><div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);">${z.name} Territories</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">Borders: ${borderNames}</div></div></div><div class="panel" style="padding:10px 14px;font-size:12px;margin-bottom:12px;">🏛️ ${taxKd?`${taxKd.emblem} ${taxKd.name} taxes gathering and kills here at <b style="color:var(--brass-bright);">${taxPct}%</b>`:`⚡ Contested — no kingdom has a majority`}</div>${myKingdom&&!reachable?`<div class="panel" style="padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;">🔒 Your kingdom cannot attack this frontier yet.</div>`:''}<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));">${list.map((t,i)=>{const kd=kingdomDef(t.ownerKingdom),mine=t.ownerKingdom===myKingdom,capital=isCapitalTerritory(t.id),canAttack=myKingdom&&!mine&&reachable&&!capital;return `<div class="card" style="padding:14px;text-align:center;${capital?'border-color:var(--brass);':''}"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">${arcadiaEsc(arcadiaTerritoryName(zone,i+1))}${capital?' 🏛️':''}</div><div style="font-size:12px;font-weight:700;color:${kd?kd.color:'var(--dim)'};margin:6px 0;">${kd?kd.emblem+' '+kd.name:'Unclaimed'}</div><div style="font-size:11px;color:var(--dim);">🛡️ ${t.defense} defense</div>${capital?`<div style="margin-top:8px;font-size:10px;color:var(--brass-bright);font-weight:600;">🏛️ Capital — protected</div>`:(mine?`<button class="act-btn buy" style="margin-top:8px;width:100%;font-size:11px;" onclick="reinforceTerritory('${t.id}')">Reinforce (${TERRITORY_REINFORCE_GOLD}g)</button>`:`<button class="act-btn ${canAttack?'copper':''}" style="margin-top:8px;width:100%;font-size:11px;" ${canAttack?'':'disabled'} onclick="attackTerritory('${t.id}')">${canAttack?'⚔️ Attack':'🔒 Unreachable'}</button>`)}</div>`;}).join('')}</div></div>`;
+  const z = ZONES.find(x => x.id === zone);
+  if(!z) return '';
+  const list = territoriesInZone(zone);
+  const myKingdom = state.allianceId;
+  const reachable = kingdomHasFootholdNear(myKingdom, zone);
+  const borderNames = (ZONE_ADJACENCY[zone] || []).map(a => (ZONES.find(x => x.id === a) || {}).name || a).join(', ');
+  const taxOwner = zoneTaxOwner(zone);
+  const taxKd = kingdomDef(taxOwner);
+  const taxPct = Math.round((ZONE_TAX_RATE[zone] || 0) * 100);
+
+  return `<div class="wrap animate-fade">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button class="act-btn" style="width:auto;padding:6px 12px;font-size:11px;" onclick="closeZoneTerritoryView()">← Back to Map</button>
+      <div style="font-size:26px;">${z.icon}</div>
+      <div>
+        <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);">${z.name} Outposts</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">Borders: ${borderNames}</div>
+      </div>
+    </div>
+    <div class="panel" style="padding:10px 14px;font-size:12px;margin-bottom:12px;">
+      🏛️ ${taxKd ? `${taxKd.emblem} ${taxKd.name} taxes gathering and kills here at <b style="color:var(--brass-bright);">${taxPct}%</b>` : `⚡ No kingdom holds a clear majority here — the zone is contested and untaxed`}
+    </div>
+    ${myKingdom && !reachable ? `<div class="panel" style="padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;">🔒 Your kingdom doesn't hold ground here or in a bordering zone yet — you can't attack these outposts until it does.</div>` : ''}
+    ${!myKingdom ? `<div class="panel" style="padding:10px 14px;color:var(--dim);font-size:12px;margin-bottom:12px;">Pledge allegiance to a kingdom to attack or reinforce outposts.</div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));">
+      ${list.map(t => {
+        const kd = kingdomDef(t.ownerKingdom);
+        const mine = t.ownerKingdom === myKingdom;
+        const isCapital = isCapitalTerritory(t.id);
+        const canAttack = myKingdom && !mine && reachable && !isCapital;
+        return `<div class="card" style="padding:14px;text-align:center;${isCapital ? 'border-color:var(--brass);' : ''}">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">${t.id.toUpperCase()}${isCapital ? ' 🏛️' : ''}</div>
+          <div style="font-size:12px;font-weight:700;color:${kd ? kd.color : 'var(--dim)'};margin:6px 0;">${kd ? kd.emblem + ' ' + kd.name : 'Unclaimed'}</div>
+          <div style="font-size:11px;color:var(--dim);">🛡️ ${t.defense} defense</div>
+          ${isCapital ? `<div style="margin-top:8px;font-size:10px;color:var(--brass-bright);font-weight:600;">🏛️ Capital — fortified, unconquerable</div>` : (mine
+            ? `<button class="act-btn buy" style="margin-top:8px;width:100%;font-size:11px;" onclick="reinforceTerritory('${t.id}')">Reinforce (${TERRITORY_REINFORCE_GOLD}g)</button>`
+            : `<button class="act-btn ${canAttack ? 'copper' : ''}" style="margin-top:8px;width:100%;font-size:11px;" ${canAttack ? '' : 'disabled'} onclick="attackTerritory('${t.id}')">${!myKingdom ? 'Join a kingdom' : (canAttack ? '⚔️ Attack' : '🔒 Unreachable')}</button>`)}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 }
 
 function renderZones(){
