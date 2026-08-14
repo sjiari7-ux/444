@@ -1302,135 +1302,220 @@ function renderZonesTab(){
   return toggle + body;
 }
 
-// ─── Kingdom Territory Map — real hand-drawn SVG map ───
-// Layout mirrors the exact adjacency graph in ZONE_ADJACENCY (territory.js):
-// a 6-node ring (forest→plains→mountain→swamp→dark→cave→forest) plus one
-// chord (plains↔swamp), so the borders drawn on the map are always truthful.
-const ZONE_RING_ORDER = ['forest', 'plains', 'mountain', 'swamp', 'dark', 'cave'];
-const ZONE_CHORD = ['plains', 'swamp'];
-
-function buildZoneMapLayout(){
-  const center = 300, ringR = 205, blobR = 92;
-  const layout = {};
-  ZONE_RING_ORDER.forEach((id, i) => {
-    const angle = (-90 + i * 60) * Math.PI / 180;
-    layout[id] = { cx: center + ringR * Math.cos(angle), cy: center + ringR * Math.sin(angle), r: blobR };
-  });
-  return layout;
-}
-const ZONE_MAP_LAYOUT = buildZoneMapLayout();
-
-// Fixed per-zone jitter tables give each territory an organic, hand-drawn
-// coastline instead of a perfect hexagon — deterministic, so the map never
-// "shifts" between renders.
-const ZONE_BLOB_JITTER = {
-  forest:   [1.00, 0.86, 1.10, 0.90, 1.05, 0.82, 1.14, 0.94, 1.02, 0.90],
-  plains:   [0.92, 1.10, 0.86, 1.06, 0.94, 1.14, 0.82, 1.00, 1.10, 0.90],
-  mountain: [1.10, 0.90, 1.02, 0.86, 1.14, 1.00, 0.90, 1.06, 0.86, 1.10],
-  swamp:    [0.86, 1.06, 0.94, 1.14, 0.90, 1.00, 1.10, 0.82, 1.02, 0.94],
-  dark:     [1.00, 0.82, 1.14, 0.90, 1.06, 0.86, 1.10, 0.94, 1.00, 1.06],
-  cave:     [0.94, 1.10, 0.82, 1.00, 0.86, 1.14, 0.90, 1.06, 1.00, 0.90],
+// ─── ARCADIA Interactive Kingdom World Map ───
+// Google-Maps-style interaction: pan, wheel/pinch zoom, reset, selectable kingdoms.
+// The supplied ARCADIA artwork is used as the terrain layer; SVG territories sit above it
+// so the visual map remains beautiful while the game logic stays fully interactive.
+const ARCADIA_WORLD_MAP = {
+  width: 1672,
+  height: 941,
+  image: 'arcadia_world_map.png',
+  minZoom: 0.75,
+  maxZoom: 2.6,
+  regions: {
+    europe: {
+      zone: 'plains',
+      label: 'Europe',
+      path: 'M 285 92 L 360 55 L 520 35 L 680 45 L 785 100 L 815 205 L 755 315 L 640 355 L 470 340 L 340 300 L 270 225 Z'
+    },
+    asia: {
+      zone: 'forest',
+      label: 'Asia',
+      path: 'M 785 88 L 910 45 L 1110 35 L 1310 55 L 1425 120 L 1450 245 L 1370 315 L 1230 350 L 1050 330 L 880 295 L 800 215 Z'
+    },
+    arab_world: {
+      zone: 'swamp',
+      label: 'Arab World',
+      path: 'M 1000 305 L 1190 300 L 1405 275 L 1490 355 L 1510 470 L 1450 595 L 1280 650 L 1110 620 L 990 560 L 925 450 Z'
+    },
+    south_america: {
+      zone: 'dark',
+      label: 'South America',
+      path: 'M 835 560 L 1010 570 L 1210 585 L 1370 625 L 1450 735 L 1380 865 L 1190 920 L 1010 925 L 880 850 L 805 720 Z'
+    },
+    north_america: {
+      zone: 'cave',
+      label: 'North America',
+      path: 'M 260 555 L 430 525 L 620 530 L 790 570 L 875 665 L 835 815 L 750 900 L 555 925 L 365 875 L 265 765 L 230 650 Z'
+    },
+    africa: {
+      zone: 'mountain',
+      label: 'Africa',
+      path: 'M 235 315 L 390 305 L 560 325 L 700 385 L 755 495 L 690 610 L 600 700 L 435 715 L 295 650 L 210 545 L 175 420 Z'
+    }
+  }
 };
 
-function catmullRomClosedPath(pts){
-  const n = pts.length;
-  let d = '';
-  for(let i = 0; i < n; i++){
-    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    if(i === 0) d += `M ${p1[0].toFixed(1)} ${p1[1].toFixed(1)} `;
-    d += `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)} `;
-  }
-  return d + 'Z';
+let kingdomMapState = {
+  zoom: 0.82,
+  panX: 0,
+  panY: 0,
+  selected: null,
+  initialized: false,
+  dragging: false,
+  pointerId: null,
+  lastX: 0,
+  lastY: 0
+};
+
+function kingdomMapClampPan(){
+  const viewport = document.querySelector('.kingdom-map-viewport');
+  if(!viewport) return;
+  const w = viewport.clientWidth, h = viewport.clientHeight;
+  const scaledW = ARCADIA_WORLD_MAP.width * kingdomMapState.zoom;
+  const scaledH = ARCADIA_WORLD_MAP.height * kingdomMapState.zoom;
+  const margin = 18;
+  const minX = Math.min(margin, w - scaledW - margin);
+  const maxX = Math.max(margin, (w - scaledW) / 2);
+  const minY = Math.min(margin, h - scaledH - margin);
+  const maxY = Math.max(margin, (h - scaledH) / 2);
+  kingdomMapState.panX = Math.min(maxX, Math.max(minX, kingdomMapState.panX));
+  kingdomMapState.panY = Math.min(maxY, Math.max(minY, kingdomMapState.panY));
 }
-function zoneBlobPath(cx, cy, r, jitters){
-  const n = jitters.length;
-  const pts = jitters.map((j, i) => {
-    const a = (Math.PI * 2 * i / n) - Math.PI / 2;
-    return [cx + Math.cos(a) * r * j, cy + Math.sin(a) * r * j];
-  });
-  return catmullRomClosedPath(pts);
+
+function kingdomMapApplyTransform(){
+  const stage = document.querySelector('.kingdom-map-stage');
+  if(!stage) return;
+  kingdomMapClampPan();
+  stage.style.transform = `translate3d(${kingdomMapState.panX}px,${kingdomMapState.panY}px,0) scale(${kingdomMapState.zoom})`;
+  const zoomEl = document.querySelector('.kingdom-map-zoom-value');
+  if(zoomEl) zoomEl.textContent = `${Math.round(kingdomMapState.zoom * 100)}%`;
+}
+
+function centerKingdomMap(){
+  const viewport = document.querySelector('.kingdom-map-viewport');
+  if(!viewport) return;
+  const scaledW = ARCADIA_WORLD_MAP.width * kingdomMapState.zoom;
+  const scaledH = ARCADIA_WORLD_MAP.height * kingdomMapState.zoom;
+  kingdomMapState.panX = (viewport.clientWidth - scaledW) / 2;
+  kingdomMapState.panY = (viewport.clientHeight - scaledH) / 2;
+  kingdomMapApplyTransform();
+}
+
+function resetKingdomMapView(){
+  kingdomMapState.zoom = 0.82;
+  kingdomMapState.panX = 0;
+  kingdomMapState.panY = 0;
+  kingdomMapState.selected = null;
+  kingdomMapApplyTransform();
+  renderKingdomMapSelection();
+}
+
+function setKingdomMapZoom(nextZoom, clientX, clientY){
+  const viewport = document.querySelector('.kingdom-map-viewport');
+  if(!viewport) return;
+  const oldZoom = kingdomMapState.zoom;
+  const newZoom = Math.max(ARCADIA_WORLD_MAP.minZoom, Math.min(ARCADIA_WORLD_MAP.maxZoom, nextZoom));
+  if(newZoom === oldZoom) return;
+  const rect = viewport.getBoundingClientRect();
+  const px = (clientX == null ? rect.left + rect.width / 2 : clientX) - rect.left;
+  const py = (clientY == null ? rect.top + rect.height / 2 : clientY) - rect.top;
+  const mapX = (px - kingdomMapState.panX) / oldZoom;
+  const mapY = (py - kingdomMapState.panY) / oldZoom;
+  kingdomMapState.zoom = newZoom;
+  kingdomMapState.panX = px - mapX * newZoom;
+  kingdomMapState.panY = py - mapY * newZoom;
+  kingdomMapApplyTransform();
+}
+
+function kingdomMapWheel(ev){
+  ev.preventDefault();
+  const factor = ev.deltaY < 0 ? 1.12 : 0.89;
+  setKingdomMapZoom(kingdomMapState.zoom * factor, ev.clientX, ev.clientY);
+}
+
+function kingdomMapPointerDown(ev){
+  if(ev.button !== undefined && ev.button !== 0) return;
+  kingdomMapState.dragging = true;
+  kingdomMapState.pointerId = ev.pointerId;
+  kingdomMapState.lastX = ev.clientX;
+  kingdomMapState.lastY = ev.clientY;
+  ev.currentTarget.setPointerCapture?.(ev.pointerId);
+  ev.currentTarget.classList.add('is-dragging');
+}
+function kingdomMapPointerMove(ev){
+  if(!kingdomMapState.dragging || kingdomMapState.pointerId !== ev.pointerId) return;
+  kingdomMapState.panX += ev.clientX - kingdomMapState.lastX;
+  kingdomMapState.panY += ev.clientY - kingdomMapState.lastY;
+  kingdomMapState.lastX = ev.clientX;
+  kingdomMapState.lastY = ev.clientY;
+  kingdomMapApplyTransform();
+}
+function kingdomMapPointerUp(ev){
+  if(kingdomMapState.pointerId !== ev.pointerId) return;
+  kingdomMapState.dragging = false;
+  kingdomMapState.pointerId = null;
+  ev.currentTarget.classList.remove('is-dragging');
+}
+function kingdomMapSelect(zone){
+  kingdomMapState.selected = zone;
+  renderKingdomMapSelection();
+}
+function openSelectedKingdom(){
+  if(kingdomMapState.selected) openZoneTerritoryView(kingdomMapState.selected);
+}
+function renderKingdomMapSelection(){
+  const panel = document.querySelector('.kingdom-map-selection');
+  if(!panel) return;
+  const zoneId = kingdomMapState.selected;
+  if(!zoneId){
+    panel.innerHTML = `<div class="kingdom-map-selection-empty"><span>⌖</span><div><b>Select a kingdom</b><small>Click a territory to inspect its borders, control and activity.</small></div></div>`;
+    document.querySelectorAll('.kingdom-map-region').forEach(el=>el.classList.remove('selected'));
+    return;
+  }
+  const z = ZONES.find(x => x.id === zoneId);
+  const kingdomId = ZONE_HOME_KINGDOM[zoneId];
+  const kd = kingdomDef(zoneController(zoneId)) || kingdomDef(kingdomId);
+  const list = territoriesInZone(zoneId);
+  const controller = zoneController(zoneId);
+  const taxOwner = zoneTaxOwner(zoneId);
+  const mine = state.allianceId && kingdomOwnsAnyIn(state.allianceId, zoneId);
+  const reachable = state.allianceId && kingdomHasFootholdNear(state.allianceId, zoneId);
+  const ownedCount = list.filter(t => t.ownerKingdom === state.allianceId).length;
+  const color = kd?.color || z?.color || '#e0983a';
+  panel.innerHTML = `
+    <div class="kingdom-map-selection-main" style="--map-accent:${color};">
+      <div class="kingdom-map-selection-icon">${z?.icon || '🌍'}</div>
+      <div class="kingdom-map-selection-copy">
+        <div class="eyebrow">KINGDOM TERRITORY</div>
+        <h3>${z?.name || zoneId}</h3>
+        <p>${kd ? `${kd.emblem} ${kd.name}` : 'Unclaimed'} · ${controller === kingdomId ? 'Homeland' : 'Contested'}</p>
+      </div>
+      <button class="kingdom-map-open-btn" onclick="openSelectedKingdom()">Open Territory →</button>
+    </div>
+    <div class="kingdom-map-selection-stats">
+      <span><b>${list.length}</b><small>Outposts</small></span>
+      <span><b>${ownedCount}/${TERRITORIES_PER_ZONE}</b><small>Your ground</small></span>
+      <span><b>${Math.round((ZONE_TAX_RATE[zoneId] || 0) * 100)}%</b><small>Tax rate</small></span>
+      <span><b>${taxOwner ? 'CONTROLLED' : 'CONTESTED'}</b><small>Zone status</small></span>
+    </div>
+    <div class="kingdom-map-selection-note">${mine ? '👑 Your kingdom holds ground here.' : (reachable ? '🟢 This territory is reachable from your borders.' : '🧭 Click the territory to inspect its outposts and borders.')}</div>`;
+  document.querySelectorAll('.kingdom-map-region').forEach(el=>el.classList.toggle('selected', el.dataset.zone === zoneId));
 }
 
 function renderKingdomMapSVG(myKingdom){
-  const edges = ZONE_RING_ORDER.map((id, i) => [id, ZONE_RING_ORDER[(i + 1) % ZONE_RING_ORDER.length]]).concat([ZONE_CHORD]);
-  const lines = edges.map(([a, b]) => {
-    const A = ZONE_MAP_LAYOUT[a], B = ZONE_MAP_LAYOUT[b];
-    return `<line x1="${A.cx.toFixed(1)}" y1="${A.cy.toFixed(1)}" x2="${B.cx.toFixed(1)}" y2="${B.cy.toFixed(1)}" stroke="#4a341c" stroke-width="2" stroke-dasharray="4 5" opacity="0.55"/>`;
-  }).join('');
-
-  const regions = ZONES.map(z => {
-    const L = ZONE_MAP_LAYOUT[z.id];
-    const path = zoneBlobPath(L.cx, L.cy, L.r, ZONE_BLOB_JITTER[z.id]);
-    const controllerId = zoneController(z.id);
-    const kd = kingdomDef(controllerId);
-    const taxOwner = zoneTaxOwner(z.id);
-    const contested = !taxOwner;
-    const mine = kingdomOwnsAnyIn(myKingdom, z.id);
-    const reachable = kingdomHasFootholdNear(myKingdom, z.id);
-    const ownedCount = territoriesInZone(z.id).filter(t => t.ownerKingdom === myKingdom).length;
-    const taxPct = Math.round((ZONE_TAX_RATE[z.id] || 0) * 100);
-    const fill = kd ? kd.color : '#3a3226';
-    const fillOpacity = contested ? 0.26 : 0.55;
-    const strokeColor = mine ? '#ffc35c' : ((myKingdom && !mine && reachable) ? '#8bd44e' : '#4a341c');
-    const strokeWidth = mine ? 3 : 1.5;
-
-    const list = territoriesInZone(z.id);
-    const slots = list.length ? list : Array.from({ length: TERRITORIES_PER_ZONE });
-    const pipStartX = L.cx - ((slots.length - 1) * 13) / 2;
-    const pips = slots.map((t, idx) => {
-      const isCap = idx === 0;
-      const ownerKd = t ? kingdomDef(t.ownerKingdom) : null;
-      const pc = ownerKd ? ownerKd.color : '#544732';
-      const px = pipStartX + idx * 13, py = L.cy + 18;
-      return `<rect x="${(px - 4).toFixed(1)}" y="${(py - 4).toFixed(1)}" width="8" height="8" rx="2" fill="${pc}" stroke="${isCap ? '#ffc35c' : 'rgba(0,0,0,0.4)'}" stroke-width="${isCap ? 1.4 : 0.6}" pointer-events="none"/>`;
-    }).join('');
-
-    const tooltip = `${z.name} — ${contested ? 'Contested (no tax)' : (kd ? kd.emblem + ' ' + kd.name : 'Unclaimed')} — ${ownedCount}/${TERRITORIES_PER_ZONE} yours — ${taxPct}% tax${myKingdom && !mine ? (reachable ? ' — Reachable' : ' — Not bordering your land') : ''}`;
-
-    // Note: no inline onclick here — the wrapping .kingdom-map-wrap div below
-    // owns a single delegated click handler (handleKingdomMapClick) that reads
-    // data-zone off the nearest ancestor. This avoids any SVG-inline-handler
-    // quirks and keeps the whole shape (blob + pips + labels) reliably tappable.
-    return `<g class="zone-region" data-zone="${z.id}" pointer-events="all">
-      <title>${tooltip}</title>
-      <path class="zone-blob" d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-      <text x="${L.cx.toFixed(1)}" y="${(L.cy - 18).toFixed(1)}" text-anchor="middle" font-size="26" pointer-events="none">${z.icon}</text>
-      <text x="${L.cx.toFixed(1)}" y="${(L.cy).toFixed(1)}" text-anchor="middle" font-family="Cairo, sans-serif" font-weight="700" font-size="13" fill="#ffc35c" pointer-events="none">${z.name}</text>
-      ${pips}
-      <text x="${L.cx.toFixed(1)}" y="${(L.cy + 34).toFixed(1)}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#a8927a" pointer-events="none">${contested ? '⚡ contested' : (kd ? kd.emblem + ' ' + kd.name : 'unclaimed')}</text>
+  const regions = Object.entries(ARCADIA_WORLD_MAP.regions).map(([kingdomId, cfg]) => {
+    const zone = cfg.zone;
+    const controllerId = zoneController(zone);
+    const kd = kingdomDef(controllerId) || kingdomDef(kingdomId);
+    const mine = myKingdom && kingdomOwnsAnyIn(myKingdom, zone);
+    const reachable = myKingdom && !mine && kingdomHasFootholdNear(myKingdom, zone);
+    const selected = kingdomMapState.selected === zone;
+    const color = kd?.color || ZONES.find(x=>x.id===zone)?.color || '#e0983a';
+    const status = mine ? 'YOUR GROUND' : (reachable ? 'REACHABLE' : (zoneTaxOwner(zone) ? 'CONTROLLED' : 'CONTESTED'));
+    return `<g class="kingdom-map-region ${selected ? 'selected' : ''}" data-zone="${zone}" onclick="kingdomMapSelect('${zone}');event.stopPropagation();">
+      <path d="${cfg.path}" fill="${color}" fill-opacity="0.10" stroke="${color}" stroke-width="${selected ? 7 : (mine ? 5 : 2.5)}" stroke-linejoin="round"/>
+      <path d="${cfg.path}" fill="none" stroke="${color}" stroke-width="${selected ? 14 : 8}" opacity="${selected ? 0.20 : 0.07}" stroke-linejoin="round"/>
+      <circle cx="${cfg.label === 'Europe' ? 550 : cfg.label === 'Asia' ? 1100 : cfg.label === 'Arab World' ? 1260 : cfg.label === 'South America' ? 1120 : cfg.label === 'North America' ? 540 : 470}" cy="${cfg.label === 'Europe' ? 170 : cfg.label === 'Asia' ? 165 : cfg.label === 'Arab World' ? 440 : cfg.label === 'South America' ? 730 : cfg.label === 'North America' ? 700 : 500}" r="7" fill="${color}" stroke="#fff" stroke-width="2"/>
+      <title>${cfg.label} — ${status}</title>
     </g>`;
   }).join('');
-
-  return `<div class="kingdom-map-wrap" onclick="handleKingdomMapClick(event)">
-    <svg viewBox="0 0 600 600" style="width:100%;max-width:600px;display:block;margin:0 auto;">
-      ${lines}
-      ${regions}
-    </svg>
-  </div>
-  <div class="panel" style="margin-top:12px;padding:10px 14px;">
-    <div style="display:flex;flex-wrap:wrap;gap:10px 16px;font-size:11px;">
-      ${KINGDOMS.map(k => `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:${k.color};display:inline-block;"></span>${k.emblem} ${k.name}</span>`).join('')}
-    </div>
-    <div style="margin-top:8px;font-size:10px;color:var(--dim);">Dashed lines = zone borders · <span style="color:var(--brass-bright);">brass outline</span> = your kingdom's ground · <span style="color:var(--green);">green outline</span> = reachable to attack</div>
-  </div>`;
-}
-
-// Single delegated handler for the whole map — more reliable across browsers/webviews
-// than per-region inline onclick attributes on SVG <g> elements.
-function handleKingdomMapClick(ev){
-  const target = ev.target.closest ? ev.target.closest('[data-zone]') : null;
-  if(!target) return;
-  const zone = target.getAttribute('data-zone');
-  if(zone) openZoneTerritoryView(zone);
+  return `<svg class="kingdom-map-overlay" viewBox="0 0 ${ARCADIA_WORLD_MAP.width} ${ARCADIA_WORLD_MAP.height}" aria-label="Interactive ARCADIA world map">${regions}</svg>`;
 }
 
 function renderKingdomMap(){
   if(!db){
-    return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">
-      🔌 Kingdom warfare requires cloud save (Firebase) to be configured.
-    </div>`;
+    return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🔌 Kingdom warfare requires cloud save (Firebase) to be configured.</div>`;
   }
   if(!territoryLoaded){
     loadTerritories();
@@ -1447,14 +1532,51 @@ function renderKingdomMap(){
   if(territoryZoneView) return renderZoneOutposts(territoryZoneView);
 
   const myKingdom = state.allianceId;
+  if(!kingdomMapState.initialized){
+    kingdomMapState.initialized = true;
+    setTimeout(() => { centerKingdomMap(); renderKingdomMapSelection(); }, 0);
+  }
 
   return `<div class="wrap animate-fade">
-    <header class="hero" style="margin-bottom:14px;">
-      <h1 style="font-size:22px;"><img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️" style="width:22px;height:22px;vertical-align:-4px;"> Kingdom Map</h1>
-      <p style="color:var(--dim);font-size:12px;">Six zones, six kingdoms. You can only attack outposts in a zone bordering land your kingdom already holds.</p>
+    <header class="hero" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <h1 style="font-size:22px;"><img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️" style="width:22px;height:22px;vertical-align:-4px;"> ARCADIA World Map</h1>
+          <p style="color:var(--dim);font-size:12px;">Drag to explore · Scroll to zoom · Click a kingdom to inspect it</p>
+        </div>
+        <div class="kingdom-map-toolbar">
+          <button class="map-control" onclick="setKingdomMapZoom(kingdomMapState.zoom*1.2)">+</button>
+          <span class="kingdom-map-zoom-value">${Math.round(kingdomMapState.zoom*100)}%</span>
+          <button class="map-control" onclick="setKingdomMapZoom(kingdomMapState.zoom/1.2)">−</button>
+          <button class="map-control reset" onclick="resetKingdomMapView()">⟳</button>
+        </div>
+      </div>
     </header>
-    ${!myKingdom ? `<div class="panel" style="padding:12px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:14px;">Pledge allegiance to a kingdom in the Kingdom tab to take part in territory warfare.</div>` : ''}
-    ${renderKingdomMapSVG(myKingdom)}
+    ${!myKingdom ? `<div class="panel" style="padding:10px 14px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:10px;">Pledge allegiance to a kingdom in the Kingdom tab to participate in territory warfare.</div>` : ''}
+    <div class="kingdom-map-shell">
+      <div class="kingdom-map-viewport"
+        onwheel="kingdomMapWheel(event)"
+        onpointerdown="kingdomMapPointerDown(event)"
+        onpointermove="kingdomMapPointerMove(event)"
+        onpointerup="kingdomMapPointerUp(event)"
+        onpointercancel="kingdomMapPointerUp(event)"
+        oncontextmenu="event.preventDefault()">
+        <div class="kingdom-map-stage">
+          <img class="kingdom-map-image" src="${ARCADIA_WORLD_MAP.image}" alt="ARCADIA World Map terrain">
+          ${renderKingdomMapSVG(myKingdom)}
+        </div>
+        <div class="kingdom-map-compass">N</div>
+        <div class="kingdom-map-hint">🖱 Drag · Wheel / trackpad to zoom</div>
+      </div>
+    </div>
+    <div class="kingdom-map-selection" aria-live="polite">
+      <div class="kingdom-map-selection-empty"><span>⌖</span><div><b>Select a kingdom</b><small>Click a territory to inspect its borders, control and activity.</small></div></div>
+    </div>
+    <div class="panel" style="margin-top:10px;padding:9px 12px;">
+      <div style="display:flex;flex-wrap:wrap;gap:9px 15px;font-size:10px;">
+        ${KINGDOMS.map(k => `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:50%;background:${k.color};display:inline-block;box-shadow:0 0 8px ${k.color};"></span>${k.emblem} ${k.name}</span>`).join('')}
+      </div>
+    </div>
   </div>`;
 }
 
