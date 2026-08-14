@@ -1322,24 +1322,32 @@ const WORLD_CONTINENTS = {
   mountain: {x:390,y:420}, cave:{x:165,y:410}, dark:{x:570,y:510}
 };
 const WORLD_CELLS = [
-  [[0,0],[108,8],[95,102],[0,96]],
-  [[108,8],[218,0],[214,100],[95,102]],
-  [[0,96],[95,102],[88,198],[-12,184]],
-  [[95,102],[214,100],[225,194],[88,198]],
-  [[-12,184],[88,198],[225,194],[180,260],[35,246]],
+  // Shared vertices are intentionally reused between neighbouring territories.
+  // This prevents gaps/overlaps and creates believable continuous borders.
+  [[0,18],[96,0],[104,92],[8,112]],
+  [[96,0],[214,12],[208,98],[104,92]],
+  [[8,112],[104,92],[92,194],[-14,178]],
+  [[104,92],[208,98],[224,184],[92,194]],
+  [[-14,178],[92,194],[224,184],[202,246],[92,264],[18,238]],
 ];
+
 function worldTerritoryPath(cx,cy,idx){
-  // Add small deterministic offsets to make borders feel natural rather than grid-like.
-  const jitter=[
-    [[-8,4],[2,-6],[-5,5],[4,3]],
-    [[2,-6],[8,4],[5,-4],[-5,5]],
-    [[-5,5],[5,-3],[-7,7],[3,2]],
-    [[5,-3],[-3,4],[8,-5],[-7,7]],
-    [[3,2],[-7,7],[4,4],[-8,-2],[2,-6]],
-  ][idx];
-  const pts=WORLD_CELLS[idx].map((p,i)=>[cx+p[0]+jitter[i][0],cy+p[1]+jitter[i][1]]);
-  return pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ')+' Z';
+  const pts=WORLD_CELLS[idx].map(p=>[cx+p[0],cy+p[1]]);
+  // Slightly rounded SVG corners while keeping every shared border identical.
+  const n=pts.length;
+  let d='';
+  for(let i=0;i<n;i++){
+    const prev=pts[(i-1+n)%n], cur=pts[i], next=pts[(i+1)%n];
+    const cut=10;
+    const a=[cur[0]+(prev[0]-cur[0])*cut/Math.hypot(prev[0]-cur[0],prev[1]-cur[1]), cur[1]+(prev[1]-cur[1])*cut/Math.hypot(prev[0]-cur[0],prev[1]-cur[1])];
+    const b=[cur[0]+(next[0]-cur[0])*cut/Math.hypot(next[0]-cur[0],next[1]-cur[1]), cur[1]+(next[1]-cur[1])*cut/Math.hypot(next[0]-cur[0],next[1]-cur[1])];
+    if(i===0) d=`M ${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
+    else d+=` L ${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
+    d+=` Q ${cur[0].toFixed(1)} ${cur[1].toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+  }
+  return d+' Z';
 }
+
 function worldTerritoryId(zone,idx){ return `${zone}_${idx+1}`; }
 function worldTerritoryMeta(zone,idx){
   const z=ARCADIA_WORLD[zone];
@@ -1409,8 +1417,8 @@ function renderKingdomMapSVG(myKingdom){
     const kd=t&&kingdomDef(t.ownerKingdom), mine=t&&t.ownerKingdom===myKingdom, selected=arcadiaMapSelected===o.meta.id;
     const fill=kd?kd.color:o.z.color, opacity=kd?.75:.62;
     return `<g class="world-territory ${selected?'selected':''}" data-territory="${o.meta.id}">
-      <path d="${path}" fill="${fill}" fill-opacity="${opacity}" stroke="#e8d8ae" stroke-width="2.2"/>
-      <path d="${path}" fill="none" stroke="${mine?'#ffe27a':'rgba(0,0,0,.55)'}" stroke-width="${mine?3.8:1}"/>
+      <path d="${path}" fill="${fill}" fill-opacity="${opacity}" stroke="rgba(10,16,18,.92)" stroke-width="3.2" stroke-linejoin="round"/>
+      <path d="${path}" fill="none" stroke="${mine?'#ffe27a':'rgba(210,192,145,.72)'}" stroke-width="${mine?3.2:1.35}" stroke-linejoin="round"/>
       ${o.idx===0?'<text class="capital-crown" x="'+(c.x+54)+'" y="'+(c.y+48)+'">♛</text>':''}
       <text class="territory-label" x="${c.x+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[0],0)/WORLD_CELLS[o.idx].length}" y="${c.y+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[1],0)/WORLD_CELLS[o.idx].length+5}" text-anchor="middle">${o.name}</text>
       <text class="territory-id" x="${c.x+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[0],0)/WORLD_CELLS[o.idx].length}" y="${c.y+WORLD_CELLS[o.idx].reduce((a,p)=>a+p[1],0)/WORLD_CELLS[o.idx].length+21}" text-anchor="middle">${o.z.label}</text>
