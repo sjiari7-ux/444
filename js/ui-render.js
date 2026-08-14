@@ -1310,47 +1310,63 @@ const ARCADIA_WORLD_MAP = {
   width: 1672,
   height: 941,
   image: 'arcadia_world_map.png',
-  minZoom: 0.75,
-  maxZoom: 2.6,
+  minZoom: 0.70,
+  maxZoom: 3.20,
   regions: {
-    europe: {
-      zone: 'plains',
-      label: 'Europe',
-      path: 'M 285 92 L 360 55 L 520 35 L 680 45 L 785 100 L 815 205 L 755 315 L 640 355 L 470 340 L 340 300 L 270 225 Z'
-    },
-    asia: {
-      zone: 'forest',
-      label: 'Asia',
-      path: 'M 785 88 L 910 45 L 1110 35 L 1310 55 L 1425 120 L 1450 245 L 1370 315 L 1230 350 L 1050 330 L 880 295 L 800 215 Z'
-    },
-    arab_world: {
-      zone: 'swamp',
-      label: 'Arab World',
-      path: 'M 1000 305 L 1190 300 L 1405 275 L 1490 355 L 1510 470 L 1450 595 L 1280 650 L 1110 620 L 990 560 L 925 450 Z'
-    },
-    south_america: {
-      zone: 'dark',
-      label: 'South America',
-      path: 'M 835 560 L 1010 570 L 1210 585 L 1370 625 L 1450 735 L 1380 865 L 1190 920 L 1010 925 L 880 850 L 805 720 Z'
-    },
-    north_america: {
-      zone: 'cave',
-      label: 'North America',
-      path: 'M 260 555 L 430 525 L 620 530 L 790 570 L 875 665 L 835 815 L 750 900 L 555 925 L 365 875 L 265 765 L 230 650 Z'
-    },
-    africa: {
-      zone: 'mountain',
-      label: 'Africa',
-      path: 'M 235 315 L 390 305 L 560 325 L 700 385 L 755 495 L 690 610 L 600 700 L 435 715 L 295 650 L 210 545 L 175 420 Z'
-    }
+    europe:      { zone:'plains',   label:'Europe',        cx:545,  cy:180, w:500, h:285 },
+    asia:       { zone:'forest',   label:'Asia',          cx:1120, cy:180, w:500, h:280 },
+    arab_world: { zone:'swamp',    label:'Arab World',    cx:1230, cy:440, w:500, h:300 },
+    south_america:{zone:'dark',    label:'South America', cx:1120, cy:750, w:430, h:310 },
+    north_america:{zone:'cave',    label:'North America', cx:540,  cy:735, w:470, h:310 },
+    africa:     { zone:'mountain', label:'Africa',        cx:470,  cy:500, w:430, h:300 }
   }
 };
+
+// Five named lands live inside every kingdom. Land #1 is the capital and is
+// permanently protected by the existing territory.js rules.
+const ARCADIA_LAND_NAMES = {
+  plains:   ['Royal Plains','Silverfield','Windcrest','Kingsroad','Valoria'],
+  forest:   ['Bamboo Haven','Crimson Temple','Jade Forest','Dragonreach','Mist Valley'],
+  swamp:    ['Golden Oasis','Sunspire','Duneveil','Crescent Sands','Al-Nur'],
+  dark:     ['Amazonia','Sunstone Ruins','Jaguar Depths','Emerald Canopy','Obsidian Vale'],
+  cave:     ['Ironwood','Frostpine','Thunder Ridge','Deepstone','Frontier Hold'],
+  mountain: ['Kilimara','Red Summit','Savanna Crown','Lionheart','Highland Gate']
+};
+
+const ARCADIA_LAND_ICONS = ['🏰','🌾','🛡️','⚔️','🌲'];
+const ARCADIA_LAND_OFFSETS = [
+  [0,0], [-0.34,-0.28], [0.34,-0.28], [-0.34,0.30], [0.34,0.30]
+];
+
+function arcadiaLandPoints(region, index){
+  const [ox,oy] = ARCADIA_LAND_OFFSETS[index];
+  const cx = region.cx + ox * region.w;
+  const cy = region.cy + oy * region.h;
+  const tw = region.w * 0.32;
+  const th = region.h * 0.30;
+  const cut = 0.18;
+  const pts = [
+    [cx - tw*0.50 + tw*cut, cy - th*0.50],
+    [cx + tw*0.50 - tw*cut, cy - th*0.50],
+    [cx + tw*0.50, cy - th*0.18],
+    [cx + tw*0.42, cy + th*0.50],
+    [cx - tw*0.42, cy + th*0.50],
+    [cx - tw*0.50, cy + th*0.18]
+  ];
+  return pts.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ');
+}
+
+function arcadiaLandCenter(region, index){
+  const [ox,oy] = ARCADIA_LAND_OFFSETS[index];
+  return { x: region.cx + ox*region.w, y: region.cy + oy*region.h };
+}
 
 let kingdomMapState = {
   zoom: 0.82,
   panX: 0,
   panY: 0,
   selected: null,
+  selectedLand: null,
   initialized: false,
   dragging: false,
   pointerId: null,
@@ -1372,7 +1388,6 @@ function kingdomMapClampPan(){
   kingdomMapState.panX = Math.min(maxX, Math.max(minX, kingdomMapState.panX));
   kingdomMapState.panY = Math.min(maxY, Math.max(minY, kingdomMapState.panY));
 }
-
 function kingdomMapApplyTransform(){
   const stage = document.querySelector('.kingdom-map-stage');
   if(!stage) return;
@@ -1381,7 +1396,6 @@ function kingdomMapApplyTransform(){
   const zoomEl = document.querySelector('.kingdom-map-zoom-value');
   if(zoomEl) zoomEl.textContent = `${Math.round(kingdomMapState.zoom * 100)}%`;
 }
-
 function centerKingdomMap(){
   const viewport = document.querySelector('.kingdom-map-viewport');
   if(!viewport) return;
@@ -1391,16 +1405,15 @@ function centerKingdomMap(){
   kingdomMapState.panY = (viewport.clientHeight - scaledH) / 2;
   kingdomMapApplyTransform();
 }
-
 function resetKingdomMapView(){
   kingdomMapState.zoom = 0.82;
   kingdomMapState.panX = 0;
   kingdomMapState.panY = 0;
   kingdomMapState.selected = null;
+  kingdomMapState.selectedLand = null;
   kingdomMapApplyTransform();
   renderKingdomMapSelection();
 }
-
 function setKingdomMapZoom(nextZoom, clientX, clientY){
   const viewport = document.querySelector('.kingdom-map-viewport');
   if(!viewport) return;
@@ -1408,220 +1421,158 @@ function setKingdomMapZoom(nextZoom, clientX, clientY){
   const newZoom = Math.max(ARCADIA_WORLD_MAP.minZoom, Math.min(ARCADIA_WORLD_MAP.maxZoom, nextZoom));
   if(newZoom === oldZoom) return;
   const rect = viewport.getBoundingClientRect();
-  const px = (clientX == null ? rect.left + rect.width / 2 : clientX) - rect.left;
-  const py = (clientY == null ? rect.top + rect.height / 2 : clientY) - rect.top;
+  const px = (clientX == null ? rect.left + rect.width/2 : clientX) - rect.left;
+  const py = (clientY == null ? rect.top + rect.height/2 : clientY) - rect.top;
   const mapX = (px - kingdomMapState.panX) / oldZoom;
   const mapY = (py - kingdomMapState.panY) / oldZoom;
   kingdomMapState.zoom = newZoom;
-  kingdomMapState.panX = px - mapX * newZoom;
-  kingdomMapState.panY = py - mapY * newZoom;
+  kingdomMapState.panX = px - mapX*newZoom;
+  kingdomMapState.panY = py - mapY*newZoom;
   kingdomMapApplyTransform();
 }
-
-function kingdomMapWheel(ev){
-  ev.preventDefault();
-  const factor = ev.deltaY < 0 ? 1.12 : 0.89;
-  setKingdomMapZoom(kingdomMapState.zoom * factor, ev.clientX, ev.clientY);
-}
-
+function kingdomMapWheel(ev){ ev.preventDefault(); setKingdomMapZoom(kingdomMapState.zoom*(ev.deltaY<0?1.12:0.89), ev.clientX, ev.clientY); }
 function kingdomMapPointerDown(ev){
   if(ev.button !== undefined && ev.button !== 0) return;
-  kingdomMapState.dragging = true;
-  kingdomMapState.pointerId = ev.pointerId;
-  kingdomMapState.lastX = ev.clientX;
-  kingdomMapState.lastY = ev.clientY;
-  ev.currentTarget.setPointerCapture?.(ev.pointerId);
-  ev.currentTarget.classList.add('is-dragging');
+  kingdomMapState.dragging=true; kingdomMapState.pointerId=ev.pointerId;
+  kingdomMapState.lastX=ev.clientX; kingdomMapState.lastY=ev.clientY;
+  ev.currentTarget.setPointerCapture?.(ev.pointerId); ev.currentTarget.classList.add('is-dragging');
 }
 function kingdomMapPointerMove(ev){
-  if(!kingdomMapState.dragging || kingdomMapState.pointerId !== ev.pointerId) return;
-  kingdomMapState.panX += ev.clientX - kingdomMapState.lastX;
-  kingdomMapState.panY += ev.clientY - kingdomMapState.lastY;
-  kingdomMapState.lastX = ev.clientX;
-  kingdomMapState.lastY = ev.clientY;
+  if(!kingdomMapState.dragging || kingdomMapState.pointerId!==ev.pointerId) return;
+  kingdomMapState.panX += ev.clientX-kingdomMapState.lastX;
+  kingdomMapState.panY += ev.clientY-kingdomMapState.lastY;
+  kingdomMapState.lastX=ev.clientX; kingdomMapState.lastY=ev.clientY;
   kingdomMapApplyTransform();
 }
 function kingdomMapPointerUp(ev){
-  if(kingdomMapState.pointerId !== ev.pointerId) return;
-  kingdomMapState.dragging = false;
-  kingdomMapState.pointerId = null;
+  if(kingdomMapState.pointerId!==ev.pointerId) return;
+  kingdomMapState.dragging=false; kingdomMapState.pointerId=null;
   ev.currentTarget.classList.remove('is-dragging');
 }
-function kingdomMapSelect(zone){
-  kingdomMapState.selected = zone;
+function kingdomMapSelect(zone, landId){
+  kingdomMapState.selected=zone;
+  kingdomMapState.selectedLand=landId || null;
   renderKingdomMapSelection();
 }
 function openSelectedKingdom(){
   if(kingdomMapState.selected) openZoneTerritoryView(kingdomMapState.selected);
 }
 function renderKingdomMapSelection(){
-  const panel = document.querySelector('.kingdom-map-selection');
-  if(!panel) return;
-  const zoneId = kingdomMapState.selected;
+  const panel=document.querySelector('.kingdom-map-selection'); if(!panel) return;
+  const zoneId=kingdomMapState.selected;
   if(!zoneId){
-    panel.innerHTML = `<div class="kingdom-map-selection-empty"><span>⌖</span><div><b>Select a kingdom</b><small>Click a territory to inspect its borders, control and activity.</small></div></div>`;
+    panel.innerHTML=`<div class="kingdom-map-selection-empty"><span>⌖</span><div><b>Select a land</b><small>Each kingdom has 5 named lands. Click any land to inspect it.</small></div></div>`;
     document.querySelectorAll('.kingdom-map-region').forEach(el=>el.classList.remove('selected'));
+    document.querySelectorAll('.kingdom-map-land').forEach(el=>el.classList.remove('selected'));
     return;
   }
-  const z = ZONES.find(x => x.id === zoneId);
-  const kingdomId = ZONE_HOME_KINGDOM[zoneId];
-  const kd = kingdomDef(zoneController(zoneId)) || kingdomDef(kingdomId);
-  const list = territoriesInZone(zoneId);
-  const controller = zoneController(zoneId);
-  const taxOwner = zoneTaxOwner(zoneId);
-  const mine = state.allianceId && kingdomOwnsAnyIn(state.allianceId, zoneId);
-  const reachable = state.allianceId && kingdomHasFootholdNear(state.allianceId, zoneId);
-  const ownedCount = list.filter(t => t.ownerKingdom === state.allianceId).length;
-  const color = kd?.color || z?.color || '#e0983a';
-  panel.innerHTML = `
+  const z=ZONES.find(x=>x.id===zoneId);
+  const kingdomId=ZONE_HOME_KINGDOM[zoneId];
+  const kd=kingdomDef(zoneController(zoneId)) || kingdomDef(kingdomId);
+  const list=territoriesInZone(zoneId);
+  const landIndex=Math.max(0, Math.min(4, (parseInt((kingdomMapState.selectedLand||'').split('_').pop(),10)||1)-1));
+  const landName=ARCADIA_LAND_NAMES[zoneId]?.[landIndex] || `${z?.name||zoneId} Land ${landIndex+1}`;
+  const selectedTerritory=list.find(t=>t.id===kingdomMapState.selectedLand);
+  const controller=zoneController(zoneId), taxOwner=zoneTaxOwner(zoneId);
+  const mine=state.allianceId && kingdomOwnsAnyIn(state.allianceId,zoneId);
+  const reachable=state.allianceId && kingdomHasFootholdNear(state.allianceId,zoneId);
+  const ownedCount=list.filter(t=>t.ownerKingdom===state.allianceId).length;
+  const color=kd?.color || z?.color || '#e0983a';
+  const defense=selectedTerritory?.defense ?? TERRITORY_BASE_DEFENSE;
+  const capital=isCapitalTerritory(kingdomMapState.selectedLand||'');
+  panel.innerHTML=`
     <div class="kingdom-map-selection-main" style="--map-accent:${color};">
-      <div class="kingdom-map-selection-icon">${z?.icon || '🌍'}</div>
+      <div class="kingdom-map-selection-icon">${ARCADIA_LAND_ICONS[landIndex]}</div>
       <div class="kingdom-map-selection-copy">
-        <div class="eyebrow">KINGDOM TERRITORY</div>
-        <h3>${z?.name || zoneId}</h3>
-        <p>${kd ? `${kd.emblem} ${kd.name}` : 'Unclaimed'} · ${controller === kingdomId ? 'Homeland' : 'Contested'}</p>
+        <div class="eyebrow">${capital?'CAPITAL LAND':'KINGDOM LAND'} · ${z?.name||zoneId}</div>
+        <h3>${landName}</h3>
+        <p>${kd?`${kd.emblem} ${kd.name}`:'Unclaimed'} · ${capital?'Permanent capital':'Territory '+(landIndex+1)}/5</p>
       </div>
       <button class="kingdom-map-open-btn" onclick="openSelectedKingdom()">Open Territory →</button>
     </div>
     <div class="kingdom-map-selection-stats">
-      <span><b>${list.length}</b><small>Outposts</small></span>
-      <span><b>${ownedCount}/${TERRITORIES_PER_ZONE}</b><small>Your ground</small></span>
-      <span><b>${Math.round((ZONE_TAX_RATE[zoneId] || 0) * 100)}%</b><small>Tax rate</small></span>
-      <span><b>${taxOwner ? 'CONTROLLED' : 'CONTESTED'}</b><small>Zone status</small></span>
+      <span><b>${defense}</b><small>Defense</small></span>
+      <span><b>${ownedCount}/5</b><small>Your lands</small></span>
+      <span><b>${Math.round((ZONE_TAX_RATE[zoneId]||0)*100)}%</b><small>Tax rate</small></span>
+      <span><b>${capital?'LOCKED':(taxOwner?'CONTROLLED':'CONTESTED')}</b><small>Status</small></span>
     </div>
-    <div class="kingdom-map-selection-note">${mine ? '👑 Your kingdom holds ground here.' : (reachable ? '🟢 This territory is reachable from your borders.' : '🧭 Click the territory to inspect its outposts and borders.')}</div>`;
-  document.querySelectorAll('.kingdom-map-region').forEach(el=>el.classList.toggle('selected', el.dataset.zone === zoneId));
+    <div class="kingdom-map-selection-note">${capital?'🏰 This is the original capital and cannot be conquered.':(mine?'👑 Your kingdom holds this region.':(reachable?'🟢 This land is reachable from your kingdom borders.':'🧭 Select another land or inspect the kingdom outposts.'))}</div>`;
+  document.querySelectorAll('.kingdom-map-region').forEach(el=>el.classList.toggle('selected',el.dataset.zone===zoneId));
+  document.querySelectorAll('.kingdom-map-land').forEach(el=>el.classList.toggle('selected',el.dataset.land===kingdomMapState.selectedLand));
 }
 
 function renderKingdomMapSVG(myKingdom){
-  const regions = Object.entries(ARCADIA_WORLD_MAP.regions).map(([kingdomId, cfg]) => {
-    const zone = cfg.zone;
-    const controllerId = zoneController(zone);
-    const kd = kingdomDef(controllerId) || kingdomDef(kingdomId);
-    const mine = myKingdom && kingdomOwnsAnyIn(myKingdom, zone);
-    const reachable = myKingdom && !mine && kingdomHasFootholdNear(myKingdom, zone);
-    const selected = kingdomMapState.selected === zone;
-    const color = kd?.color || ZONES.find(x=>x.id===zone)?.color || '#e0983a';
-    const status = mine ? 'YOUR GROUND' : (reachable ? 'REACHABLE' : (zoneTaxOwner(zone) ? 'CONTROLLED' : 'CONTESTED'));
-    return `<g class="kingdom-map-region ${selected ? 'selected' : ''}" data-zone="${zone}" onclick="kingdomMapSelect('${zone}');event.stopPropagation();">
-      <path d="${cfg.path}" fill="${color}" fill-opacity="0.10" stroke="${color}" stroke-width="${selected ? 7 : (mine ? 5 : 2.5)}" stroke-linejoin="round"/>
-      <path d="${cfg.path}" fill="none" stroke="${color}" stroke-width="${selected ? 14 : 8}" opacity="${selected ? 0.20 : 0.07}" stroke-linejoin="round"/>
-      <circle cx="${cfg.label === 'Europe' ? 550 : cfg.label === 'Asia' ? 1100 : cfg.label === 'Arab World' ? 1260 : cfg.label === 'South America' ? 1120 : cfg.label === 'North America' ? 540 : 470}" cy="${cfg.label === 'Europe' ? 170 : cfg.label === 'Asia' ? 165 : cfg.label === 'Arab World' ? 440 : cfg.label === 'South America' ? 730 : cfg.label === 'North America' ? 700 : 500}" r="7" fill="${color}" stroke="#fff" stroke-width="2"/>
-      <title>${cfg.label} — ${status}</title>
+  const regions=Object.entries(ARCADIA_WORLD_MAP.regions).map(([kingdomId,cfg])=>{
+    const zone=cfg.zone;
+    const controllerId=zoneController(zone);
+    const kd=kingdomDef(controllerId)||kingdomDef(kingdomId);
+    const color=kd?.color||ZONES.find(x=>x.id===zone)?.color||'#e0983a';
+    const lands=Array.from({length:5},(_,i)=>{
+      const tid=territoryDocId(zone,i+1);
+      const t=territoriesInZone(zone).find(x=>x.id===tid);
+      const center=arcadiaLandCenter(cfg,i);
+      const name=ARCADIA_LAND_NAMES[zone]?.[i]||`${cfg.label} Land ${i+1}`;
+      const selected=kingdomMapState.selectedLand===tid;
+      const owned=t?.ownerKingdom===myKingdom;
+      const reachable=myKingdom&&!owned&&kingdomHasFootholdNear(myKingdom,zone);
+      const landColor=t?.ownerKingdom ? (kingdomDef(t.ownerKingdom)?.color||color) : color;
+      const status=owned?'YOUR LAND':(reachable?'REACHABLE':(t?.ownerKingdom?'CONTROLLED':'UNCLAIMED'));
+      return `<g class="kingdom-map-land ${selected?'selected':''}" data-zone="${zone}" data-land="${tid}" onclick="kingdomMapSelect('${zone}','${tid}');event.stopPropagation();" tabindex="0" role="button">
+        <polygon points="${arcadiaLandPoints(cfg,i)}" fill="${landColor}" fill-opacity="${selected?.25:.13}" stroke="${landColor}" stroke-width="${selected?6:(owned?4:2)}" stroke-linejoin="round"/>
+        <polygon points="${arcadiaLandPoints(cfg,i)}" fill="none" stroke="${landColor}" stroke-width="${selected?13:7}" opacity="${selected?.24:.07}"/>
+        <circle cx="${center.x.toFixed(1)}" cy="${(center.y-12).toFixed(1)}" r="${i===0?12:9}" fill="rgba(10,12,18,.86)" stroke="${i===0?'#ffd36a':landColor}" stroke-width="2"/>
+        <text x="${center.x.toFixed(1)}" y="${(center.y-7).toFixed(1)}" text-anchor="middle" font-size="${i===0?11:9}" pointer-events="none">${ARCADIA_LAND_ICONS[i]}</text>
+        <text x="${center.x.toFixed(1)}" y="${(center.y+18).toFixed(1)}" text-anchor="middle" class="kingdom-map-land-name" pointer-events="none">${name}</text>
+        <text x="${center.x.toFixed(1)}" y="${(center.y+33).toFixed(1)}" text-anchor="middle" class="kingdom-map-land-status" pointer-events="none">${status}</text>
+        <title>${name} — ${cfg.label} — ${status}${i===0?' — Capital, cannot be conquered':''}</title>
+      </g>`;
+    }).join('');
+    return `<g class="kingdom-map-region" data-zone="${zone}">
+      <path d="${zoneBoundaryPath(cfg)}" fill="${color}" fill-opacity=".035" stroke="${color}" stroke-width="3" opacity=".75"/>
+      ${lands}
+      <text x="${cfg.cx}" y="${cfg.cy-cfg.h*.50+10}" text-anchor="middle" class="kingdom-map-kingdom-title" pointer-events="none">${kd?.emblem||'◆'} ${kd?.name||cfg.label}</text>
+      <text x="${cfg.cx}" y="${cfg.cy-cfg.h*.50+28}" text-anchor="middle" class="kingdom-map-kingdom-subtitle" pointer-events="none">5 LANDS · ${cfg.label}</text>
     </g>`;
   }).join('');
-  return `<svg class="kingdom-map-overlay" viewBox="0 0 ${ARCADIA_WORLD_MAP.width} ${ARCADIA_WORLD_MAP.height}" aria-label="Interactive ARCADIA world map">${regions}</svg>`;
+  return `<svg class="kingdom-map-overlay" viewBox="0 0 ${ARCADIA_WORLD_MAP.width} ${ARCADIA_WORLD_MAP.height}" aria-label="Interactive ARCADIA world map with 30 named lands">${regions}</svg>`;
+}
+
+function zoneBoundaryPath(cfg){
+  const x=cfg.cx, y=cfg.cy, w=cfg.w, h=cfg.h;
+  return `M ${x-w*.50} ${y-h*.12} L ${x-w*.36} ${y-h*.46} L ${x-w*.05} ${y-h*.50} L ${x+w*.36} ${y-h*.43} L ${x+w*.50} ${y-h*.08} L ${x+w*.43} ${y+h*.36} L ${x+w*.12} ${y+h*.50} L ${x-w*.30} ${y+h*.43} L ${x-w*.50} ${y+h*.10} Z`;
 }
 
 function renderKingdomMap(){
-  if(!db){
-    return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🔌 Kingdom warfare requires cloud save (Firebase) to be configured.</div>`;
-  }
-  if(!territoryLoaded){
-    loadTerritories();
-    return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading the realm map…</div>`;
-  }
-  if(territoryLoadError){
-    return `<div class="panel" style="padding:30px;text-align:center;">
-      <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
-      <div style="color:var(--red);font-weight:700;margin-bottom:6px;">Couldn't load the realm map</div>
-      <div style="color:var(--dim);font-size:12px;max-width:420px;margin:0 auto 16px;">${territoryLoadError}</div>
-      <button class="btn btn-primary" onclick="retryLoadTerritories()">🔄 Retry</button>
-    </div>`;
-  }
+  if(!db) return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🔌 Kingdom warfare requires cloud save (Firebase) to be configured.</div>`;
+  if(!territoryLoaded){ loadTerritories(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading the realm map…</div>`; }
+  if(territoryLoadError) return `<div class="panel" style="padding:30px;text-align:center;"><div style="font-size:32px;margin-bottom:8px;">⚠️</div><div style="color:var(--red);font-weight:700;margin-bottom:6px;">Couldn't load the realm map</div><div style="color:var(--dim);font-size:12px;max-width:420px;margin:0 auto 16px;">${territoryLoadError}</div><button class="btn btn-primary" onclick="retryLoadTerritories()">🔄 Retry</button></div>`;
   if(territoryZoneView) return renderZoneOutposts(territoryZoneView);
-
-  const myKingdom = state.allianceId;
-  if(!kingdomMapState.initialized){
-    kingdomMapState.initialized = true;
-    setTimeout(() => { centerKingdomMap(); renderKingdomMapSelection(); }, 0);
-  }
-
+  const myKingdom=state.allianceId;
+  if(!kingdomMapState.initialized){ kingdomMapState.initialized=true; setTimeout(()=>{centerKingdomMap();renderKingdomMapSelection();},0); }
   return `<div class="wrap animate-fade">
     <header class="hero" style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-        <div>
-          <h1 style="font-size:22px;"><img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️" style="width:22px;height:22px;vertical-align:-4px;"> ARCADIA World Map</h1>
-          <p style="color:var(--dim);font-size:12px;">Drag to explore · Scroll to zoom · Click a kingdom to inspect it</p>
-        </div>
-        <div class="kingdom-map-toolbar">
-          <button class="map-control" onclick="setKingdomMapZoom(kingdomMapState.zoom*1.2)">+</button>
-          <span class="kingdom-map-zoom-value">${Math.round(kingdomMapState.zoom*100)}%</span>
-          <button class="map-control" onclick="setKingdomMapZoom(kingdomMapState.zoom/1.2)">−</button>
-          <button class="map-control reset" onclick="resetKingdomMapView()">⟳</button>
-        </div>
+        <div><h1 style="font-size:22px;">🗺️ ARCADIA World Map</h1><p style="color:var(--dim);font-size:12px;">30 named lands · 5 lands per kingdom · Drag to explore · Scroll to zoom</p></div>
+        <div class="kingdom-map-toolbar"><button class="map-control" onclick="setKingdomMapZoom(kingdomMapState.zoom*1.2)">+</button><span class="kingdom-map-zoom-value">${Math.round(kingdomMapState.zoom*100)}%</span><button class="map-control" onclick="setKingdomMapZoom(kingdomMapState.zoom/1.2)">−</button><button class="map-control reset" onclick="resetKingdomMapView()">⟳</button></div>
       </div>
     </header>
-    ${!myKingdom ? `<div class="panel" style="padding:10px 14px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:10px;">Pledge allegiance to a kingdom in the Kingdom tab to participate in territory warfare.</div>` : ''}
-    <div class="kingdom-map-shell">
-      <div class="kingdom-map-viewport"
-        onwheel="kingdomMapWheel(event)"
-        onpointerdown="kingdomMapPointerDown(event)"
-        onpointermove="kingdomMapPointerMove(event)"
-        onpointerup="kingdomMapPointerUp(event)"
-        onpointercancel="kingdomMapPointerUp(event)"
-        oncontextmenu="event.preventDefault()">
-        <div class="kingdom-map-stage">
-          <img class="kingdom-map-image" src="${ARCADIA_WORLD_MAP.image}" alt="ARCADIA World Map terrain">
-          ${renderKingdomMapSVG(myKingdom)}
-        </div>
-        <div class="kingdom-map-compass">N</div>
-        <div class="kingdom-map-hint">🖱 Drag · Wheel / trackpad to zoom</div>
-      </div>
-    </div>
-    <div class="kingdom-map-selection" aria-live="polite">
-      <div class="kingdom-map-selection-empty"><span>⌖</span><div><b>Select a kingdom</b><small>Click a territory to inspect its borders, control and activity.</small></div></div>
-    </div>
-    <div class="panel" style="margin-top:10px;padding:9px 12px;">
-      <div style="display:flex;flex-wrap:wrap;gap:9px 15px;font-size:10px;">
-        ${KINGDOMS.map(k => `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:50%;background:${k.color};display:inline-block;box-shadow:0 0 8px ${k.color};"></span>${k.emblem} ${k.name}</span>`).join('')}
-      </div>
-    </div>
+    ${!myKingdom?`<div class="panel" style="padding:10px 14px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:10px;">Pledge allegiance to a kingdom in the Kingdom tab to participate in territory warfare.</div>`:''}
+    <div class="kingdom-map-shell"><div class="kingdom-map-viewport" onwheel="kingdomMapWheel(event)" onpointerdown="kingdomMapPointerDown(event)" onpointermove="kingdomMapPointerMove(event)" onpointerup="kingdomMapPointerUp(event)" onpointercancel="kingdomMapPointerUp(event)" oncontextmenu="event.preventDefault()"><div class="kingdom-map-stage"><img class="kingdom-map-image" src="${ARCADIA_WORLD_MAP.image}" alt="ARCADIA World Map terrain">${renderKingdomMapSVG(myKingdom)}</div><div class="kingdom-map-compass">N</div><div class="kingdom-map-hint">🖱 Drag · Wheel / trackpad to zoom · Click a land</div></div></div>
+    <div class="kingdom-map-selection" aria-live="polite"><div class="kingdom-map-selection-empty"><span>⌖</span><div><b>Select a land</b><small>Each kingdom has 5 named lands. Click any land to inspect it.</small></div></div></div>
+    <div class="panel" style="margin-top:10px;padding:9px 12px;"><div style="display:flex;flex-wrap:wrap;gap:9px 15px;font-size:10px;">${KINGDOMS.map(k=>`<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:50%;background:${k.color};display:inline-block;box-shadow:0 0 8px ${k.color};"></span>${k.emblem} ${k.name} · 5 lands</span>`).join('')}</div></div>
   </div>`;
 }
 
 function renderZoneOutposts(zone){
-  const z = ZONES.find(x => x.id === zone);
-  if(!z) return '';
-  const list = territoriesInZone(zone);
-  const myKingdom = state.allianceId;
-  const reachable = kingdomHasFootholdNear(myKingdom, zone);
-  const borderNames = (ZONE_ADJACENCY[zone] || []).map(a => (ZONES.find(x => x.id === a) || {}).name || a).join(', ');
-  const taxOwner = zoneTaxOwner(zone);
-  const taxKd = kingdomDef(taxOwner);
-  const taxPct = Math.round((ZONE_TAX_RATE[zone] || 0) * 100);
-
-  return `<div class="wrap animate-fade">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <button class="act-btn" style="width:auto;padding:6px 12px;font-size:11px;" onclick="closeZoneTerritoryView()">← Back to Map</button>
-      <div style="font-size:26px;">${z.icon}</div>
-      <div>
-        <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);">${z.name} Outposts</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">Borders: ${borderNames}</div>
-      </div>
-    </div>
-    <div class="panel" style="padding:10px 14px;font-size:12px;margin-bottom:12px;">
-      🏛️ ${taxKd ? `${taxKd.emblem} ${taxKd.name} taxes gathering and kills here at <b style="color:var(--brass-bright);">${taxPct}%</b>` : `⚡ No kingdom holds a clear majority here — the zone is contested and untaxed`}
-    </div>
-    ${myKingdom && !reachable ? `<div class="panel" style="padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;">🔒 Your kingdom doesn't hold ground here or in a bordering zone yet — you can't attack these outposts until it does.</div>` : ''}
-    ${!myKingdom ? `<div class="panel" style="padding:10px 14px;color:var(--dim);font-size:12px;margin-bottom:12px;">Pledge allegiance to a kingdom to attack or reinforce outposts.</div>` : ''}
-    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));">
-      ${list.map(t => {
-        const kd = kingdomDef(t.ownerKingdom);
-        const mine = t.ownerKingdom === myKingdom;
-        const isCapital = isCapitalTerritory(t.id);
-        const canAttack = myKingdom && !mine && reachable && !isCapital;
-        return `<div class="card" style="padding:14px;text-align:center;${isCapital ? 'border-color:var(--brass);' : ''}">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">${t.id.toUpperCase()}${isCapital ? ' 🏛️' : ''}</div>
-          <div style="font-size:12px;font-weight:700;color:${kd ? kd.color : 'var(--dim)'};margin:6px 0;">${kd ? kd.emblem + ' ' + kd.name : 'Unclaimed'}</div>
-          <div style="font-size:11px;color:var(--dim);">🛡️ ${t.defense} defense</div>
-          ${isCapital ? `<div style="margin-top:8px;font-size:10px;color:var(--brass-bright);font-weight:600;">🏛️ Capital — fortified, unconquerable</div>` : (mine
-            ? `<button class="act-btn buy" style="margin-top:8px;width:100%;font-size:11px;" onclick="reinforceTerritory('${t.id}')">Reinforce (${TERRITORY_REINFORCE_GOLD}g)</button>`
-            : `<button class="act-btn ${canAttack ? 'copper' : ''}" style="margin-top:8px;width:100%;font-size:11px;" ${canAttack ? '' : 'disabled'} onclick="attackTerritory('${t.id}')">${!myKingdom ? 'Join a kingdom' : (canAttack ? '⚔️ Attack' : '🔒 Unreachable')}</button>`)}
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
+  const z=ZONES.find(x=>x.id===zone); if(!z) return '';
+  const list=territoriesInZone(zone); const myKingdom=state.allianceId;
+  const reachable=kingdomHasFootholdNear(myKingdom,zone);
+  const borderNames=(ZONE_ADJACENCY[zone]||[]).map(a=>(ZONES.find(x=>x.id===a)||{}).name||a).join(', ');
+  const taxOwner=zoneTaxOwner(zone), taxKd=kingdomDef(taxOwner), taxPct=Math.round((ZONE_TAX_RATE[zone]||0)*100);
+  return `<div class="wrap animate-fade"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><button class="act-btn" style="width:auto;padding:6px 12px;font-size:11px;" onclick="closeZoneTerritoryView()">← Back to Map</button><div style="font-size:26px;">${z.icon}</div><div><div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);">${z.name} · 5 Lands</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">Borders: ${borderNames}</div></div></div>
+  <div class="panel" style="padding:10px 14px;font-size:12px;margin-bottom:12px;">🏛️ ${taxKd?`${taxKd.emblem} ${taxKd.name} taxes gathering and kills here at <b style="color:var(--brass-bright);">${taxPct}%</b>`:`⚡ No kingdom holds a clear majority here — the zone is contested and untaxed`}</div>
+  ${myKingdom&&!reachable?`<div class="panel" style="padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;">🔒 Your kingdom doesn't hold ground here or in a bordering zone yet — you can't attack these lands until it does.</div>`:''}
+  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));">${list.map((t,idx)=>{const kd=kingdomDef(t.ownerKingdom);const mine=t.ownerKingdom===myKingdom;const isCapital=isCapitalTerritory(t.id);const canAttack=myKingdom&&!mine&&reachable&&!isCapital;const name=ARCADIA_LAND_NAMES[zone]?.[idx]||`${z.name} Land ${idx+1}`;return `<div class="card arcadia-land-card" style="padding:14px;${isCapital?'border-color:var(--brass);':''}"><div style="font-size:24px;">${ARCADIA_LAND_ICONS[idx]}</div><div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:13px;color:${kd?kd.color:'var(--dim)'};margin:6px 0;">${name}</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">${t.id.toUpperCase()} · ${kd?kd.name:'Unclaimed'}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">🛡️ ${t.defense} defense</div>${isCapital?`<div style="margin-top:8px;font-size:10px;color:var(--brass-bright);font-weight:600;">🏰 Capital — fortified, unconquerable</div>`:(mine?`<button class="act-btn buy" style="margin-top:8px;width:100%;font-size:11px;" onclick="reinforceTerritory('${t.id}')">Reinforce (${TERRITORY_REINFORCE_GOLD}g)</button>`:`<button class="act-btn ${canAttack?'copper':''}" style="margin-top:8px;width:100%;font-size:11px;" ${canAttack?'':'disabled'} onclick="attackTerritory('${t.id}')">${!myKingdom?'Join a kingdom':(canAttack?'⚔️ Attack':'🔒 Unreachable')}</button>`)}</div>`;}).join('')}</div></div>`;
 }
 
 function renderZones(){
