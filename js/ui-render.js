@@ -1351,6 +1351,27 @@ const ARCADIA_CELL_POLYS = [
   [[0.47,0.47],[0.55,0.43],[0.62,0.38],[0.68,0.45],[0.72,0.52],[0.68,0.62],[0.60,0.68],[0.52,0.72],[0.44,0.68],[0.38,0.60],[0.40,0.52],[0.42,0.45]],
 ];
 
+// Per-zone silhouette profile: bends the shared cell polygons so each kingdom's
+// landmass reads like its real-world counterpart instead of an identical blob.
+// width(y): horizontal scale at row y (0=north edge, 1=south edge), 1=full width.
+// skew(y): horizontal drift at row y, as a fraction of cluster width.
+const ARCADIA_ZONE_TAPER = {
+  plains:   { width: () => 1,               skew: () => 0 },                              // Europe — jagged coastline, no strong taper
+  forest:   { width: y => 0.92 + 0.08 * y,  skew: y => 0.03 * y },                         // Asia — broad, bulges slightly toward the southeast
+  swamp:    { width: y => 1 - 0.50 * y,     skew: () => 0 },                               // Arab World — wide north, tapers to a peninsula point south
+  dark:     { width: y => 1 - 0.55 * y,     skew: y => 0.07 * Math.sin(Math.PI * y) },     // South America — long tapering cone, curves as it runs south
+  cave:     { width: y => 1 - 0.35 * y,     skew: y => -0.06 * y },                        // North America — wide north, funnels into a narrow isthmus south
+  mountain: { width: y => 1 - 0.45 * y,     skew: y => 0.02 * Math.sin(Math.PI * (y - .25)) }, // Africa — wide Sahara north, tapers toward the Cape south
+};
+function arcadiaTaperedPoly(poly, zone){
+  const t = ARCADIA_ZONE_TAPER[zone] || ARCADIA_ZONE_TAPER.plains;
+  return poly.map(([px, py]) => {
+    const w = Math.max(0.3, Math.min(1, t.width(py)));
+    const nx = Math.max(0, Math.min(1, 0.5 + (px - 0.5) * w + t.skew(py)));
+    return [nx, py];
+  });
+}
+
 let arcadiaMapState = { scale:1, x:0, y:0, dragging:false, moved:false, sx:0, sy:0, ox:0, oy:0, selected:null };
 
 function arcadiaEsc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1454,7 +1475,7 @@ function renderArcadiaWorldMap(myKingdom){
   const edges=[];
   const zoneOrder=['plains','forest','swamp','dark','cave','mountain'];
   // Decorative macro-region links reinforce the feeling of a single connected world.
-  [['plains','forest'],['forest','swamp'],['swamp','dark'],['dark','cave'],['cave','mountain'],['mountain','plains'],['plains','swamp']].forEach(([a,b])=>{
+  [['plains','forest'],['forest','cave'],['cave','dark'],['dark','swamp'],['swamp','mountain'],['mountain','plains'],['plains','swamp']].forEach(([a,b])=>{
     const A=ARCADIA_CLUSTERS[a],B=ARCADIA_CLUSTERS[b];
     const ax=A.x+A.w/2,ay=A.y+A.h/2,bx=B.x+B.w/2,by=B.y+B.h/2;
     edges.push(`<path d="M${ax},${ay} C${(ax+bx)/2},${ay-55} ${(ax+bx)/2},${by+55} ${bx},${by}" class="arcadia-route"/>`);
