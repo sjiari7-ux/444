@@ -657,7 +657,7 @@ function renderWarBlock(t){
   </div>`;
 }
 
-function openZoneTerritoryView(zone){ territoryZoneView = zone; renderBody(); }
+function openZoneTerritoryView(zone){ zoneSubTab = 'territory'; territoryZoneView = zone; renderBody(); }
 function closeZoneTerritoryView(){ territoryZoneView = null; renderBody(); }
 function setZoneSubTab(tab){
   zoneSubTab = tab;
