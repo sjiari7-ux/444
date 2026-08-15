@@ -835,13 +835,6 @@ function renderArcadiaMapSelection(){
   const kd=kingdomDef(t.ownerKingdom); const capital=idx===0;
   const canReach=kingdomHasFootholdNear(state.allianceId,t.zone), mine=t.ownerKingdom===state.allianceId;
   const canWar=canDeclareWar(t), onCooldown=isOnWarCooldown(t);
-  if(isTerritoryFogged(state.allianceId,t.zone) && !mine){
-    panel.innerHTML=`<div class="map-info-title fog-title">☁ ${z.label}</div>
-    <div class="map-info-sub">Unexplored territory</div>
-    <div class="map-fog-note">Your kingdom hasn't scouted this region yet. Hold ground here or in a bordering zone to reveal it.</div>
-    <div class="map-actions"><button class="act-btn" onclick="openZoneTerritoryView('${t.zone}')">View Outposts</button></div>`;
-    return;
-  }
   panel.innerHTML=`<div class="map-info-title">${capital?'🏛️ ':''}${z.names[idx]}</div>
     <div class="map-info-sub">${kd?kd.emblem+' '+kd.name:'Unclaimed'} · ${z.label}</div>
     <div class="map-stat"><span>Defense</span><b>${t.defense}</b></div>
@@ -876,27 +869,13 @@ function bindArcadiaMapInteractions(){
   viewport.addEventListener('wheel',e=>{e.preventDefault();zoomArcadiaMap(e.deltaY<0?.12:-.12);},{passive:false});
   viewport.addEventListener('click',handleArcadiaMapClick);
 }
-function isTerritoryFogged(myKingdom, zone){
-  if(!myKingdom) return false;
-  return !kingdomHasFootholdNear(myKingdom, zone);
-}
 function renderKingdomMapSVG(myKingdom){
   const world=[...Object.entries(ARCADIA_WORLD)];
   const territories=world.flatMap(([zone,z])=>z.names.map((name,idx)=>({zone,z,name,idx,meta:worldTerritoryMeta(zone,idx)})));
   const svgTerritories=territories.map(o=>{
     const path=worldTerritoryPath(0,0,o.zone,o.idx), t=o.meta.t;
     const kd=t&&kingdomDef(t.ownerKingdom), mine=t&&t.ownerKingdom===myKingdom, selected=arcadiaMapSelected===o.meta.id;
-    const foggy=isTerritoryFogged(myKingdom,o.zone) && !mine;
     const cx=worldTerritoryCentroid(o.zone,o.idx).x, cy=worldTerritoryCentroid(o.zone,o.idx).y;
-    if(foggy){
-      return `<g class="world-territory fogged ${selected?'selected':''}" data-territory="${o.meta.id}">
-        <path d="${path}" fill="#141b1f" fill-opacity=".68" stroke="rgba(10,16,18,.92)" stroke-width="3.2" stroke-linejoin="round"/>
-        <path class="fog-cloud" d="${path}" fill="#ffffff" filter="url(#fogTexture)"/>
-        <path d="${path}" fill="none" stroke="rgba(120,132,120,.4)" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="2 3"/>
-        <text class="territory-fog-mark" x="${cx}" y="${cy+5}" text-anchor="middle">☁</text>
-        <text class="territory-id fogged-id" x="${cx}" y="${cy+22}" text-anchor="middle">${o.z.label}</text>
-      </g>`;
-    }
     const fill=kd?kd.color:o.z.color, opacity=kd?.75:.62;
     return `<g class="world-territory ${selected?'selected':''}" data-territory="${o.meta.id}">
       <path d="${path}" fill="${fill}" fill-opacity="${opacity}" stroke="rgba(10,16,18,.92)" stroke-width="3.2" stroke-linejoin="round"/>
@@ -913,12 +892,6 @@ function renderKingdomMapSVG(myKingdom){
         <defs>
           <filter id="mapGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
           <linearGradient id="sea" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#081d2b"/><stop offset="1" stop-color="#031018"/></linearGradient>
-          <filter id="fogTexture" x="-30%" y="-30%" width="160%" height="160%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.028" numOctaves="3" seed="11" result="noise"/>
-            <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.62  0 0 0 0 0.65  0 0 0 0 0.63  0 0 0 0.55 0" result="fogColor"/>
-            <feComposite in="fogColor" in2="SourceGraphic" operator="in" result="clippedFog"/>
-            <feGaussianBlur in="clippedFog" stdDeviation="1.1"/>
-          </filter>
         </defs>
         <rect width="1040" height="700" fill="url(#sea)"/>
         <g opacity=".16" stroke="#6b8b92"><path d="M0 140H1040M0 280H1040M0 420H1040M0 560H1040"/><path d="M130 0V700M260 0V700M390 0V700M520 0V700M650 0V700M780 0V700M910 0V700"/></g>
@@ -926,7 +899,7 @@ function renderKingdomMapSVG(myKingdom){
       </svg>
       <div class="map-compass">N<br><span>✦</span></div>
       <div class="map-zoom"><button onclick="zoomArcadiaMap(.15)">+</button><span id="arcadia-zoom-readout">100%</span><button onclick="zoomArcadiaMap(-.15)">−</button></div>
-      <div class="map-legend"><b>LEGEND</b><span><i class="legend-swatch own"></i>Your kingdom</span><span><i class="legend-swatch"></i>Other kingdom</span><span>♛ Capital</span>${myKingdom?'<span><i class="legend-swatch fog"></i>☁ Unexplored</span>':''}</div>
+      <div class="map-legend"><b>LEGEND</b><span><i class="legend-swatch own"></i>Your kingdom</span><span><i class="legend-swatch"></i>Other kingdom</span><span>♛ Capital</span></div>
     </div>
     <div class="arcadia-map-bottom"><div class="kingdom-strip">${KINGDOMS.map(k=>`<span><i style="background:${k.color}"></i>${k.emblem} ${k.name}</span>`).join('')}</div><div id="arcadia-territory-info" class="map-info"><div class="map-info-empty">Select a territory on the map.</div></div></div>
   </div>`;
