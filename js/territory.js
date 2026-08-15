@@ -119,6 +119,7 @@ async function retryLoadTerritories(){
 
 async function initTerritoryOnStart(){
   if(!db) { territoryLoaded = true; worldGeometryLoaded = true; return; }
+  bindWarTicker();
   await Promise.all([
     (async () => { await ensureTerritoriesSeeded(); await loadTerritories(true); })(),
     loadWorldGeometry(),
@@ -312,6 +313,252 @@ async function reinforceTerritory(tid){
 }
 
 /* ===== VIEW STATE HELPERS ===== */
+/* ===== KINGDOM WAR SYSTEM =====
+   Declaring war on an outpost starts a best-of-3 siege. Each round lasts
+   WAR_ROUND_HOURS; any citizen of the attacking kingdom can strike and any
+   citizen of the defending kingdom can defend, unlimited times, each costing
+   energy. Whoever deals more cumulative damage in a round wins that round.
+   First kingdom to WAR_ROUNDS_TO_WIN rounds wins the war. */
+const WAR_ROUND_HOURS = 6;
+const WAR_ROUNDS_TO_WIN = 2;
+const WAR_DECLARE_GOLD_COST = 500;
+const WAR_COOLDOWN_HOURS = 12;
+
+function warTimestampMs(ts){
+  if(!ts) return 0;
+  if(typeof ts.toMillis === 'function') return ts.toMillis();
+  if(typeof ts.seconds === 'number') return ts.seconds * 1000;
+  return 0;
+}
+function formatWarCountdown(ms){
+  if(ms <= 0) return 'resolving…';
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${Math.max(1, m)}m`;
+}
+function isOnWarCooldown(t){
+  return t && t.warCooldownUntil && warTimestampMs(t.warCooldownUntil) > Date.now();
+}
+function canDeclareWar(t){
+  if(!t || !state.allianceId) return false;
+  if(isCapitalTerritory(t.id)) return false;
+  if(t.ownerKingdom === state.allianceId) return false;
+  if(t.war) return false;
+  if(isOnWarCooldown(t)) return false;
+  if(allianceRankOf(state.allianceRole) < allianceRankOf('officer')) return false;
+  return kingdomHasFootholdNear(state.allianceId, t.zone);
+}
+
+async function refreshTerritoryDoc(tid){
+  if(!db) return;
+  try{
+    const doc = await db.collection('territories').doc(tid).get();
+    if(doc.exists) territoryData[tid] = { id: doc.id, ...doc.data() };
+  }catch(e){ console.error('[Arcadia Territory] Refresh failed:', e.message); }
+}
+
+async function declareWar(tid){
+  if(!db || !UID){ showToast('❌', 'Cloud save required', 'Kingdom warfare needs Firebase configured.'); return; }
+  if(!state.allianceId){ showToast('❌', 'No kingdom', 'Pledge allegiance to a kingdom first.'); return; }
+  if(allianceRankOf(state.allianceRole) < allianceRankOf('officer')){
+    showToast('❌', 'Officers only', 'Only an officer, co-leader or leader can declare war.'); return;
+  }
+  const t = territoryData[tid];
+  if(!t){ showToast('❌', 'Unknown outpost', 'That outpost no longer exists.'); return; }
+  if(isCapitalTerritory(tid)){ showToast('🏛️', 'Fortified Capital', "A kingdom's capital can never be attacked."); return; }
+  if(t.ownerKingdom === state.allianceId){ showToast('🛡️', 'Already yours', 'You already hold this outpost.'); return; }
+  if(isOnWarCooldown(t)){ showToast('⏳', 'Still recovering', 'This outpost is on cooldown after a recent siege.'); return; }
+  if(!kingdomHasFootholdNear(state.allianceId, t.zone)){
+    showToast('🚫', 'Too far from home', "Your kingdom needs ground in this zone or a bordering one first."); return;
+  }
+  if(state.gold < WAR_DECLARE_GOLD_COST){
+    showToast('❌', 'Not enough gold', `Declaring war costs ${WAR_DECLARE_GOLD_COST}g.`); return;
+  }
+  state.gold -= WAR_DECLARE_GOLD_COST;
+  try{
+    const ref = db.collection('territories').doc(tid);
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      if(!doc.exists) throw new Error('Outpost vanished.');
+      const cur = doc.data();
+      if(cur.war) throw new Error('A siege is already underway here.');
+      if(cur.ownerKingdom === state.allianceId) throw new Error('You already hold this outpost.');
+      tx.update(ref, {
+        war: {
+          attackerKingdom: state.allianceId,
+          round: 1,
+          roundEndsAt: firebase.firestore.Timestamp.fromMillis(Date.now() + WAR_ROUND_HOURS * 3600000),
+          attackerDamage: 0, defenderDamage: 0,
+          attackerWins: 0, defenderWins: 0,
+          startedBy: UID,
+          startedByName: window.__playerUsername || state.username || 'Player',
+          startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        },
+        warCooldownUntil: firebase.firestore.FieldValue.delete(),
+      });
+    });
+    await refreshTerritoryDoc(tid);
+    pushLog(state, `Declared war on outpost ${tid.toUpperCase()}!`, 'win');
+    showToast('📯', 'War Declared!', `Round 1 of 3 has begun — ${WAR_ROUND_HOURS}h to fight.`);
+  }catch(e){
+    state.gold += WAR_DECLARE_GOLD_COST;
+    console.error('[Arcadia Territory] Declare war failed:', e.code || e.name, e.message);
+    showToast('❌', 'Could not declare war', e.message || 'Try again.');
+  }
+  scheduleSave(); syncToFirestore(); renderBody();
+}
+
+async function contributeToWar(tid, side){
+  if(!db || !UID) return;
+  if(!state.allianceId){ showToast('❌', 'No kingdom', 'Pledge allegiance to a kingdom first.'); return; }
+  const t = territoryData[tid];
+  if(!t || !t.war){ showToast('❌', 'No siege here', 'There is no active war on this outpost.'); return; }
+  const isAttacker = side === 'attack';
+  const requiredKingdom = isAttacker ? t.war.attackerKingdom : t.ownerKingdom;
+  if(state.allianceId !== requiredKingdom){
+    showToast('❌', 'Wrong side', isAttacker ? 'Only the attacking kingdom can strike here.' : 'Only the defending kingdom can defend here.');
+    return;
+  }
+  const cost = getEnergyCost(state, TERRITORY_ATTACK_ENERGY);
+  if(state.energy < cost){ showToast('❌', 'Not enough energy', `Fighting costs ${cost} energy.`); return; }
+  state.energy -= cost;
+  const stats = getPlayerCombatStats();
+  const roll = 0.85 + Math.random() * 0.3;
+  const dmg = Math.max(1, Math.round(stats.atk * roll));
+
+  try{
+    const ref = db.collection('territories').doc(tid);
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      if(!doc.exists || !doc.data().war) throw new Error('This siege has already ended.');
+      const field = isAttacker ? 'war.attackerDamage' : 'war.defenderDamage';
+      tx.update(ref, { [field]: firebase.firestore.FieldValue.increment(dmg) });
+    });
+    if(isAttacker) t.war.attackerDamage = (t.war.attackerDamage || 0) + dmg;
+    else t.war.defenderDamage = (t.war.defenderDamage || 0) + dmg;
+    pushLog(state, `${isAttacker ? 'Struck' : 'Defended'} outpost ${tid.toUpperCase()} for ${dmg} damage.`, isAttacker ? 'win' : 'info');
+    showToast(isAttacker ? '⚔️' : '🛡️', isAttacker ? 'Strike!' : 'Defended!', `+${dmg} damage this round`);
+  }catch(e){
+    state.energy += cost;
+    console.error('[Arcadia Territory] War contribution failed:', e.code || e.name, e.message);
+    showToast('❌', 'Action failed', e.message || 'Could not reach the server — try again.');
+  }
+
+  await resolveWarRoundIfDue(tid);
+  scheduleSave(); syncToFirestore(); renderBody();
+}
+
+async function resolveWarRoundIfDue(tid){
+  if(!db) return;
+  const t = territoryData[tid];
+  if(!t || !t.war) return;
+  if(Date.now() < warTimestampMs(t.war.roundEndsAt)) return;
+
+  let outcome = null;
+  try{
+    const ref = db.collection('territories').doc(tid);
+    outcome = await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      if(!doc.exists || !doc.data().war) return null;
+      const cur = doc.data();
+      const war = cur.war;
+      if(Date.now() < warTimestampMs(war.roundEndsAt)) return null; // already advanced by another client
+
+      const attackerWonRound = (war.attackerDamage || 0) > (war.defenderDamage || 0); // ties favor the defender
+      const attackerWins = (war.attackerWins || 0) + (attackerWonRound ? 1 : 0);
+      const defenderWins = (war.defenderWins || 0) + (attackerWonRound ? 0 : 1);
+
+      if(attackerWins >= WAR_ROUNDS_TO_WIN){
+        tx.update(ref, {
+          ownerKingdom: war.attackerKingdom,
+          defense: TERRITORY_CAPTURE_DEFENSE,
+          capturedBy: null,
+          capturedByName: war.startedByName || null,
+          capturedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          war: firebase.firestore.FieldValue.delete(),
+          warCooldownUntil: firebase.firestore.Timestamp.fromMillis(Date.now() + WAR_COOLDOWN_HOURS * 3600000),
+        });
+        return { finished: true, winner: 'attacker' };
+      }
+      if(defenderWins >= WAR_ROUNDS_TO_WIN){
+        tx.update(ref, {
+          war: firebase.firestore.FieldValue.delete(),
+          warCooldownUntil: firebase.firestore.Timestamp.fromMillis(Date.now() + WAR_COOLDOWN_HOURS * 3600000),
+        });
+        return { finished: true, winner: 'defender' };
+      }
+      tx.update(ref, {
+        'war.round': (war.round || 1) + 1,
+        'war.attackerDamage': 0,
+        'war.defenderDamage': 0,
+        'war.attackerWins': attackerWins,
+        'war.defenderWins': defenderWins,
+        'war.roundEndsAt': firebase.firestore.Timestamp.fromMillis(Date.now() + WAR_ROUND_HOURS * 3600000),
+      });
+      return { finished: false, attackerWins, defenderWins, nextRound: (war.round || 1) + 1 };
+    });
+  }catch(e){
+    console.error('[Arcadia Territory] Round resolution failed:', e.code || e.name, e.message);
+    return;
+  }
+
+  if(!outcome) return;
+  await refreshTerritoryDoc(tid);
+  if(outcome.finished && outcome.winner === 'attacker') showToast('🏴', 'War Won!', `${tid.toUpperCase()} has fallen!`);
+  else if(outcome.finished && outcome.winner === 'defender') showToast('🛡️', 'Siege Repelled', `${tid.toUpperCase()} held strong.`);
+  else if(outcome.finished === false) showToast('⚔️', 'Round Over', `Round ${outcome.nextRound} of 3 begins.`);
+}
+
+let warTickerBound = false;
+function bindWarTicker(){
+  if(warTickerBound) return;
+  warTickerBound = true;
+  setInterval(() => {
+    document.querySelectorAll('.war-countdown').forEach(el => {
+      const endsAt = parseInt(el.dataset.ends, 10) || 0;
+      el.textContent = formatWarCountdown(endsAt - Date.now());
+    });
+    Object.keys(territoryData).forEach(tid => {
+      const t = territoryData[tid];
+      if(t && t.war && Date.now() >= warTimestampMs(t.war.roundEndsAt)){
+        resolveWarRoundIfDue(tid).then(() => { if(activeTab === 'zones') renderBody(); });
+      }
+    });
+  }, 30000);
+}
+
+function renderWarBlock(t){
+  const war = t.war;
+  const kdAtk = kingdomDef(war.attackerKingdom);
+  const kdDef = kingdomDef(t.ownerKingdom);
+  const endsAtMs = warTimestampMs(war.roundEndsAt);
+  const totalDmg = (war.attackerDamage || 0) + (war.defenderDamage || 0);
+  const atkPct = totalDmg > 0 ? Math.round((war.attackerDamage / totalDmg) * 100) : 50;
+  const iAmAttacker = state.allianceId && state.allianceId === war.attackerKingdom;
+  const iAmDefender = state.allianceId && state.allianceId === t.ownerKingdom;
+  const pips = (wins) => Array.from({ length: WAR_ROUNDS_TO_WIN }).map((_, i) => i < wins ? '●' : '○').join('');
+  return `<div class="war-panel" style="margin-top:8px;padding:10px;border:1px solid var(--brass-dim);border-radius:10px;background:rgba(0,0,0,.18);">
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;color:var(--brass-bright);">
+      <span>⚔️ Siege — Round ${war.round}/3</span>
+      <span class="war-countdown" data-ends="${endsAtMs}">${formatWarCountdown(endsAtMs - Date.now())}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin:5px 0 3px;">
+      <span>${kdAtk ? kdAtk.emblem + ' ' + kdAtk.name : 'Attacker'} ${pips(war.attackerWins)}</span>
+      <span>${pips(war.defenderWins)} ${kdDef ? kdDef.emblem + ' ' + kdDef.name : 'Defender'}</span>
+    </div>
+    <div style="height:7px;border-radius:5px;overflow:hidden;background:var(--copper);display:flex;">
+      <div style="width:${atkPct}%;background:var(--green);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-top:2px;">
+      <span>${war.attackerDamage || 0} dmg</span><span>${war.defenderDamage || 0} dmg</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      ${iAmAttacker ? `<button class="act-btn copper" style="flex:1;font-size:11px;" onclick="contributeToWar('${t.id}','attack')">⚔️ Attack</button>` : ''}
+      ${iAmDefender ? `<button class="act-btn buy" style="flex:1;font-size:11px;" onclick="contributeToWar('${t.id}','defend')">🛡️ Defend</button>` : ''}
+      ${!iAmAttacker && !iAmDefender ? `<div style="flex:1;text-align:center;font-size:10px;color:var(--dim);">Spectating this siege</div>` : ''}
+    </div>
+  </div>`;
+}
+
 function openZoneTerritoryView(zone){ territoryZoneView = zone; renderBody(); }
 function closeZoneTerritoryView(){ territoryZoneView = null; renderBody(); }
 function setZoneSubTab(tab){
@@ -489,14 +736,15 @@ function renderArcadiaMapSelection(){
   const idx=Math.max(0,parseInt(t.id.split('_').pop(),10)-1), z=ARCADIA_WORLD[t.zone]||ARCADIA_WORLD.plains;
   const kd=kingdomDef(t.ownerKingdom); const capital=idx===0;
   const canReach=kingdomHasFootholdNear(state.allianceId,t.zone), mine=t.ownerKingdom===state.allianceId;
+  const canWar=canDeclareWar(t), onCooldown=isOnWarCooldown(t);
   panel.innerHTML=`<div class="map-info-title">${capital?'🏛️ ':''}${z.names[idx]}</div>
     <div class="map-info-sub">${kd?kd.emblem+' '+kd.name:'Unclaimed'} · ${z.label}</div>
     <div class="map-stat"><span>Defense</span><b>${t.defense}</b></div>
-    <div class="map-stat"><span>Status</span><b>${capital?'Capital':(mine?'Controlled':canReach?'Reachable':'Bordered')}</b></div>
+    <div class="map-stat"><span>Status</span><b>${capital?'Capital':(mine?'Controlled':(t.war?'Under Siege':canReach?'Reachable':'Bordered'))}</b></div>
     <div class="map-stat"><span>Tax</span><b>${Math.round((ZONE_TAX_RATE[t.zone]||0)*100)}%</b></div>
     ${capital?'<div class="map-capital-note">Capital territory — protected and cannot be captured.</div>':''}
-    <div class="map-actions">${mine?`<button class="act-btn buy" onclick="reinforceTerritory('${t.id}')">Reinforce</button>`:`<button class="act-btn copper" ${(!state.allianceId||!canReach||capital)?'disabled':''} onclick="attackTerritory('${t.id}')">⚔️ Attack</button>`}
-      <button class="act-btn" onclick="openZoneTerritoryView('${t.zone}')">View Outposts</button></div>`;
+    ${t.war ? renderWarBlock(t) : `<div class="map-actions">${mine?`<button class="act-btn buy" onclick="reinforceTerritory('${t.id}')">Reinforce</button>`:(capital?'':`<button class="act-btn ${canWar?'copper':''}" ${canWar?'':'disabled'} onclick="declareWar('${t.id}')">${onCooldown?'⏳ Cooldown':'📯 Declare War'}</button>`)}
+      <button class="act-btn" onclick="openZoneTerritoryView('${t.zone}')">View Outposts</button></div>`}</div>`;
 }
 function searchArcadiaTerritory(v){
   const q=(v||'').trim().toLowerCase(); if(!q) return;
@@ -589,21 +837,24 @@ function renderZoneOutposts(zone){
     <div class="panel" style="padding:10px 14px;font-size:12px;margin-bottom:12px;">
       🏛️ ${taxKd ? `${taxKd.emblem} ${taxKd.name} taxes gathering and kills here at <b style="color:var(--brass-bright);">${taxPct}%</b>` : `⚡ No kingdom holds a clear majority here — the zone is contested and untaxed`}
     </div>
-    ${myKingdom && !reachable ? `<div class="panel" style="padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;">🔒 Your kingdom doesn't hold ground here or in a bordering zone yet — you can't attack these outposts until it does.</div>` : ''}
-    ${!myKingdom ? `<div class="panel" style="padding:10px 14px;color:var(--dim);font-size:12px;margin-bottom:12px;">Pledge allegiance to a kingdom to attack or reinforce outposts.</div>` : ''}
+    ${myKingdom && !reachable ? `<div class="panel" style="padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;">🔒 Your kingdom doesn't hold ground here or in a bordering zone yet — you can't declare war on these outposts until it does.</div>` : ''}
+    ${!myKingdom ? `<div class="panel" style="padding:10px 14px;color:var(--dim);font-size:12px;margin-bottom:12px;">Pledge allegiance to a kingdom to wage war or reinforce outposts.</div>` : ''}
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));">
       ${list.map(t => {
         const kd = kingdomDef(t.ownerKingdom);
         const mine = t.ownerKingdom === myKingdom;
         const isCapital = isCapitalTerritory(t.id);
-        const canAttack = myKingdom && !mine && reachable && !isCapital;
+        const canWar = canDeclareWar(t);
+        const onCooldown = isOnWarCooldown(t);
         return `<div class="card" style="padding:14px;text-align:center;${isCapital ? 'border-color:var(--brass);' : ''}">
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);">${t.id.toUpperCase()}${isCapital ? ' 🏛️' : ''}</div>
           <div style="font-size:12px;font-weight:700;color:${kd ? kd.color : 'var(--dim)'};margin:6px 0;">${kd ? kd.emblem + ' ' + kd.name : 'Unclaimed'}</div>
           <div style="font-size:11px;color:var(--dim);">🛡️ ${t.defense} defense</div>
-          ${isCapital ? `<div style="margin-top:8px;font-size:10px;color:var(--brass-bright);font-weight:600;">🏛️ Capital — fortified, unconquerable</div>` : (mine
-            ? `<button class="act-btn buy" style="margin-top:8px;width:100%;font-size:11px;" onclick="reinforceTerritory('${t.id}')">Reinforce (${TERRITORY_REINFORCE_GOLD}g)</button>`
-            : `<button class="act-btn ${canAttack ? 'copper' : ''}" style="margin-top:8px;width:100%;font-size:11px;" ${canAttack ? '' : 'disabled'} onclick="attackTerritory('${t.id}')">${!myKingdom ? 'Join a kingdom' : (canAttack ? '⚔️ Attack' : '🔒 Unreachable')}</button>`)}
+          ${isCapital ? `<div style="margin-top:8px;font-size:10px;color:var(--brass-bright);font-weight:600;">🏛️ Capital — fortified, unconquerable</div>`
+            : t.war ? renderWarBlock(t)
+            : (mine
+              ? `<button class="act-btn buy" style="margin-top:8px;width:100%;font-size:11px;" onclick="reinforceTerritory('${t.id}')">Reinforce (${TERRITORY_REINFORCE_GOLD}g)</button>`
+              : `<button class="act-btn ${canWar ? 'copper' : ''}" style="margin-top:8px;width:100%;font-size:11px;" ${canWar ? '' : 'disabled'} onclick="declareWar('${t.id}')">${!myKingdom ? 'Join a kingdom' : onCooldown ? '⏳ Cooldown' : canWar ? '📯 Declare War' : '🔒 Officers only / Unreachable'}</button>`)}
         </div>`;
       }).join('')}
     </div>
