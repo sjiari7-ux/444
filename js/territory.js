@@ -714,8 +714,16 @@ function classifyZone([lon, lat], isoId){
 }
 
 const WORLD_VIEWBOX = { w: 1040, h: 700 };
-const worldProjection = d3.geoNaturalEarth1().scale(190).translate([WORLD_VIEWBOX.w/2 - 20, WORLD_VIEWBOX.h/2 + 20]);
-const worldGeoPath = d3.geoPath(worldProjection);
+// NOTE: d3/topojson come from CDN <script> tags in index.html. If that CDN
+// is slow, blocked (ad-blocker, restrictive network, offline), or fails for
+// any reason, `d3`/`topojson` won't exist yet. We used to call d3 directly
+// here at file-load time, which threw a ReferenceError and silently killed
+// every function defined *after* this point in the file — including the
+// Kingdom Map and Active Wars renderers. Everything d3-related is now
+// created lazily inside loadWorldGeometry() so a missing library only
+// disables the map (with a clear retry message) instead of breaking it.
+let worldProjection = null;
+let worldGeoPath = null;
 
 /* zone -> ['CAP'|'N'|'E'|'S'|'W'] -> {path, cx, cy} */
 let WORLD_GEOMETRY = {};
@@ -725,6 +733,13 @@ async function loadWorldGeometry(){
   worldGeometryLoading = true;
   worldGeometryError = null;
   try{
+    if(typeof d3 === 'undefined' || typeof topojson === 'undefined'){
+      throw new Error('Map library (d3/topojson) failed to load — check your connection or ad-blocker and retry.');
+    }
+    if(!worldProjection){
+      worldProjection = d3.geoNaturalEarth1().scale(190).translate([WORLD_VIEWBOX.w/2 - 20, WORLD_VIEWBOX.h/2 + 20]);
+      worldGeoPath = d3.geoPath(worldProjection);
+    }
     const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
     if(!res.ok) throw new Error('HTTP ' + res.status);
     let topo = await res.json();
