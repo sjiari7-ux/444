@@ -431,6 +431,7 @@ async function contributeToWar(tid, side){
   const stats = getPlayerCombatStats();
   const roll = 0.85 + Math.random() * 0.3;
   const dmg = Math.max(1, Math.round(stats.atk * roll));
+  const playerName = window.__playerUsername || state.username || 'Player';
 
   try{
     const ref = db.collection('territories').doc(tid);
@@ -439,10 +440,21 @@ async function contributeToWar(tid, side){
       if(!doc.exists || !doc.data().war) throw new Error('This siege has already ended.');
       const dmgField = isAttacker ? 'war.attackerDamage' : 'war.defenderDamage';
       const hitField = isAttacker ? 'war.attackerHits' : 'war.defenderHits';
-      tx.update(ref, { [dmgField]: firebase.firestore.FieldValue.increment(dmg), [hitField]: firebase.firestore.FieldValue.increment(1) });
+      tx.update(ref, {
+        [dmgField]: firebase.firestore.FieldValue.increment(dmg),
+        [hitField]: firebase.firestore.FieldValue.increment(1),
+        [`war.contributions.${UID}.dmg`]: firebase.firestore.FieldValue.increment(dmg),
+        [`war.contributions.${UID}.hits`]: firebase.firestore.FieldValue.increment(1),
+        [`war.contributions.${UID}.name`]: playerName,
+        [`war.contributions.${UID}.side`]: side,
+        [`war.contributions.${UID}.kingdom`]: state.allianceId,
+      });
     });
     if(isAttacker){ t.war.attackerDamage = (t.war.attackerDamage || 0) + dmg; t.war.attackerHits = (t.war.attackerHits || 0) + 1; }
     else { t.war.defenderDamage = (t.war.defenderDamage || 0) + dmg; t.war.defenderHits = (t.war.defenderHits || 0) + 1; }
+    if(!t.war.contributions) t.war.contributions = {};
+    const prev = t.war.contributions[UID] || { dmg: 0, hits: 0 };
+    t.war.contributions[UID] = { dmg: prev.dmg + dmg, hits: prev.hits + 1, name: playerName, side, kingdom: state.allianceId };
     pushLog(state, `${isAttacker ? 'Struck' : 'Defended'} outpost ${tid.toUpperCase()} for ${dmg} damage.`, isAttacker ? 'win' : 'info');
     showToast(isAttacker ? '⚔️' : '🛡️', isAttacker ? 'Strike!' : 'Defended!', `+${dmg} damage this round`);
   }catch(e){
@@ -503,6 +515,7 @@ async function resolveWarRoundIfDue(tid){
         'war.attackerWins': attackerWins,
         'war.defenderWins': defenderWins,
         'war.roundEndsAt': firebase.firestore.Timestamp.fromMillis(Date.now() + WAR_ROUND_HOURS * 3600000),
+        'war.contributions': {},
       });
       return { finished: false, attackerWins, defenderWins, nextRound: (war.round || 1) + 1 };
     });
@@ -567,6 +580,24 @@ function bindWarTicker(){
   }, 30000);
 }
 
+function topWarFighters(war, side){
+  const list = Object.entries(war.contributions || {}).map(([uid, c]) => ({ uid, ...c })).filter(c => c.side === side);
+  return list.sort((a, b) => (b.dmg || 0) - (a.dmg || 0)).slice(0, 5);
+}
+function renderWarFighterRow(c, kd, isTop){
+  const dmgLabel = formatWarNumber(c.dmg) + (isTop ? '!' : '');
+  return `<div class="war-fighter-row ${isTop ? 'top' : ''}">
+    <span class="war-fighter-emblem" style="background:${kd ? kd.color : '#555'}">${kd ? kd.emblem : '❔'}</span>
+    <span class="war-fighter-name">${c.name || 'Player'}</span>
+    <span class="war-fighter-dmg">🔥 ${dmgLabel}</span>
+  </div>`;
+}
+function renderWarFightersColumn(war, side, kd){
+  const fighters = topWarFighters(war, side);
+  if(!fighters.length) return `<div class="war-fighters-empty">No strikes yet</div>`;
+  return fighters.map((c, i) => renderWarFighterRow(c, kd, i === 0)).join('');
+}
+
 function renderWarBlock(t){
   const war = t.war;
   const kdAtk = kingdomDef(war.attackerKingdom);
@@ -590,6 +621,11 @@ function renderWarBlock(t){
       <div style="font-size:11px;font-weight:800;color:var(--brass-bright);white-space:nowrap;">⚔️ Round ${war.round}<span style="color:var(--dim);font-weight:500;">/3</span></div>
       <div style="font-size:9px;color:var(--dim);font-family:var(--font-mono);white-space:nowrap;">Started ${formatWarCountdown(Date.now() - startedMs)} ago</div>
       <div class="war-countdown" data-ends="${endsAtMs}" style="font-size:10px;font-weight:700;color:var(--brass-bright);font-family:var(--font-mono);white-space:nowrap;">⏱ ${formatWarCountdown(endsAtMs - Date.now())}</div>
+    </div>
+
+    <div class="war-fighters-grid">
+      <div class="war-fighters-col">${renderWarFightersColumn(war, 'attack', kdAtk)}</div>
+      <div class="war-fighters-col reverse">${renderWarFightersColumn(war, 'defend', kdDef)}</div>
     </div>
 
     <div style="padding:8px 10px 4px;">
@@ -625,7 +661,7 @@ function openZoneTerritoryView(zone){ territoryZoneView = zone; renderBody(); }
 function closeZoneTerritoryView(){ territoryZoneView = null; renderBody(); }
 function setZoneSubTab(tab){
   zoneSubTab = tab;
-  if(tab === 'territory' && !territoryLoaded) loadTerritories();
+  if((tab === 'territory' || tab === 'wars') && !territoryLoaded) loadTerritories();
   renderBody();
 }
 
@@ -799,6 +835,13 @@ function renderArcadiaMapSelection(){
   const kd=kingdomDef(t.ownerKingdom); const capital=idx===0;
   const canReach=kingdomHasFootholdNear(state.allianceId,t.zone), mine=t.ownerKingdom===state.allianceId;
   const canWar=canDeclareWar(t), onCooldown=isOnWarCooldown(t);
+  if(isTerritoryFogged(state.allianceId,t.zone) && !mine){
+    panel.innerHTML=`<div class="map-info-title fog-title">☁ ${z.label}</div>
+    <div class="map-info-sub">Unexplored territory</div>
+    <div class="map-fog-note">Your kingdom hasn't scouted this region yet. Hold ground here or in a bordering zone to reveal it.</div>
+    <div class="map-actions"><button class="act-btn" onclick="openZoneTerritoryView('${t.zone}')">View Outposts</button></div>`;
+    return;
+  }
   panel.innerHTML=`<div class="map-info-title">${capital?'🏛️ ':''}${z.names[idx]}</div>
     <div class="map-info-sub">${kd?kd.emblem+' '+kd.name:'Unclaimed'} · ${z.label}</div>
     <div class="map-stat"><span>Defense</span><b>${t.defense}</b></div>
@@ -833,33 +876,57 @@ function bindArcadiaMapInteractions(){
   viewport.addEventListener('wheel',e=>{e.preventDefault();zoomArcadiaMap(e.deltaY<0?.12:-.12);},{passive:false});
   viewport.addEventListener('click',handleArcadiaMapClick);
 }
+function isTerritoryFogged(myKingdom, zone){
+  if(!myKingdom) return false;
+  return !kingdomHasFootholdNear(myKingdom, zone);
+}
 function renderKingdomMapSVG(myKingdom){
   const world=[...Object.entries(ARCADIA_WORLD)];
   const territories=world.flatMap(([zone,z])=>z.names.map((name,idx)=>({zone,z,name,idx,meta:worldTerritoryMeta(zone,idx)})));
   const svgTerritories=territories.map(o=>{
     const path=worldTerritoryPath(0,0,o.zone,o.idx), t=o.meta.t;
     const kd=t&&kingdomDef(t.ownerKingdom), mine=t&&t.ownerKingdom===myKingdom, selected=arcadiaMapSelected===o.meta.id;
+    const foggy=isTerritoryFogged(myKingdom,o.zone) && !mine;
+    const cx=worldTerritoryCentroid(o.zone,o.idx).x, cy=worldTerritoryCentroid(o.zone,o.idx).y;
+    if(foggy){
+      return `<g class="world-territory fogged ${selected?'selected':''}" data-territory="${o.meta.id}">
+        <path d="${path}" fill="#141b1f" fill-opacity=".68" stroke="rgba(10,16,18,.92)" stroke-width="3.2" stroke-linejoin="round"/>
+        <path class="fog-cloud" d="${path}" fill="#ffffff" filter="url(#fogTexture)"/>
+        <path d="${path}" fill="none" stroke="rgba(120,132,120,.4)" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="2 3"/>
+        <text class="territory-fog-mark" x="${cx}" y="${cy+5}" text-anchor="middle">☁</text>
+        <text class="territory-id fogged-id" x="${cx}" y="${cy+22}" text-anchor="middle">${o.z.label}</text>
+      </g>`;
+    }
     const fill=kd?kd.color:o.z.color, opacity=kd?.75:.62;
     return `<g class="world-territory ${selected?'selected':''}" data-territory="${o.meta.id}">
       <path d="${path}" fill="${fill}" fill-opacity="${opacity}" stroke="rgba(10,16,18,.92)" stroke-width="3.2" stroke-linejoin="round"/>
       <path d="${path}" fill="none" stroke="${mine?'#ffe27a':'rgba(210,192,145,.72)'}" stroke-width="${mine?3.2:1.35}" stroke-linejoin="round"/>
-      ${o.idx===0?'<text class="capital-crown" x="'+(worldTerritoryCentroid(o.zone,o.idx).x)+'" y="'+(worldTerritoryCentroid(o.zone,o.idx).y-22)+'">♛</text>':''}
-      <text class="territory-label" x="${worldTerritoryCentroid(o.zone,o.idx).x}" y="${worldTerritoryCentroid(o.zone,o.idx).y+4}" text-anchor="middle">${o.name}</text>
-      <text class="territory-id" x="${worldTerritoryCentroid(o.zone,o.idx).x}" y="${worldTerritoryCentroid(o.zone,o.idx).y+20}" text-anchor="middle">${o.z.label}</text>
+      ${o.idx===0?'<text class="capital-crown" x="'+cx+'" y="'+(cy-22)+'">♛</text>':''}
+      <text class="territory-label" x="${cx}" y="${cy+4}" text-anchor="middle">${o.name}</text>
+      <text class="territory-id" x="${cx}" y="${cy+20}" text-anchor="middle">${o.z.label}</text>
     </g>`;
   }).join('');
   return `<div class="arcadia-map-shell">
     <div class="arcadia-map-toolbar"><div><b>ARCADIA WORLD</b><span>30 territories · 6 kingdoms</span></div><div class="map-search"><input placeholder="Search territory…" onkeydown="if(event.key==='Enter')searchArcadiaTerritory(this.value)"><button onclick="searchArcadiaTerritory(this.previousElementSibling.value)">⌕</button></div><button class="map-tool" onclick="resetArcadiaMap()">◎ World</button></div>
     <div id="arcadia-map-viewport" class="arcadia-map-viewport">
       <svg viewBox="0 0 1040 700" aria-label="ARCADIA World Map">
-        <defs><filter id="mapGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="sea" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#081d2b"/><stop offset="1" stop-color="#031018"/></linearGradient></defs>
+        <defs>
+          <filter id="mapGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <linearGradient id="sea" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#081d2b"/><stop offset="1" stop-color="#031018"/></linearGradient>
+          <filter id="fogTexture" x="-30%" y="-30%" width="160%" height="160%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.028" numOctaves="3" seed="11" result="noise"/>
+            <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.62  0 0 0 0 0.65  0 0 0 0 0.63  0 0 0 0.55 0" result="fogColor"/>
+            <feComposite in="fogColor" in2="SourceGraphic" operator="in" result="clippedFog"/>
+            <feGaussianBlur in="clippedFog" stdDeviation="1.1"/>
+          </filter>
+        </defs>
         <rect width="1040" height="700" fill="url(#sea)"/>
         <g opacity=".16" stroke="#6b8b92"><path d="M0 140H1040M0 280H1040M0 420H1040M0 560H1040"/><path d="M130 0V700M260 0V700M390 0V700M520 0V700M650 0V700M780 0V700M910 0V700"/></g>
         <g id="arcadia-world-layer">${svgTerritories}</g>
       </svg>
       <div class="map-compass">N<br><span>✦</span></div>
       <div class="map-zoom"><button onclick="zoomArcadiaMap(.15)">+</button><span id="arcadia-zoom-readout">100%</span><button onclick="zoomArcadiaMap(-.15)">−</button></div>
-      <div class="map-legend"><b>LEGEND</b><span><i class="legend-swatch own"></i>Your kingdom</span><span><i class="legend-swatch"></i>Other kingdom</span><span>♛ Capital</span></div>
+      <div class="map-legend"><b>LEGEND</b><span><i class="legend-swatch own"></i>Your kingdom</span><span><i class="legend-swatch"></i>Other kingdom</span><span>♛ Capital</span>${myKingdom?'<span><i class="legend-swatch fog"></i>☁ Unexplored</span>':''}</div>
     </div>
     <div class="arcadia-map-bottom"><div class="kingdom-strip">${KINGDOMS.map(k=>`<span><i style="background:${k.color}"></i>${k.emblem} ${k.name}</span>`).join('')}</div><div id="arcadia-territory-info" class="map-info"><div class="map-info-empty">Select a territory on the map.</div></div></div>
   </div>`;
@@ -874,6 +941,69 @@ function renderKingdomMap(){
   const myKingdom=state.allianceId;
   setTimeout(()=>{bindArcadiaMapInteractions(); renderArcadiaMapTransform(); renderArcadiaMapSelection();},0);
   return `<div class="wrap animate-fade"><header class="hero" style="margin-bottom:10px;"><h1 style="font-size:22px">🗺️ World Map</h1><p style="color:var(--dim);font-size:12px">Drag to move · Scroll to zoom · Click a territory to inspect it</p></header>${!myKingdom?`<div class="panel" style="padding:10px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:10px">Pledge allegiance to a kingdom to participate in territory warfare.</div>`:''}${renderKingdomMapSVG(myKingdom)}</div>`;
+}
+
+/* ===== ACTIVE WARS LIST ===== */
+let warsFilter = 'all';
+function setWarsFilter(f){ warsFilter = f; renderBody(); }
+function allActiveWars(){
+  return Object.values(territoryData).filter(t => t.war)
+    .sort((a, b) => warTimestampMs(a.war.roundEndsAt) - warTimestampMs(b.war.roundEndsAt));
+}
+function warInvolvesKingdom(t, kingdomId){
+  return !!kingdomId && (t.war.attackerKingdom === kingdomId || t.ownerKingdom === kingdomId);
+}
+function renderWarListCard(t, myKingdom){
+  const war = t.war;
+  const kdAtk = kingdomDef(war.attackerKingdom), kdDef = kingdomDef(t.ownerKingdom);
+  const z = ARCADIA_WORLD[t.zone] || ARCADIA_WORLD.plains;
+  const idx = Math.max(0, parseInt(t.id.split('_').pop(), 10) - 1);
+  const totalDmg = (war.attackerDamage || 0) + (war.defenderDamage || 0);
+  const atkPct = totalDmg > 0 ? (war.attackerDamage / totalDmg) * 100 : 50;
+  const mine = warInvolvesKingdom(t, myKingdom);
+  const endsAtMs = warTimestampMs(war.roundEndsAt);
+  const pips = (wins, color) => Array.from({ length: WAR_ROUNDS_TO_WIN }).map((_, i) =>
+    `<i style="width:5px;height:5px;border-radius:50%;display:inline-block;margin:0 1px;background:${i < wins ? color : 'rgba(255,255,255,.18)'};"></i>`
+  ).join('');
+  return `<div class="war-list-card ${mine ? 'mine' : ''}" onclick="openZoneTerritoryView('${t.zone}')">
+    <div class="war-list-title"><span>${z.names[idx]}</span><span class="war-list-round">⚔️ Round ${war.round}/3</span></div>
+    <div class="war-list-sides">
+      <div class="war-list-side">
+        <span class="war-list-flag" style="background:${kdAtk ? kdAtk.color : '#555'}">${kdAtk ? kdAtk.emblem : '❔'}</span>
+        <span class="war-list-name">${kdAtk ? kdAtk.name : 'Attacker'}</span>
+      </div>
+      <div class="war-list-vs">VS</div>
+      <div class="war-list-side reverse">
+        <span class="war-list-name">${kdDef ? kdDef.name : 'Defender'}</span>
+        <span class="war-list-flag" style="background:${kdDef ? kdDef.color : '#555'}">${kdDef ? kdDef.emblem : '❔'}</span>
+      </div>
+    </div>
+    <div class="war-list-bar"><div class="war-list-bar-atk" style="width:${atkPct}%"></div></div>
+    <div class="war-list-stats">
+      <span>🔥 ${formatWarNumber(war.attackerDamage)}</span>
+      <span class="war-list-pips">${pips(war.attackerWins, 'var(--brass-bright)')}<span class="war-list-timer">⏱ ${formatWarCountdown(endsAtMs - Date.now())}</span>${pips(war.defenderWins, 'var(--brass-bright)')}</span>
+      <span>${formatWarNumber(war.defenderDamage)} 🔥</span>
+    </div>
+  </div>`;
+}
+function renderActiveWarsList(){
+  if(!db) return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🔌 Kingdom warfare requires cloud save (Firebase) to be configured.</div>`;
+  if(!territoryLoaded){ loadTerritories(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading active wars…</div>`; }
+  const myKingdom = state.allianceId;
+  const all = allActiveWars();
+  const tabs = [
+    { id:'all', label:'🔥 All', wars: all },
+    { id:'mine', label:'🚩 Your Kingdom', wars: all.filter(t => warInvolvesKingdom(t, myKingdom)) },
+    { id:'others', label:'👁️ Others', wars: all.filter(t => !warInvolvesKingdom(t, myKingdom)) },
+  ];
+  const active = tabs.find(tb => tb.id === warsFilter) || tabs[0];
+  const tabsHtml = `<div class="wars-filter-tabs">${tabs.map(tb =>
+    `<button class="wars-filter-btn ${warsFilter === tb.id ? 'active' : ''}" onclick="setWarsFilter('${tb.id}')">${tb.label}<span class="wars-filter-count">${tb.wars.length}</span></button>`
+  ).join('')}</div>`;
+  const body = active.wars.length
+    ? `<div class="wars-grid">${active.wars.map(t => renderWarListCard(t, myKingdom)).join('')}</div>`
+    : `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🕊️ No active sieges in this view right now.</div>`;
+  return `<div class="wrap animate-fade">${tabsHtml}${body}</div>`;
 }
 
 function renderZoneOutposts(zone){
