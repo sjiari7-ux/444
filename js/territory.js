@@ -575,9 +575,9 @@ function bindWarTicker(){
   }, 30000);
 }
 
-function topWarFighters(war, side){
+function topWarFighters(war, side, limit=5){
   const list = Object.entries(war.contributions || {}).map(([uid, c]) => ({ uid, ...c })).filter(c => c.side === side);
-  return list.sort((a, b) => (b.dmg || 0) - (a.dmg || 0)).slice(0, 5);
+  return list.sort((a, b) => (b.dmg || 0) - (a.dmg || 0)).slice(0, limit);
 }
 function renderWarFighterRow(c, kd, isTop){
   const dmgLabel = formatWarNumber(c.dmg) + (isTop ? '!' : '');
@@ -591,6 +591,31 @@ function renderWarFightersColumn(war, side, kd){
   const fighters = topWarFighters(war, side);
   if(!fighters.length) return `<div class="war-fighters-empty">No strikes yet</div>`;
   return fighters.map((c, i) => renderWarFighterRow(c, kd, i === 0)).join('');
+}
+function renderWarRankRow(c, kd, rank){
+  return `<div class="war-rank-row">
+    <span class="war-rank-num">${rank}</span>
+    <span class="war-rank-emblem" style="background:${kd ? kd.color : '#555'}">${kd ? kd.emblem : '❔'}</span>
+    <span class="war-rank-name">${c.name || 'Player'}</span>
+    <span class="war-rank-dmg">🔥 ${formatWarNumber(c.dmg)}</span>
+  </div>`;
+}
+function renderWarFullRankingColumn(war, side, kd){
+  const fighters = topWarFighters(war, side, Infinity);
+  if(!fighters.length) return `<div class="war-fighters-empty">No strikes yet</div>`;
+  return fighters.map((c, i) => renderWarRankRow(c, kd, i + 1)).join('');
+}
+function renderWarFullRanking(war, kdAtk, kdDef){
+  return `<div class="war-modal-ranking">
+    <div class="war-rank-col">
+      <div class="war-rank-col-title">${kdDef ? kdDef.emblem + ' ' + kdDef.name : 'Defenders'}</div>
+      <div class="war-rank-col-list">${renderWarFullRankingColumn(war, 'defend', kdDef)}</div>
+    </div>
+    <div class="war-rank-col">
+      <div class="war-rank-col-title">${kdAtk ? kdAtk.emblem + ' ' + kdAtk.name : 'Attackers'}</div>
+      <div class="war-rank-col-list">${renderWarFullRankingColumn(war, 'attack', kdAtk)}</div>
+    </div>
+  </div>`;
 }
 
 function renderWarBlock(t){
@@ -1055,6 +1080,9 @@ function renderWarDetailModal(){
         <button class="war-modal-btn attack" onclick="contributeToWar('${t.id}','attack')">⚔️ ATTACK<div class="war-modal-btn-cost">−${cost} energy</div></button>
       </div>
       <div class="war-modal-note">Fight for either side — your strikes count for whichever banner you choose.</div>
+
+      <div class="war-modal-ranking-title">📜 Full Battle Ranking</div>
+      ${renderWarFullRanking(war, kdAtk, kdDef)}
     </div>
   </div>`;
 }
