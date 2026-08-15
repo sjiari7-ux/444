@@ -608,13 +608,16 @@ function renderWarBlock(t){
     </div>
 
     <div style="display:flex;gap:1px;margin-top:6px;background:var(--border);">
-      <button ${iAmDefender ? '' : 'disabled'} onclick="contributeToWar('${t.id}','defend')" style="flex:1;border:none;padding:10px 6px;cursor:${iAmDefender ? 'pointer' : 'default'};background:${iAmDefender ? 'rgba(79,209,255,.16)' : 'rgba(255,255,255,.03)'};color:${iAmDefender ? '#cfeeff' : 'var(--dim)'};font-family:var(--font-head);font-weight:800;font-size:11px;">
-        🛡️ DEFEND<div style="font-size:8px;font-weight:500;margin-top:2px;">${iAmDefender ? `−${cost} energy` : 'not your side'}</div>
-      </button>
-      <button ${iAmAttacker ? '' : 'disabled'} onclick="contributeToWar('${t.id}','attack')" style="flex:1;border:none;padding:10px 6px;cursor:${iAmAttacker ? 'pointer' : 'default'};background:${iAmAttacker ? 'rgba(255,107,71,.18)' : 'rgba(255,255,255,.03)'};color:${iAmAttacker ? '#ffd7c9' : 'var(--dim)'};font-family:var(--font-head);font-weight:800;font-size:11px;">
-        ⚔️ ATTACK<div style="font-size:8px;font-weight:500;margin-top:2px;">${iAmAttacker ? `−${cost} energy` : 'not your side'}</div>
-      </button>
+      ${iAmDefender ? `<button onclick="contributeToWar('${t.id}','defend')" style="flex:1;border:none;padding:10px 6px;cursor:pointer;background:rgba(79,209,255,.16);color:#cfeeff;font-family:var(--font-head);font-weight:800;font-size:11px;">
+        🛡️ DEFEND<div style="font-size:8px;font-weight:500;margin-top:2px;">−${cost} energy</div>
+      </button>` : ''}
+      ${iAmAttacker ? `<button onclick="contributeToWar('${t.id}','attack')" style="flex:1;border:none;padding:10px 6px;cursor:pointer;background:rgba(255,107,71,.18);color:#ffd7c9;font-family:var(--font-head);font-weight:800;font-size:11px;">
+        ⚔️ ATTACK<div style="font-size:8px;font-weight:500;margin-top:2px;">−${cost} energy</div>
+      </button>` : ''}
+      ${!iAmAttacker && !iAmDefender ? `<div style="flex:1;text-align:center;padding:10px 6px;font-size:10px;color:var(--dim);">👁️ Spectating this siege</div>` : ''}
     </div>
+    ${iAmDefender ? `<div style="text-align:center;font-size:8px;color:var(--dim);padding:0 0 6px;">Fighting for ${kdDef ? kdDef.name : 'your kingdom'}</div>` : ''}
+    ${iAmAttacker ? `<div style="text-align:center;font-size:8px;color:var(--dim);padding:0 0 6px;">Fighting for ${kdAtk ? kdAtk.name : 'your kingdom'}</div>` : ''}
   </div>`;
 }
 
