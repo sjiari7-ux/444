@@ -856,9 +856,25 @@ function handleArcadiaMapClick(ev){
 function bindArcadiaMapInteractions(){
   const viewport=document.getElementById('arcadia-map-viewport'); if(!viewport||viewport.dataset.bound) return;
   viewport.dataset.bound='1'; let drag=false,lastX=0,lastY=0,moved=false;
-  viewport.addEventListener('pointerdown',e=>{ if(e.target.closest('.world-territory')) return; drag=true;moved=false;lastX=e.clientX;lastY=e.clientY;viewport.setPointerCapture?.(e.pointerId); });
-  viewport.addEventListener('pointermove',e=>{ if(!drag)return; const dx=e.clientX-lastX,dy=e.clientY-lastY; if(Math.abs(dx)+Math.abs(dy)>2)moved=true; arcadiaMapPan.x+=dx;arcadiaMapPan.y+=dy;lastX=e.clientX;lastY=e.clientY;renderArcadiaMapTransform(); });
-  viewport.addEventListener('pointerup',()=>{drag=false;}); viewport.addEventListener('pointercancel',()=>{drag=false;});
+  const pointers=new Map(); let pinchStartDist=0,pinchStartZoom=1;
+  const dist=()=>{ const pts=[...pointers.values()]; return Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y); };
+  viewport.addEventListener('pointerdown',e=>{
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    viewport.setPointerCapture?.(e.pointerId);
+    if(pointers.size===2){ drag=false; pinchStartDist=dist(); pinchStartZoom=arcadiaMapZoom; return; }
+    if(e.target.closest('.world-territory')) return;
+    drag=true;moved=false;lastX=e.clientX;lastY=e.clientY;
+  });
+  viewport.addEventListener('pointermove',e=>{
+    if(pointers.has(e.pointerId)) pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pointers.size===2){
+      const d=dist(); if(pinchStartDist>0){ arcadiaMapZoom=clampWorldZoom(pinchStartZoom*(d/pinchStartDist)); renderArcadiaMapTransform(); }
+      return;
+    }
+    if(!drag)return; const dx=e.clientX-lastX,dy=e.clientY-lastY; if(Math.abs(dx)+Math.abs(dy)>2)moved=true; arcadiaMapPan.x+=dx;arcadiaMapPan.y+=dy;lastX=e.clientX;lastY=e.clientY;renderArcadiaMapTransform();
+  });
+  const release=e=>{ pointers.delete(e.pointerId); if(pointers.size<2) pinchStartDist=0; if(pointers.size===0) drag=false; };
+  viewport.addEventListener('pointerup',release); viewport.addEventListener('pointercancel',release); viewport.addEventListener('pointerleave',release);
   viewport.addEventListener('wheel',e=>{e.preventDefault();zoomArcadiaMap(e.deltaY<0?.12:-.12);},{passive:false});
   viewport.addEventListener('click',handleArcadiaMapClick);
 }
