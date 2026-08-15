@@ -518,6 +518,36 @@ async function resolveWarRoundIfDue(tid){
   else if(outcome.finished === false) showToast('⚔️', 'Round Over', `Round ${outcome.nextRound} of 3 begins.`);
 }
 
+function territorySignature(t){
+  if(!t) return '';
+  const w = t.war;
+  return [
+    t.ownerKingdom, t.defense,
+    w ? w.round : '', w ? w.attackerKingdom : '',
+    w ? w.attackerDamage : '', w ? w.defenderDamage : '',
+    w ? w.attackerWins : '', w ? w.defenderWins : '',
+  ].join('|');
+}
+
+async function pollTerritories(){
+  if(!db || territoryLoading) return;
+  try{
+    const snap = await db.collection('territories').get();
+    let changed = false;
+    const next = {};
+    snap.docs.forEach(d => {
+      const fresh = { id: d.id, ...d.data() };
+      next[d.id] = fresh;
+      if(territorySignature(fresh) !== territorySignature(territoryData[d.id])) changed = true;
+    });
+    if(Object.keys(next).length !== Object.keys(territoryData).length) changed = true;
+    territoryData = next;
+    if(changed && activeTab === 'zones') renderBody();
+  }catch(e){
+    console.error('[Arcadia Territory] Poll failed:', e.code || e.name, e.message);
+  }
+}
+
 let warTickerBound = false;
 function bindWarTicker(){
   if(warTickerBound) return;
@@ -533,6 +563,7 @@ function bindWarTicker(){
         resolveWarRoundIfDue(tid).then(() => { if(activeTab === 'zones') renderBody(); });
       }
     });
+    pollTerritories();
   }, 30000);
 }
 
