@@ -938,7 +938,7 @@ function renderWarListCard(t, myKingdom){
   const pips = (wins, color) => Array.from({ length: WAR_ROUNDS_TO_WIN }).map((_, i) =>
     `<i style="width:5px;height:5px;border-radius:50%;display:inline-block;margin:0 1px;background:${i < wins ? color : 'rgba(255,255,255,.18)'};"></i>`
   ).join('');
-  return `<div class="war-list-card ${mine ? 'mine' : ''}" onclick="openZoneTerritoryView('${t.zone}')">
+  return `<div class="war-list-card ${mine ? 'mine' : ''}" onclick="openWarModal('${t.id}')">
     <div class="war-list-title"><span>${z.names[idx]}</span><span class="war-list-round">⚔️ Round ${war.round}/3</span></div>
     <div class="war-list-sides">
       <div class="war-list-side">
@@ -977,6 +977,80 @@ function renderActiveWarsList(){
     ? `<div class="wars-grid">${active.wars.map(t => renderWarListCard(t, myKingdom)).join('')}</div>`
     : `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🕊️ No active sieges in this view right now.</div>`;
   return `<div class="wrap animate-fade">${tabsHtml}${body}</div>`;
+}
+
+/* ===== WAR DETAIL MODAL ===== */
+let activeWarModalId = null;
+function openWarModal(tid){ activeWarModalId = tid; renderBody(); }
+function closeWarModal(){ activeWarModalId = null; renderBody(); }
+function renderWarDetailModal(){
+  const t = territoryData[activeWarModalId];
+  if(!t || !t.war){ activeWarModalId = null; return ''; }
+  const war = t.war;
+  const kdAtk = kingdomDef(war.attackerKingdom), kdDef = kingdomDef(t.ownerKingdom);
+  const z = ARCADIA_WORLD[t.zone] || ARCADIA_WORLD.plains;
+  const idx = Math.max(0, parseInt(t.id.split('_').pop(), 10) - 1);
+  const endsAtMs = warTimestampMs(war.roundEndsAt);
+  const startedMs = warTimestampMs(war.startedAt) || Date.now();
+  const totalDmg = (war.attackerDamage || 0) + (war.defenderDamage || 0);
+  const atkPct = totalDmg > 0 ? (war.attackerDamage / totalDmg) * 100 : 50;
+  const defPct = 100 - atkPct;
+  const iAmAttacker = state.allianceId && state.allianceId === war.attackerKingdom;
+  const iAmDefender = state.allianceId && state.allianceId === t.ownerKingdom;
+  const cost = getEnergyCost(state, TERRITORY_ATTACK_ENERGY);
+  const atkColor = kdAtk ? kdAtk.color : 'var(--copper)';
+  const defColor = kdDef ? kdDef.color : 'var(--brass)';
+
+  return `<div class="war-modal-backdrop" onclick="if(event.target===this)closeWarModal()">
+    <div class="war-modal">
+      <button class="war-modal-close" onclick="closeWarModal()">✕</button>
+      <div class="war-modal-started">Started ${formatWarCountdown(Date.now() - startedMs)} ago</div>
+
+      <div class="war-modal-fighters">
+        <div class="war-modal-fighters-col">${renderWarFightersColumn(war, 'attack', kdAtk)}</div>
+        <div class="war-modal-round-box">
+          <div class="war-modal-round-pip" style="color:${atkColor};">${war.attackerWins || 0}</div>
+          <div class="war-modal-round-icon">⚔️</div>
+          <div class="war-modal-round-pip" style="color:${defColor};">${war.defenderWins || 0}</div>
+        </div>
+        <div class="war-modal-fighters-col reverse">${renderWarFightersColumn(war, 'defend', kdDef)}</div>
+      </div>
+
+      <div class="war-modal-title">${z.icon || '🗺️'} ${z.names[idx]}</div>
+
+      <div class="war-modal-kingdoms">
+        <div class="war-modal-kd">
+          <span class="war-modal-kd-emblem" style="background:${atkColor}">${kdAtk ? kdAtk.emblem : '❔'}</span>
+          <span class="war-modal-kd-name" style="color:${atkColor}">${kdAtk ? kdAtk.name : 'Attacker'}</span>
+        </div>
+        <div class="war-modal-kd reverse">
+          <span class="war-modal-kd-name" style="color:${defColor}">${kdDef ? kdDef.name : 'Defender'}</span>
+          <span class="war-modal-kd-emblem" style="background:${defColor}">${kdDef ? kdDef.emblem : '❔'}</span>
+        </div>
+      </div>
+
+      <div class="war-modal-timerbar">
+        <span class="war-modal-round-label">⚔️ Round ${war.round}<span style="opacity:.6">/3</span></span>
+        <span class="war-countdown war-modal-timer" data-ends="${endsAtMs}">⏱ ${formatWarCountdown(endsAtMs - Date.now())}</span>
+      </div>
+
+      <div class="war-modal-bar">
+        <div class="war-modal-bar-atk" style="width:${atkPct}%;background:${atkColor};">${atkPct >= 15 ? atkPct.toFixed(0) + '%' : ''}</div>
+        <div class="war-modal-bar-def" style="width:${defPct}%;background:${defColor};">${defPct >= 15 ? defPct.toFixed(0) + '%' : ''}</div>
+      </div>
+      <div class="war-modal-dmg-row">
+        <span>🔥 ${formatWarNumber(war.attackerDamage)} · ${war.attackerHits || 0} strikes</span>
+        <span>${war.defenderHits || 0} strikes · ${formatWarNumber(war.defenderDamage)} 🔥</span>
+      </div>
+
+      <div class="war-modal-actions">
+        ${iAmDefender ? `<button class="war-modal-btn defend" onclick="contributeToWar('${t.id}','defend')">🛡️ DEFEND<div class="war-modal-btn-cost">−${cost} energy</div></button>` : ''}
+        ${iAmAttacker ? `<button class="war-modal-btn attack" onclick="contributeToWar('${t.id}','attack')">⚔️ ATTACK<div class="war-modal-btn-cost">−${cost} energy</div></button>` : ''}
+        ${!iAmAttacker && !iAmDefender ? `<div class="war-modal-spectate">👁️ Spectating this siege</div>` : ''}
+      </div>
+      <div class="war-modal-footer"><button class="act-btn" style="width:auto;padding:6px 14px;font-size:11px;" onclick="closeWarModal();openZoneTerritoryView('${t.zone}')">View Outposts</button></div>
+    </div>
+  </div>`;
 }
 
 function renderZoneOutposts(zone){
