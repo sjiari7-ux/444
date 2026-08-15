@@ -1447,6 +1447,7 @@ function applyAccentColor(color) {
     const root = document.documentElement;
     root.style.setProperty('--brass', color);
     root.style.setProperty('--brass-bright', color);
+    root.style.setProperty('--green', color);
     // يمكنك تعديل الألوان المشتقة حسب الرغبة
 }
 
