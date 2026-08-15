@@ -134,7 +134,7 @@ async function startGame(){
   if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
   render();
   setInterval(tick, TICK_MS);
-  setInterval(()=>{ updatePrices(); renderBodyUnlessTyping(); }, PRICE_TICK_MS);
+  setInterval(()=>{ updatePrices(); if(activeTab !== 'zones') renderBodyUnlessTyping(); }, PRICE_TICK_MS);
   setInterval(syncToFirestore, SYNC_INTERVAL);
   if(typeof flushZoneTax === 'function') setInterval(flushZoneTax, SYNC_INTERVAL);
   loadUsername();
