@@ -364,7 +364,14 @@ async function loadWorldGeometry(){
   try{
     const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
     if(!res.ok) throw new Error('HTTP ' + res.status);
-    const topo = await res.json();
+    let topo = await res.json();
+    // Drastically cut point count (real coastlines are huge) so the SVG stays
+    // light enough that the app's periodic full re-renders (price ticker, etc.)
+    // don't cause a visible flash when this view is on screen.
+    if(typeof topojson.presimplify === 'function' && typeof topojson.simplify === 'function'){
+      try{ topo = topojson.simplify(topojson.presimplify(topo), 0.35); }
+      catch(simplifyErr){ console.warn('[Arcadia Territory] Simplify skipped:', simplifyErr.message); }
+    }
     const collection = topojson.feature(topo, topo.objects.countries);
     const geoms = topo.objects.countries.geometries;
 
