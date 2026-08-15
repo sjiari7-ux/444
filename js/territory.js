@@ -420,11 +420,6 @@ async function contributeToWar(tid, side){
   const t = territoryData[tid];
   if(!t || !t.war){ showToast('❌', 'No siege here', 'There is no active war on this outpost.'); return; }
   const isAttacker = side === 'attack';
-  const requiredKingdom = isAttacker ? t.war.attackerKingdom : t.ownerKingdom;
-  if(state.allianceId !== requiredKingdom){
-    showToast('❌', 'Wrong side', isAttacker ? 'Only the attacking kingdom can strike here.' : 'Only the defending kingdom can defend here.');
-    return;
-  }
   const cost = getEnergyCost(state, TERRITORY_ATTACK_ENERGY);
   if(state.energy < cost){ showToast('❌', 'Not enough energy', `Fighting costs ${cost} energy.`); return; }
   state.energy -= cost;
@@ -644,16 +639,14 @@ function renderWarBlock(t){
     </div>
 
     <div style="display:flex;gap:1px;margin-top:6px;background:var(--border);">
-      ${iAmDefender ? `<button onclick="contributeToWar('${t.id}','defend')" style="flex:1;border:none;padding:10px 6px;cursor:pointer;background:rgba(79,209,255,.16);color:#cfeeff;font-family:var(--font-head);font-weight:800;font-size:11px;">
+      <button onclick="contributeToWar('${t.id}','defend')" style="flex:1;border:none;padding:10px 6px;cursor:pointer;background:rgba(79,209,255,.16);color:#cfeeff;font-family:var(--font-head);font-weight:800;font-size:11px;">
         🛡️ DEFEND<div style="font-size:8px;font-weight:500;margin-top:2px;">−${cost} energy</div>
-      </button>` : ''}
-      ${iAmAttacker ? `<button onclick="contributeToWar('${t.id}','attack')" style="flex:1;border:none;padding:10px 6px;cursor:pointer;background:rgba(255,107,71,.18);color:#ffd7c9;font-family:var(--font-head);font-weight:800;font-size:11px;">
+      </button>
+      <button onclick="contributeToWar('${t.id}','attack')" style="flex:1;border:none;padding:10px 6px;cursor:pointer;background:rgba(255,107,71,.18);color:#ffd7c9;font-family:var(--font-head);font-weight:800;font-size:11px;">
         ⚔️ ATTACK<div style="font-size:8px;font-weight:500;margin-top:2px;">−${cost} energy</div>
-      </button>` : ''}
-      ${!iAmAttacker && !iAmDefender ? `<div style="flex:1;text-align:center;padding:10px 6px;font-size:10px;color:var(--dim);">👁️ Spectating this siege</div>` : ''}
+      </button>
     </div>
-    ${iAmDefender ? `<div style="text-align:center;font-size:8px;color:var(--dim);padding:0 0 6px;">Fighting for ${kdDef ? kdDef.name : 'your kingdom'}</div>` : ''}
-    ${iAmAttacker ? `<div style="text-align:center;font-size:8px;color:var(--dim);padding:0 0 6px;">Fighting for ${kdAtk ? kdAtk.name : 'your kingdom'}</div>` : ''}
+    <div style="text-align:center;font-size:8px;color:var(--dim);padding:4px 0 6px;">Fight for either side — your strikes count for whichever banner you choose.</div>
   </div>`;
 }
 
@@ -995,8 +988,6 @@ function renderWarDetailModal(){
   const totalDmg = (war.attackerDamage || 0) + (war.defenderDamage || 0);
   const atkPct = totalDmg > 0 ? (war.attackerDamage / totalDmg) * 100 : 50;
   const defPct = 100 - atkPct;
-  const iAmAttacker = state.allianceId && state.allianceId === war.attackerKingdom;
-  const iAmDefender = state.allianceId && state.allianceId === t.ownerKingdom;
   const cost = getEnergyCost(state, TERRITORY_ATTACK_ENERGY);
   const atkColor = kdAtk ? kdAtk.color : 'var(--copper)';
   const defColor = kdDef ? kdDef.color : 'var(--brass)';
@@ -1044,11 +1035,10 @@ function renderWarDetailModal(){
       </div>
 
       <div class="war-modal-actions">
-        ${iAmDefender ? `<button class="war-modal-btn defend" onclick="contributeToWar('${t.id}','defend')">🛡️ DEFEND<div class="war-modal-btn-cost">−${cost} energy</div></button>` : ''}
-        ${iAmAttacker ? `<button class="war-modal-btn attack" onclick="contributeToWar('${t.id}','attack')">⚔️ ATTACK<div class="war-modal-btn-cost">−${cost} energy</div></button>` : ''}
-        ${!iAmAttacker && !iAmDefender ? `<div class="war-modal-spectate">👁️ Spectating this siege</div>` : ''}
+        <button class="war-modal-btn defend" onclick="contributeToWar('${t.id}','defend')">🛡️ DEFEND<div class="war-modal-btn-cost">−${cost} energy</div></button>
+        <button class="war-modal-btn attack" onclick="contributeToWar('${t.id}','attack')">⚔️ ATTACK<div class="war-modal-btn-cost">−${cost} energy</div></button>
       </div>
-      <div class="war-modal-footer"><button class="act-btn" style="width:auto;padding:6px 14px;font-size:11px;" onclick="closeWarModal();openZoneTerritoryView('${t.zone}')">View Outposts</button></div>
+      <div class="war-modal-note">Fight for either side — your strikes count for whichever banner you choose.</div>
     </div>
   </div>`;
 }
