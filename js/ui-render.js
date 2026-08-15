@@ -293,7 +293,7 @@ function renderCompanies(){
               ${COMPANY_RESOURCES.map(res => {
                 const rIt = ITEMS[res];
                 const active = res === chosenRes;
-                return `<button class="mini-btn ${active?'buy':''}" style="padding:8px 4px;font-size:11px;${active?'background:rgba(111,162,133,0.14);':''}" onclick="selectBuildResource('${res}')">
+                return `<button class="mini-btn ${active?'buy':''}" style="padding:8px 4px;font-size:11px;${active?'background:rgba(255,195,92,0.14);':''}" onclick="selectBuildResource('${res}')">
                   <div style="font-size:18px;margin-bottom:2px;">${rIt.icon}</div><div>${rIt.name}</div>
                 </button>`;
               }).join('')}
@@ -374,7 +374,7 @@ function renderCompanies(){
       </div>
     ` : '';
 
-    return `<div class="company-card" style="${isDisabled?'opacity:0.5;':''}${canCollect?'border-color:rgba(111,162,133,0.3);':''}">
+    return `<div class="company-card" style="${isDisabled?'opacity:0.5;':''}${canCollect?'border-color:rgba(255,195,92,0.3);':''}">
       <button class="company-menu-btn" onclick="event.stopPropagation();toggleCompanyMenu(${c.id})"><img class="ui-icon" src="${ICONS.ellipsis}" alt="⋯"></button>
       ${menuHtml}
       <div class="company-header">
@@ -397,7 +397,7 @@ function renderCompanies(){
   }).join('');
 
   const buildSection = currentCount >= MAX_COMPANIES ? '' : `
-    <div class="panel" style="text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(111,162,133,0.06) 0%,transparent 70%);">
+    <div class="panel" style="text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(255,195,92,0.06) 0%,transparent 70%);">
       <div style="font-size:36px;margin-bottom:8px;">🏗️</div>
       <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);margin-bottom:6px;">Build New Company</div>
       <div style="font-size:12px;color:var(--dim);margin-bottom:12px;"><b>${currentCount}</b> / ${MAX_COMPANIES} companies · Management <b>Lv.${mgmtLevel}</b></div>
