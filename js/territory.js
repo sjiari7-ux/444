@@ -940,11 +940,13 @@ function renderKingdomMapSVG(myKingdom){
       <svg viewBox="0 0 1040 700" aria-label="ARCADIA World Map">
         <defs>
           <filter id="mapGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <linearGradient id="sea" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#081d2b"/><stop offset="1" stop-color="#031018"/></linearGradient>
+          <radialGradient id="sea" cx="50%" cy="38%" r="75%"><stop offset="0%" stop-color="#1c1006"/><stop offset="55%" stop-color="#0c0805"/><stop offset="100%" stop-color="#030201"/></radialGradient>
+          <radialGradient id="mapVignette" cx="50%" cy="42%" r="70%"><stop offset="60%" stop-color="#000000" stop-opacity="0"/><stop offset="100%" stop-color="#000000" stop-opacity=".55"/></radialGradient>
         </defs>
         <rect width="1040" height="700" fill="url(#sea)"/>
-        <g opacity=".16" stroke="#6b8b92"><path d="M0 140H1040M0 280H1040M0 420H1040M0 560H1040"/><path d="M130 0V700M260 0V700M390 0V700M520 0V700M650 0V700M780 0V700M910 0V700"/></g>
+        <g opacity=".14" stroke="#8a5518"><path d="M0 140H1040M0 280H1040M0 420H1040M0 560H1040"/><path d="M130 0V700M260 0V700M390 0V700M520 0V700M650 0V700M780 0V700M910 0V700"/></g>
         <g id="arcadia-world-layer">${svgTerritories}</g>
+        <rect width="1040" height="700" fill="url(#mapVignette)" pointer-events="none"/>
       </svg>
       <div class="map-compass">N<br><span>✦</span></div>
       <div class="map-zoom"><button onclick="zoomArcadiaMap(.15)">+</button><span id="arcadia-zoom-readout">100%</span><button onclick="zoomArcadiaMap(-.15)">−</button></div>
