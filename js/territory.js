@@ -321,7 +321,7 @@ async function reinforceTerritory(tid){
    First kingdom to WAR_ROUNDS_TO_WIN rounds wins the war. */
 const WAR_ROUND_HOURS = 6;
 const WAR_ROUNDS_TO_WIN = 2;
-const WAR_DECLARE_GOLD_COST = 500;
+const WAR_DECLARE_GOLD_COST = 0; // free for now
 const WAR_COOLDOWN_HOURS = 12;
 
 function warTimestampMs(ts){
