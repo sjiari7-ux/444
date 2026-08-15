@@ -330,6 +330,12 @@ function warTimestampMs(ts){
   if(typeof ts.seconds === 'number') return ts.seconds * 1000;
   return 0;
 }
+function formatWarNumber(n){
+  n = n || 0;
+  if(n >= 1000000) return (n / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
+  if(n >= 1000) return (n / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
+  return String(n);
+}
 function formatWarCountdown(ms){
   if(ms <= 0) return 'resolving…';
   const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
@@ -388,6 +394,7 @@ async function declareWar(tid){
           round: 1,
           roundEndsAt: firebase.firestore.Timestamp.fromMillis(Date.now() + WAR_ROUND_HOURS * 3600000),
           attackerDamage: 0, defenderDamage: 0,
+          attackerHits: 0, defenderHits: 0,
           attackerWins: 0, defenderWins: 0,
           startedBy: UID,
           startedByName: window.__playerUsername || state.username || 'Player',
@@ -430,11 +437,12 @@ async function contributeToWar(tid, side){
     await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
       if(!doc.exists || !doc.data().war) throw new Error('This siege has already ended.');
-      const field = isAttacker ? 'war.attackerDamage' : 'war.defenderDamage';
-      tx.update(ref, { [field]: firebase.firestore.FieldValue.increment(dmg) });
+      const dmgField = isAttacker ? 'war.attackerDamage' : 'war.defenderDamage';
+      const hitField = isAttacker ? 'war.attackerHits' : 'war.defenderHits';
+      tx.update(ref, { [dmgField]: firebase.firestore.FieldValue.increment(dmg), [hitField]: firebase.firestore.FieldValue.increment(1) });
     });
-    if(isAttacker) t.war.attackerDamage = (t.war.attackerDamage || 0) + dmg;
-    else t.war.defenderDamage = (t.war.defenderDamage || 0) + dmg;
+    if(isAttacker){ t.war.attackerDamage = (t.war.attackerDamage || 0) + dmg; t.war.attackerHits = (t.war.attackerHits || 0) + 1; }
+    else { t.war.defenderDamage = (t.war.defenderDamage || 0) + dmg; t.war.defenderHits = (t.war.defenderHits || 0) + 1; }
     pushLog(state, `${isAttacker ? 'Struck' : 'Defended'} outpost ${tid.toUpperCase()} for ${dmg} damage.`, isAttacker ? 'win' : 'info');
     showToast(isAttacker ? '⚔️' : '🛡️', isAttacker ? 'Strike!' : 'Defended!', `+${dmg} damage this round`);
   }catch(e){
@@ -490,6 +498,8 @@ async function resolveWarRoundIfDue(tid){
         'war.round': (war.round || 1) + 1,
         'war.attackerDamage': 0,
         'war.defenderDamage': 0,
+        'war.attackerHits': 0,
+        'war.defenderHits': 0,
         'war.attackerWins': attackerWins,
         'war.defenderWins': defenderWins,
         'war.roundEndsAt': firebase.firestore.Timestamp.fromMillis(Date.now() + WAR_ROUND_HOURS * 3600000),
@@ -531,30 +541,48 @@ function renderWarBlock(t){
   const kdAtk = kingdomDef(war.attackerKingdom);
   const kdDef = kingdomDef(t.ownerKingdom);
   const endsAtMs = warTimestampMs(war.roundEndsAt);
+  const startedMs = warTimestampMs(war.startedAt) || Date.now();
   const totalDmg = (war.attackerDamage || 0) + (war.defenderDamage || 0);
-  const atkPct = totalDmg > 0 ? Math.round((war.attackerDamage / totalDmg) * 100) : 50;
+  const atkPct = totalDmg > 0 ? (war.attackerDamage / totalDmg) * 100 : 50;
+  const defPct = 100 - atkPct;
   const iAmAttacker = state.allianceId && state.allianceId === war.attackerKingdom;
   const iAmDefender = state.allianceId && state.allianceId === t.ownerKingdom;
-  const pips = (wins) => Array.from({ length: WAR_ROUNDS_TO_WIN }).map((_, i) => i < wins ? '●' : '○').join('');
-  return `<div class="war-panel" style="margin-top:8px;padding:10px;border:1px solid var(--brass-dim);border-radius:10px;background:rgba(0,0,0,.18);">
-    <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;color:var(--brass-bright);">
-      <span>⚔️ Siege — Round ${war.round}/3</span>
-      <span class="war-countdown" data-ends="${endsAtMs}">${formatWarCountdown(endsAtMs - Date.now())}</span>
+  const cost = getEnergyCost(state, TERRITORY_ATTACK_ENERGY);
+  const atkColor = kdAtk ? kdAtk.color : 'var(--copper)';
+  const defColor = kdDef ? kdDef.color : 'var(--brass)';
+  const pips = (wins, color) => Array.from({ length: WAR_ROUNDS_TO_WIN }).map((_, i) =>
+    `<i style="width:6px;height:6px;border-radius:50%;display:inline-block;margin:0 1px;background:${i < wins ? color : 'rgba(255,255,255,.18)'};"></i>`
+  ).join('');
+
+  return `<div class="war-panel" style="margin-top:8px;border:1px solid var(--brass-dim);border-radius:12px;overflow:hidden;background:linear-gradient(160deg,rgba(0,0,0,.35),rgba(0,0,0,.15));">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-bottom:1px solid var(--border);gap:6px;">
+      <div style="font-size:11px;font-weight:800;color:var(--brass-bright);white-space:nowrap;">⚔️ Round ${war.round}<span style="color:var(--dim);font-weight:500;">/3</span></div>
+      <div style="font-size:9px;color:var(--dim);font-family:var(--font-mono);white-space:nowrap;">Started ${formatWarCountdown(Date.now() - startedMs)} ago</div>
+      <div class="war-countdown" data-ends="${endsAtMs}" style="font-size:10px;font-weight:700;color:var(--brass-bright);font-family:var(--font-mono);white-space:nowrap;">⏱ ${formatWarCountdown(endsAtMs - Date.now())}</div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin:5px 0 3px;">
-      <span>${kdAtk ? kdAtk.emblem + ' ' + kdAtk.name : 'Attacker'} ${pips(war.attackerWins)}</span>
-      <span>${pips(war.defenderWins)} ${kdDef ? kdDef.emblem + ' ' + kdDef.name : 'Defender'}</span>
+
+    <div style="padding:8px 10px 4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:700;margin-bottom:4px;">
+        <span style="color:${atkColor};">${kdAtk ? kdAtk.emblem + ' ' + kdAtk.name : 'Attacker'} ${pips(war.attackerWins, atkColor)}</span>
+        <span style="color:${defColor};">${pips(war.defenderWins, defColor)} ${kdDef ? kdDef.emblem + ' ' + kdDef.name : 'Defender'}</span>
+      </div>
+      <div style="height:16px;border-radius:8px;overflow:hidden;display:flex;background:rgba(255,255,255,.06);">
+        <div style="width:${atkPct}%;background:${atkColor};display:flex;align-items:center;padding-left:6px;font-size:9px;font-weight:800;color:#fff;white-space:nowrap;transition:width .3s;">${atkPct >= 15 ? atkPct.toFixed(0) + '%' : ''}</div>
+        <div style="width:${defPct}%;background:${defColor};display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:9px;font-weight:800;color:#fff;white-space:nowrap;transition:width .3s;">${defPct >= 15 ? defPct.toFixed(0) + '%' : ''}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-top:3px;font-family:var(--font-mono);">
+        <span>🔥 ${formatWarNumber(war.attackerDamage)} · ${war.attackerHits || 0} strikes</span>
+        <span>${war.defenderHits || 0} strikes · ${formatWarNumber(war.defenderDamage)} 🔥</span>
+      </div>
     </div>
-    <div style="height:7px;border-radius:5px;overflow:hidden;background:var(--copper);display:flex;">
-      <div style="width:${atkPct}%;background:var(--green);"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-top:2px;">
-      <span>${war.attackerDamage || 0} dmg</span><span>${war.defenderDamage || 0} dmg</span>
-    </div>
-    <div style="display:flex;gap:6px;margin-top:8px;">
-      ${iAmAttacker ? `<button class="act-btn copper" style="flex:1;font-size:11px;" onclick="contributeToWar('${t.id}','attack')">⚔️ Attack</button>` : ''}
-      ${iAmDefender ? `<button class="act-btn buy" style="flex:1;font-size:11px;" onclick="contributeToWar('${t.id}','defend')">🛡️ Defend</button>` : ''}
-      ${!iAmAttacker && !iAmDefender ? `<div style="flex:1;text-align:center;font-size:10px;color:var(--dim);">Spectating this siege</div>` : ''}
+
+    <div style="display:flex;gap:1px;margin-top:6px;background:var(--border);">
+      <button ${iAmDefender ? '' : 'disabled'} onclick="contributeToWar('${t.id}','defend')" style="flex:1;border:none;padding:10px 6px;cursor:${iAmDefender ? 'pointer' : 'default'};background:${iAmDefender ? 'rgba(79,209,255,.16)' : 'rgba(255,255,255,.03)'};color:${iAmDefender ? '#cfeeff' : 'var(--dim)'};font-family:var(--font-head);font-weight:800;font-size:11px;">
+        🛡️ DEFEND<div style="font-size:8px;font-weight:500;margin-top:2px;">${iAmDefender ? `−${cost} energy` : 'not your side'}</div>
+      </button>
+      <button ${iAmAttacker ? '' : 'disabled'} onclick="contributeToWar('${t.id}','attack')" style="flex:1;border:none;padding:10px 6px;cursor:${iAmAttacker ? 'pointer' : 'default'};background:${iAmAttacker ? 'rgba(255,107,71,.18)' : 'rgba(255,255,255,.03)'};color:${iAmAttacker ? '#ffd7c9' : 'var(--dim)'};font-family:var(--font-head);font-weight:800;font-size:11px;">
+        ⚔️ ATTACK<div style="font-size:8px;font-weight:500;margin-top:2px;">${iAmAttacker ? `−${cost} energy` : 'not your side'}</div>
+      </button>
     </div>
   </div>`;
 }
