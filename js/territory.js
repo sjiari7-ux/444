@@ -430,6 +430,7 @@ async function loadWorldGeometry(){
   }catch(e){
     console.error('[Arcadia Territory] World geometry load failed:', e.message);
     worldGeometryError = e.message || 'Failed to load world borders.';
+    worldGeometryLoaded = true; // attempt finished (failed) — stop auto-retriggering every render
   }
   worldGeometryLoading = false;
   if(typeof renderBody === 'function' && activeTab === 'zones') renderBody();
