@@ -168,7 +168,7 @@ function renderGear(){
       const t = GEAR_TIERS[idx];
       const active = idx === forgeTier;
       const tierLocked = state.level < r.levelReq;
-      return `<button class="mini-btn ${active?'buy':''}" style="${active?'background:rgba(111,162,133,0.14);':''}color:${t.color};border-color:${t.color};${tierLocked?'opacity:0.4;':''}" onclick="selectForgeTier(${idx})" ${tierLocked?'disabled':''} title="Lv.${r.levelReq}">[${t.symbol}]</button>`;
+      return `<button class="mini-btn ${active?'buy':''}" style="${active?'background:rgba(255,195,92,0.14);':''}color:${t.color};border-color:${t.color};${tierLocked?'opacity:0.4;':''}" onclick="selectForgeTier(${idx})" ${tierLocked?'disabled':''} title="Lv.${r.levelReq}">[${t.symbol}]</button>`;
     }).join('');
 
     const resourceRows = Object.keys(recipe.inputs).map(inp=>{
