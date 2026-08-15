@@ -450,7 +450,7 @@ function renderBattle(){
         <div style="font-size:12px;color:var(--dim);">Level ${m.level}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <div class="${canAct?'animate-pulse':''}" style="font-family:'Cairo',sans-serif;font-weight:800;font-size:11px;letter-spacing:0.06em;padding:5px 10px;border-radius:20px;background:${canAct?'rgba(111,162,133,0.15)':'rgba(196,76,76,0.15)'};color:${canAct?'var(--green)':'var(--red)'};border:1px solid ${canAct?'var(--green)':'var(--red)'};text-transform:uppercase;">${canAct?'⚡ Your Turn':'👹 Enemy Turn'}</div>
+        <div class="${canAct?'animate-pulse':''}" style="font-family:'Cairo',sans-serif;font-weight:800;font-size:11px;letter-spacing:0.06em;padding:5px 10px;border-radius:20px;background:${canAct?'rgba(255,195,92,0.15)':'rgba(196,76,76,0.15)'};color:${canAct?'var(--green)':'var(--red)'};border:1px solid ${canAct?'var(--green)':'var(--red)'};text-transform:uppercase;">${canAct?'⚡ Your Turn':'👹 Enemy Turn'}</div>
         <button class="mini-btn" style="border-color:var(--border);color:var(--dim);font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;" onclick="toggleBattleCodex()"><img class="ui-icon" src="${ICONS.book_codex}" alt="📖"> Codex</button>
       </div>
     </div>
