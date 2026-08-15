@@ -54,6 +54,11 @@ let zoneSubTab = 'adventure';
 let pendingTax = {};
 let territoryLoadError = null;
 
+/* ===== WORLD GEOMETRY STATE (real country borders) ===== */
+let worldGeometryLoaded = false;
+let worldGeometryLoading = false;
+let worldGeometryError = null;
+
 /* ===== SEED & LOAD ===== */
 async function ensureTerritoriesSeeded(){
   if(!db) return;
@@ -113,9 +118,11 @@ async function retryLoadTerritories(){
 }
 
 async function initTerritoryOnStart(){
-  if(!db) { territoryLoaded = true; return; }
-  await ensureTerritoriesSeeded();
-  await loadTerritories(true);
+  if(!db) { territoryLoaded = true; worldGeometryLoaded = true; return; }
+  await Promise.all([
+    (async () => { await ensureTerritoriesSeeded(); await loadTerritories(true); })(),
+    loadWorldGeometry(),
+  ]);
 }
 
 /* ===== QUERIES ===== */
@@ -314,133 +321,137 @@ function setZoneSubTab(tab){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ARCADIA WORLD MAP — Realistic Continent Shapes
+   ARCADIA WORLD MAP — Real Country Borders
+   Each zone (continent) = Capital (center) + North/East/South/West,
+   built once at startup from real Natural Earth country borders.
    ═══════════════════════════════════════════════════════════ */
 const ARCADIA_WORLD = {
-  plains:   { label:'Europe',        color:'#3b6cb5', names:['Nordic Realm','British Isles','Central Europe','Mediterranean','Iberia'] },
-  forest:   { label:'Asia',          color:'#d4a843', names:['Siberia','East Asia','Central Asia','Indian Subcontinent','Southeast Asia'] },
-  swamp:    { label:'Arab World',    color:'#c17f24', names:['Levant & Anatolia','Mesopotamia','Hejaz','Eastern Arabia','Nile Valley'] },
-  mountain: { label:'Africa',        color:'#4a9b5e', names:['North Africa','West Africa','Horn of Africa','Central Africa','South Africa'] },
-  cave:     { label:'North America', color:'#b03a2e', names:['Alaska & Pacific NW','Canada','Western USA','Eastern USA','Mexico & Central'] },
-  dark:     { label:'South America', color:'#7d3c98', names:['Northern Andes','Brazil','Western Andes','Southern Cone','Patagonia'] },
+  plains:   { label:'Europe',        color:'#3b6cb5', names:['European Capital','Northern Europe','Eastern Europe','Southern Europe','Western Europe'] },
+  forest:   { label:'Asia',          color:'#d4a843', names:['Asian Capital','Northern Asia','Eastern Asia','Southern Asia','Western Asia'] },
+  swamp:    { label:'Arab World',    color:'#c17f24', names:['Arab Capital','Northern Arabia','Eastern Arabia','Southern Arabia','Western Arabia'] },
+  mountain: { label:'Africa',        color:'#4a9b5e', names:['African Capital','Northern Africa','Eastern Africa','Southern Africa','Western Africa'] },
+  cave:     { label:'North America', color:'#b03a2e', names:['NA Capital','Northern NA','Eastern NA','Southern NA','Western NA'] },
+  dark:     { label:'South America', color:'#7d3c98', names:['SA Capital','Northern SA','Eastern SA','Southern SA','Western SA'] },
 };
 
-/* Realistic geographic positions — world map layout */
-const WORLD_CONTINENTS = {
-  plains:   {x:480,y:150, label:'EUROPE', terrain:'PLAIN'},
-  forest:   {x:800,y:170, label:'ASIA', terrain:'FOREST'},
-  swamp:    {x:620,y:280, label:'ARAB WORLD', terrain:'DESERT'},
-  mountain: {x:500,y:380, label:'AFRICA', terrain:'MOUNTAIN'},
-  cave:     {x:160,y:180, label:'NORTH AMERICA', terrain:'CAVE'},
-  dark:     {x:260,y:460, label:'SOUTH AMERICA', terrain:'DARK'},
-};
+/* ISO-3166-1 numeric codes carved out of the naive continent detector
+   and forced into the Arab World / Middle East zone. */
+const MIDDLE_EAST_CODES = new Set(['682','784','634','414','048','512','887','368','760','400','422','376','275','364','792','818']);
+const CAPITAL_FRACTION = 0.28;
+const ZONE_ORDER = ['CAP','N','E','S','W']; // idx 0..4 — idx0 must stay the capital (matches TERRITORY_CAPITAL_INDEX)
 
-/* Realistic continent shapes (5 territories each) */
-const WORLD_TERRITORY_SHAPES = {
-  // ─── EUROPE ───
-  plains: [
-    /* 1 Nordic Realm (Scandinavia) */
-    [[15,5],[55,0],[75,20],[55,45],[25,40]],
-    /* 2 British Isles */
-    [[5,35],[35,30],[45,55],[20,65],[0,50]],
-    /* 3 Central Europe */
-    [[25,40],[55,45],[65,75],[40,90],[15,70]],
-    /* 4 Mediterranean (Italy/Balkans) */
-    [[40,90],[65,75],[100,70],[80,110],[50,105]],
-    /* 5 Iberia */
-    [[5,75],[15,70],[40,90],[50,105],[25,125],[5,100]]
-  ],
-  // ─── ASIA ───
-  forest: [
-    /* 1 Siberia */
-    [[10,5],[80,0],[120,20],[100,50],[30,40]],
-    /* 2 East Asia/China */
-    [[100,50],[120,20],[155,40],[140,90],[90,85]],
-    /* 3 Central Asia */
-    [[30,40],[100,50],[90,85],[40,90],[20,65]],
-    /* 4 Indian Subcontinent */
-    [[20,65],[40,90],[70,125],[35,140],[15,100]],
-    /* 5 Southeast Asia */
-    [[40,90],[90,85],[140,90],[120,135],[70,125]]
-  ],
-  // ─── ARAB WORLD ───
-  swamp: [
-    /* 1 Levant & Anatolia */
-    [[15,10],[70,5],[95,25],[65,45],[20,35]],
-    /* 2 Mesopotamia */
-    [[65,45],[95,25],[120,40],[100,75],[70,65]],
-    /* 3 Hejaz (West Arabia) */
-    [[20,35],[65,45],[70,65],[45,110],[15,90]],
-    /* 4 Eastern Arabia */
-    [[70,65],[100,75],[110,105],[75,120],[45,110]],
-    /* 5 Nile Valley */
-    [[15,90],[45,110],[75,120],[55,150],[20,130]]
-  ],
-  // ─── AFRICA ───
-  mountain: [
-    /* 1 North Africa */
-    [[20,10],[80,5],[110,25],[90,55],[30,45]],
-    /* 2 West Africa */
-    [[30,45],[90,55],[80,100],[25,110],[10,75]],
-    /* 3 Horn of Africa */
-    [[90,55],[110,25],[140,45],[130,105],[80,100]],
-    /* 4 Central Africa */
-    [[25,110],[80,100],[130,105],[110,145],[40,135]],
-    /* 5 South Africa */
-    [[40,135],[110,145],[95,180],[50,190],[30,160]]
-  ],
-  // ─── NORTH AMERICA ───
-  cave: [
-    /* 1 Alaska & Pacific NW */
-    [[10,5],[50,0],[65,25],[55,55],[20,50]],
-    /* 2 Canada */
-    [[55,25],[110,20],[125,55],[95,75],[55,55]],
-    /* 3 Western USA */
-    [[20,50],[55,55],[95,75],[85,115],[30,105]],
-    /* 4 Eastern USA */
-    [[95,75],[125,55],[145,75],[135,115],[85,115]],
-    /* 5 Mexico & Central America */
-    [[30,105],[85,115],[135,115],[110,155],[50,145]]
-  ],
-  // ─── SOUTH AMERICA ───
-  dark: [
-    /* 1 Northern Andes (Colombia/Venezuela) */
-    [[25,15],[75,10],[100,35],[70,55],[20,45]],
-    /* 2 Brazil */
-    [[70,55],[100,35],[125,80],[90,115],[55,90]],
-    /* 3 Western Andes (Peru/Ecuador) */
-    [[20,45],[70,55],[55,90],[20,100],[5,70]],
-    /* 4 Southern Cone (Argentina) */
-    [[55,90],[90,115],[75,160],[40,170],[35,125]],
-    /* 5 Patagonia/Chile */
-    [[20,100],[55,90],[35,125],[40,170],[15,150]]
-  ],
-};
-
-function worldTerritoryPath(cx,cy,zone,idx){
-  const raw=(WORLD_TERRITORY_SHAPES[zone]||[])[idx]||[];
-  const pts=raw.map(p=>[cx+p[0],cy+p[1]]);
-  if(!pts.length) return '';
-  const n=pts.length;
-  let d='';
-  for(let i=0;i<n;i++){
-    const prev=pts[(i-1+n)%n], cur=pts[i], next=pts[(i+1)%n];
-    const cut=Math.min(9,Math.hypot(next[0]-cur[0],next[1]-cur[1])*0.16);
-    const pd=Math.hypot(prev[0]-cur[0],prev[1]-cur[1])||1;
-    const nd=Math.hypot(next[0]-cur[0],next[1]-cur[1])||1;
-    const a=[cur[0]+(prev[0]-cur[0])*cut/pd,cur[1]+(prev[1]-cur[1])*cut/pd];
-    const b=[cur[0]+(next[0]-cur[0])*cut/nd,cur[1]+(next[1]-cur[1])*cut/nd];
-    if(i===0)d=`M ${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
-    else d+=` L ${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
-    d+=` Q ${cur[0].toFixed(1)} ${cur[1].toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
-  }
-  return d+' Z';
+function classifyZone([lon, lat], isoId){
+  if(MIDDLE_EAST_CODES.has(String(isoId))) return 'swamp';
+  // Oceania has no dedicated zone in this game — folds into Asia.
+  if((lat < -10 && (lon > 150 || lon < -150)) || (lon >= 110 && lat < 0)) return 'forest';
+  if(lon < -30) return lat >= 13 ? 'cave' : 'dark';
+  if(lat >= 35 && lon < 45) return 'plains';
+  if(lat < 35 && lon < 55) return 'mountain';
+  return 'forest';
 }
 
-function worldTerritoryCentroid(zone,idx){
-  const c=WORLD_CONTINENTS[zone], pts=WORLD_TERRITORY_SHAPES[zone][idx];
-  const x=pts.reduce((a,p)=>a+p[0],0)/pts.length, y=pts.reduce((a,p)=>a+p[1],0)/pts.length;
-  return {x:c.x+x,y:c.y+y};
+const WORLD_VIEWBOX = { w: 1040, h: 700 };
+const worldProjection = d3.geoNaturalEarth1().scale(190).translate([WORLD_VIEWBOX.w/2 - 20, WORLD_VIEWBOX.h/2 + 20]);
+const worldGeoPath = d3.geoPath(worldProjection);
+
+/* zone -> ['CAP'|'N'|'E'|'S'|'W'] -> {path, cx, cy} */
+let WORLD_GEOMETRY = {};
+
+async function loadWorldGeometry(){
+  if(worldGeometryLoaded || worldGeometryLoading) return;
+  worldGeometryLoading = true;
+  worldGeometryError = null;
+  try{
+    const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const topo = await res.json();
+    const collection = topojson.feature(topo, topo.objects.countries);
+    const geoms = topo.objects.countries.geometries;
+
+    const byZone = {};
+    Object.keys(ARCADIA_WORLD).forEach(z => byZone[z] = []);
+
+    collection.features.forEach(f => {
+      const centroid = d3.geoCentroid(f);
+      if(!isFinite(centroid[0]) || !isFinite(centroid[1])) return;
+      const zone = classifyZone(centroid, f.id);
+      const geom = geoms.find(gm => gm.id === f.id);
+      if(geom) byZone[zone].push({ geom, centroid });
+    });
+
+    const geometry = {};
+    Object.entries(byZone).forEach(([zone, list]) => {
+      if(!list.length) return;
+      const merged = topojson.merge(topo, list.map(c => c.geom));
+      const zoneCentroid = d3.geoCentroid({ type:'MultiPolygon', coordinates: merged.coordinates });
+
+      let maxDist = 0;
+      list.forEach(c => {
+        const dLon = c.centroid[0] - zoneCentroid[0];
+        const dLat = c.centroid[1] - zoneCentroid[1];
+        c.dist = Math.sqrt(dLon*dLon + dLat*dLat);
+        c.angle = Math.atan2(dLat, dLon) * 180 / Math.PI;
+        if(c.dist > maxDist) maxDist = c.dist;
+      });
+      const threshold = maxDist * CAPITAL_FRACTION;
+
+      const buckets = { CAP:[], N:[], E:[], S:[], W:[] };
+      list.forEach(c => {
+        if(c.dist <= threshold){ buckets.CAP.push(c); return; }
+        const a = c.angle;
+        if(a >= -45 && a < 45) buckets.E.push(c);
+        else if(a >= 45 && a < 135) buckets.N.push(c);
+        else if(a <= -45 && a > -135) buckets.S.push(c);
+        else buckets.W.push(c);
+      });
+      if(buckets.CAP.length === 0){
+        list.sort((a,b)=>a.dist-b.dist);
+        const closest = list[0];
+        ['N','E','S','W'].forEach(k => {
+          const idx = buckets[k].indexOf(closest);
+          if(idx > -1) buckets[k].splice(idx,1);
+        });
+        buckets.CAP.push(closest);
+      }
+
+      geometry[zone] = {};
+      ZONE_ORDER.forEach(kind => {
+        const chunk = buckets[kind];
+        if(!chunk.length){ geometry[zone][kind] = null; return; }
+        const mergedChunk = topojson.merge(topo, chunk.map(c => c.geom));
+        const path = worldGeoPath(mergedChunk);
+        const [cx, cy] = worldGeoPath.centroid(mergedChunk);
+        geometry[zone][kind] = { path: path || '', cx: isFinite(cx) ? cx : 0, cy: isFinite(cy) ? cy : 0 };
+      });
+    });
+
+    WORLD_GEOMETRY = geometry;
+    worldGeometryLoaded = true;
+  }catch(e){
+    console.error('[Arcadia Territory] World geometry load failed:', e.message);
+    worldGeometryError = e.message || 'Failed to load world borders.';
+  }
+  worldGeometryLoading = false;
+  if(typeof renderBody === 'function' && activeTab === 'zones') renderBody();
+}
+
+async function retryLoadWorldGeometry(){
+  worldGeometryLoaded = false;
+  worldGeometryError = null;
+  await loadWorldGeometry();
+  if(typeof renderBody === 'function') renderBody();
+}
+
+function worldTerritoryPath(cx, cy, zone, idx){
+  const kind = ZONE_ORDER[idx];
+  const g = WORLD_GEOMETRY[zone] && WORLD_GEOMETRY[zone][kind];
+  return g ? g.path : '';
+}
+
+function worldTerritoryCentroid(zone, idx){
+  const kind = ZONE_ORDER[idx];
+  const g = WORLD_GEOMETRY[zone] && WORLD_GEOMETRY[zone][kind];
+  return g ? { x: g.cx, y: g.cy } : { x: WORLD_VIEWBOX.w/2, y: WORLD_VIEWBOX.h/2 };
 }
 
 function worldTerritoryId(zone,idx){ return `${zone}_${idx+1}`; }
@@ -487,7 +498,7 @@ function searchArcadiaTerritory(v){
   }
 }
 function focusArcadiaTerritory(zone,idx){
-  const c=WORLD_CONTINENTS[zone]; const pt=worldTerritoryCentroid(zone,idx);
+  const pt=worldTerritoryCentroid(zone,idx);
   const px=pt.x, py=pt.y;
   arcadiaMapZoom=Math.max(1.35,arcadiaMapZoom); arcadiaMapPan={x:520-px*arcadiaMapZoom,y:350-py*arcadiaMapZoom}; renderArcadiaMapTransform();
 }
@@ -508,7 +519,7 @@ function renderKingdomMapSVG(myKingdom){
   const world=[...Object.entries(ARCADIA_WORLD)];
   const territories=world.flatMap(([zone,z])=>z.names.map((name,idx)=>({zone,z,name,idx,meta:worldTerritoryMeta(zone,idx)})));
   const svgTerritories=territories.map(o=>{
-    const c=WORLD_CONTINENTS[o.zone], path=worldTerritoryPath(c.x,c.y,o.zone,o.idx), t=o.meta.t;
+    const path=worldTerritoryPath(0,0,o.zone,o.idx), t=o.meta.t;
     const kd=t&&kingdomDef(t.ownerKingdom), mine=t&&t.ownerKingdom===myKingdom, selected=arcadiaMapSelected===o.meta.id;
     const fill=kd?kd.color:o.z.color, opacity=kd?.75:.62;
     return `<g class="world-territory ${selected?'selected':''}" data-territory="${o.meta.id}">
@@ -539,6 +550,8 @@ function renderKingdomMap(){
   if(!db) return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🔌 Kingdom warfare requires cloud save (Firebase) to be configured.</div>`;
   if(!territoryLoaded){ loadTerritories(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading the world map…</div>`; }
   if(territoryLoadError) return `<div class="panel" style="padding:30px;text-align:center;"><div style="font-size:32px">⚠️</div><div style="color:var(--red);font-weight:700">Couldn't load the world map</div><div style="color:var(--dim);font-size:12px;margin:8px 0 16px">${territoryLoadError}</div><button class="btn btn-primary" onclick="retryLoadTerritories()">🔄 Retry</button></div>`;
+  if(!worldGeometryLoaded){ loadWorldGeometry(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">🌍 Loading world borders…</div>`; }
+  if(worldGeometryError) return `<div class="panel" style="padding:30px;text-align:center;"><div style="font-size:32px">⚠️</div><div style="color:var(--red);font-weight:700">Couldn't load world borders</div><div style="color:var(--dim);font-size:12px;margin:8px 0 16px">${worldGeometryError}</div><button class="btn btn-primary" onclick="retryLoadWorldGeometry()">🔄 Retry</button></div>`;
   if(territoryZoneView) return renderZoneOutposts(territoryZoneView);
   const myKingdom=state.allianceId;
   setTimeout(()=>{bindArcadiaMapInteractions(); renderArcadiaMapTransform(); renderArcadiaMapSelection();},0);
