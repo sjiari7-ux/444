@@ -1,21 +1,24 @@
 // ─── UI Renderers ───
 function renderBodyHTML(){
   if(battleState) return renderBattle();
+  let html;
   switch(activeTab){
-    case 'production': return renderProduction();
-    case 'inventory': return renderInventory();
-    case 'market': return renderMarket();
-    case 'gear': return renderGear();
-    case 'class': return renderClass();
-    case 'skills': return renderSkills();
-    case 'missions': return renderMissions();
-    case 'leaderboard': return renderLeaderboard();
-    case 'companies': return renderCompanies();
-    case 'alliance': return renderAlliance();
-    case 'settings': return renderSettings();
-    case 'zones': return renderZonesTab();
-    default: return '';
+    case 'production': html = renderProduction(); break;
+    case 'inventory': html = renderInventory(); break;
+    case 'market': html = renderMarket(); break;
+    case 'gear': html = renderGear(); break;
+    case 'class': html = renderClass(); break;
+    case 'skills': html = renderSkills(); break;
+    case 'missions': html = renderMissions(); break;
+    case 'leaderboard': html = renderLeaderboard(); break;
+    case 'companies': html = renderCompanies(); break;
+    case 'alliance': html = renderAlliance(); break;
+    case 'settings': html = renderSettings(); break;
+    case 'zones': html = renderZonesTab(); break;
+    default: html = ''; break;
   }
+  if(typeof activeWarModalId !== 'undefined' && activeWarModalId) html += renderWarDetailModal();
+  return html;
 }
 
 function renderProduction(){
