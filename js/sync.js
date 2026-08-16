@@ -50,6 +50,9 @@ function stateToFirestore(s){
     marketTab: s.marketTab, marketSearch: s.marketSearch,
     marketLevelFilter: s.marketLevelFilter,
     watchedItems: s.watchedItems, marketNotifications: s.marketNotifications,
+    // Supply & demand: persist each resource's virtual reserve + last known
+    // price so a player's own buying/selling impact survives a reload.
+    marketReserves: s.marketReserves, prices: s.prices,
     notifications: s.notifications,
     // Alliance (membership is the source of truth on the players doc;
     // allianceId/allianceRole are also updated directly by alliance.js actions)
@@ -80,14 +83,15 @@ function firestoreToState(data){
   const inv = {};
   Object.keys(MARKET_CATALOG).forEach(k=> inv[k]=0);
   Object.assign(inv, data.resources || {});
-  const prices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prices[k]=MARKET_CATALOG[k].basePrice);
-  const prevPrices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prevPrices[k]=MARKET_CATALOG[k].basePrice);
-  const priceHistory = {}; Object.keys(MARKET_CATALOG).forEach(k=> priceHistory[k]=[MARKET_CATALOG[k].basePrice]);
+  const prices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prices[k]=(data.prices && typeof data.prices[k]==='number') ? data.prices[k] : MARKET_CATALOG[k].basePrice);
+  const prevPrices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prevPrices[k]=prices[k]);
+  const priceHistory = {}; Object.keys(MARKET_CATALOG).forEach(k=> priceHistory[k]=[prices[k]]);
+  const marketReserves = {}; Object.keys(MARKET_CATALOG).forEach(k=> marketReserves[k]=(data.marketReserves && data.marketReserves[k]) ? data.marketReserves[k] : makeMarketReserve(prices[k]));
   return {
-    version: 8, level: data.level || 1, xp: data.xp || 0, xpToNext: data.xpToNext || 35,
+    version: 9, level: data.level || 1, xp: data.xp || 0, xpToNext: data.xpToNext || 35,
     gold: data.gold || 100, energy: data.stamina || 100, maxEnergy: data.maxStamina || 100,
     lastEnergyTs: Date.now(), storageCap: 500,
-    inv: inv, prices: prices, prevPrices: prevPrices, priceHistory: priceHistory, lastPriceTs: Date.now(),
+    inv: inv, prices: prices, prevPrices: prevPrices, priceHistory: priceHistory, marketReserves: marketReserves, lastPriceTs: Date.now(),
     combat: data.combat || { wins:0, losses:0 }, missions: null,
     log: [], lastTimestamp: Date.now(),
     prestige: data.prestige || { points:0, gatherBonus:0, sellBonus:0, energyBonus:0, storageBonus:0 },
