@@ -306,30 +306,57 @@ const STAT_POOL = ['health','damage','defense','stamina','storage','profit'];
 /* ═══════════════════════════════════════════════════════════════
    MISSIONS SYSTEM — Daily, Weekly & Starting
    ═══════════════════════════════════════════════════════════════ */
+// Daily & weekly mission targets/rewards scale with the player's level so a
+// level 1 player gets an achievable target and a level 60 player gets a
+// meaningfully bigger one — same mission list, no separate tiers to maintain.
+// Pivoted around level 10 (scale = 1.0 there, matching the numbers below).
+function missionLevelScale(level){
+  return Math.max(0.35, Math.min(3, (level || 1) / 10));
+}
+// Starting missions still use a plain `target` field and are left exactly
+// as-is (already tutorial-easy, one-time). Only daily/weekly (which use the
+// new `baseTarget` field) get scaled. 'level_reached' targets a specific
+// player level, so scaling that by the player's own level would be circular.
+function missionTarget(m, level){
+  if(typeof m.target === 'number') return m.target;
+  if(m.track === 'level_reached') return m.baseTarget;
+  return Math.max(1, Math.round(m.baseTarget * missionLevelScale(level)));
+}
+function missionReward(m, level){
+  if(typeof m.target === 'number') return m.reward;
+  const s = Math.sqrt(missionLevelScale(level));
+  const r = {};
+  if(m.reward.xp) r.xp = Math.max(1, Math.round(m.reward.xp * s));
+  if(m.reward.gold) r.gold = Math.max(1, Math.round(m.reward.gold * s));
+  return r;
+}
+function missionTitle(m, level){
+  return m.title.replace('{n}', missionTarget(m, level).toLocaleString());
+}
 
 const DAILY_MISSIONS = [
-  { id:'daily_collect', title:'Collect 150 resources',        target:150, reward:{xp:25},          icon:'🌲', track:'collected' },
-  { id:'daily_craft',   title:'Craft 10 products',             target:10,  reward:{xp:30},          icon:'🛠️', track:'crafted' },
-  { id:'daily_sell',    title:'Sell 200 units on the market',  target:200, reward:{xp:25, gold:30},  icon:'📈', track:'sold' },
-  { id:'daily_buy',     title:'Buy 100 units from the market', target:100, reward:{xp:20, gold:20},  icon:'🛒', track:'bought' },
-  { id:'daily_battles', title:'Enter 8 battles',                target:8,   reward:{xp:35},          icon:'⚔️', track:'battles_started' },
-  { id:'daily_hits',    title:'Land 40 hits in battle',         target:40,  reward:{xp:30},          icon:'💥', track:'hits_landed' },
-  { id:'daily_wins',    title:'Win 5 battles',                  target:5,   reward:{xp:40, gold:40},  icon:'🏆', track:'battles_won' },
-  { id:'daily_eat',     title:'Eat 10 food items',              target:10,  reward:{xp:20},          icon:'🍞', track:'eat_food' },
-  { id:'daily_potions', title:'Drink 5 energy potions',         target:5,   reward:{xp:20},          icon:'🧪', track:'used_potion' },
-  { id:'daily_donate',  title:'Donate 500 to your kingdom',    target:500, reward:{xp:40, gold:20},  icon:'🏛️', track:'alliance_donated' },
+  { id:'daily_collect', title:'Collect {n} resources',        baseTarget:150, reward:{xp:25, gold:20},  icon:'🌲', track:'collected' },
+  { id:'daily_craft',   title:'Craft {n} products',             baseTarget:10,  reward:{xp:30, gold:25},  icon:'🛠️', track:'crafted' },
+  { id:'daily_sell',    title:'Sell {n} units on the market',  baseTarget:200, reward:{xp:25, gold:30},  icon:'📈', track:'sold' },
+  { id:'daily_buy',     title:'Buy {n} units from the market', baseTarget:100, reward:{xp:20, gold:20},  icon:'🛒', track:'bought' },
+  { id:'daily_battles', title:'Enter {n} battles',                baseTarget:8,   reward:{xp:35, gold:25},  icon:'⚔️', track:'battles_started' },
+  { id:'daily_hits',    title:'Land {n} hits in battle',         baseTarget:40,  reward:{xp:30, gold:25},  icon:'💥', track:'hits_landed' },
+  { id:'daily_wins',    title:'Win {n} battles',                  baseTarget:5,   reward:{xp:40, gold:40},  icon:'🏆', track:'battles_won' },
+  { id:'daily_eat',     title:'Eat {n} food items',              baseTarget:10,  reward:{xp:20, gold:15},  icon:'🍞', track:'eat_food' },
+  { id:'daily_potions', title:'Drink {n} energy potions',         baseTarget:5,   reward:{xp:20, gold:15},  icon:'🧪', track:'used_potion' },
+  { id:'daily_donate',  title:'Donate {n} to your kingdom',    baseTarget:500, reward:{xp:40, gold:20},  icon:'🏛️', track:'alliance_donated' },
 ];
 
 const WEEKLY_MISSIONS = [
-  { id:'weekly_wins',    title:'Win 30 battles',                          target:30,   reward:{xp:150, gold:100}, icon:'🏆', track:'battles_won' },
-  { id:'weekly_sell',    title:'Sell 1000 units on the market',           target:1000, reward:{xp:100, gold:80},  icon:'📈', track:'sold' },
-  { id:'weekly_collect', title:'Collect 1000 resources',                  target:1000, reward:{xp:100, gold:60},  icon:'🌲', track:'collected' },
-  { id:'weekly_craft',   title:'Craft 40 products',                       target:40,   reward:{xp:110, gold:70},  icon:'🛠️', track:'crafted' },
-  { id:'weekly_equip',   title:'Equip 5 gear pieces',                     target:5,    reward:{xp:80,  gold:50},  icon:'🗡️', track:'gear_equipped' },
-  { id:'weekly_upgrade', title:'Successfully upgrade gear 8 times',       target:8,    reward:{xp:120, gold:100}, icon:'⬆️', track:'gear_upgraded' },
-  { id:'weekly_forge',   title:'Forge 5 gear items',                      target:5,    reward:{xp:90,  gold:60},  icon:'⚒️', track:'gear_crafted' },
-  { id:'weekly_donate',  title:'Donate 2000 to your kingdom',            target:2000, reward:{xp:130, gold:80},  icon:'🏛️', track:'alliance_donated' },
-  { id:'weekly_potions', title:'Drink 15 energy potions',                 target:15,   reward:{xp:70,  gold:40},  icon:'🧪', track:'used_potion' },
+  { id:'weekly_wins',    title:'Win {n} battles',                          baseTarget:30,   reward:{xp:150, gold:100}, icon:'🏆', track:'battles_won' },
+  { id:'weekly_sell',    title:'Sell {n} units on the market',           baseTarget:1000, reward:{xp:100, gold:80},  icon:'📈', track:'sold' },
+  { id:'weekly_collect', title:'Collect {n} resources',                  baseTarget:1000, reward:{xp:100, gold:60},  icon:'🌲', track:'collected' },
+  { id:'weekly_craft',   title:'Craft {n} products',                       baseTarget:40,   reward:{xp:110, gold:70},  icon:'🛠️', track:'crafted' },
+  { id:'weekly_equip',   title:'Equip {n} gear pieces',                     baseTarget:5,    reward:{xp:80,  gold:50},  icon:'🗡️', track:'gear_equipped' },
+  { id:'weekly_upgrade', title:'Successfully upgrade gear {n} times',       baseTarget:8,    reward:{xp:120, gold:100}, icon:'⬆️', track:'gear_upgraded' },
+  { id:'weekly_forge',   title:'Forge {n} gear items',                      baseTarget:5,    reward:{xp:90,  gold:60},  icon:'⚒️', track:'gear_crafted' },
+  { id:'weekly_donate',  title:'Donate {n} to your kingdom',            baseTarget:2000, reward:{xp:130, gold:80},  icon:'🏛️', track:'alliance_donated' },
+  { id:'weekly_potions', title:'Drink {n} energy potions',                 baseTarget:15,   reward:{xp:70,  gold:40},  icon:'🧪', track:'used_potion' },
 ];
 
 const STARTING_MISSIONS = [
