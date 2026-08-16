@@ -49,7 +49,7 @@ const ALLIANCE_DONATABLE = ['gold','wood','stone','iron','food','herbs','gemston
 
 /* ===== VIEW STATE (not persisted) ===== */
 let allianceData = null;         // { alliance, members[], myMember }
-let allianceView = 'browse';     // browse | home | members | chat | manage
+let allianceView = 'browse';     // browse | home | members | treasury | manage
 let allianceLoading = false;
 let allianceBrowseResults = [];  // the 6 kingdoms, merged with live Firestore stats
 let allianceBrowseSearched = false;
@@ -626,16 +626,16 @@ function renderAllianceDashboard(){
   const nextLvl = allianceNextLevelInfo(alliance.level || 1);
   const pointsPct = nextLvl ? Math.min(100, ((alliance.points||0) - lvlInfo.cost) / (nextLvl.cost - lvlInfo.cost) * 100) : 100;
 
-  const chatBadge = typeof allianceChatUnread !== 'undefined' ? allianceChatUnread : 0;
   const tabs = [
-    { id:'home',    label:'🏰 Home' },
-    { id:'members', label:'👥 Members' },
-    { id:'chat',    label:'💬 Chat', badge: chatBadge, onclick: "openChatDrawer('alliance')" },
+    { id:'home',     label:'🏰 Home' },
+    { id:'members',  label:'👥 Members' },
+    { id:'treasury', label:'💰 Treasury' },
   ];
   if(allianceCan(role,'editInfo')) tabs.push({ id:'manage', label:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️"> Manage` });
 
   let body = '';
   if(allianceView === 'members') body = renderAllianceMembers();
+  else if(allianceView === 'treasury') body = renderAllianceTreasury();
   else if(allianceView === 'manage') body = renderAllianceManage();
   else body = renderAllianceHome();
 
@@ -718,8 +718,6 @@ function renderAllianceOverview(){
 function renderAllianceHome(){
   const { alliance, myMember, members } = allianceData;
   const kdef = kingdomDef(alliance.continent) || {};
-  const treasury = alliance.treasury || {};
-  const treasuryEntries = Object.keys(treasury).filter(k => treasury[k] > 0);
   const weeklyTotal = (members||[]).reduce((sum,m)=> sum + (m.weeklyDonated||0), 0);
   const activeThisWeek = (members||[]).filter(m => (m.weeklyDonated||0) > 0).length;
 
@@ -743,6 +741,21 @@ function renderAllianceHome(){
         </div>
       </div>
     </div>
+    <div class="panel">
+      <div class="panel-header">🚪 Kingdom Actions</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="act-btn" style="width:auto;padding:9px 16px;border-color:var(--red);color:var(--red);" onclick="leaveAllianceConfirm()">🚪 Leave Kingdom</button>
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px;">${state.allianceRole==='leader' ? 'Leadership passes automatically to the next-ranking member when you leave.' : 'Your lifetime donation record is kept.'} A 24h cooldown applies before pledging to another kingdom.</div>
+    </div>`;
+}
+
+function renderAllianceTreasury(){
+  const { alliance } = allianceData;
+  const treasury = alliance.treasury || {};
+  const treasuryEntries = Object.keys(treasury).filter(k => treasury[k] > 0);
+
+  return `
     <div class="panel" style="margin-bottom:10px;">
       <div class="panel-header">💰 Treasury</div>
       ${treasuryEntries.length ? `
@@ -759,13 +772,6 @@ function renderAllianceHome(){
           return `<button class="mini-btn" style="font-size:11px;" ${have<=0?'disabled':''} onclick="donateToAlliance('${k}', promptAllianceDonateAmount('${k}','${name}', ${have}))">${icon} ${name} (${fmtG(have)})</button>`;
         }).join('')}
       </div>
-    </div>
-    <div class="panel">
-      <div class="panel-header">🚪 Kingdom Actions</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="act-btn" style="width:auto;padding:9px 16px;border-color:var(--red);color:var(--red);" onclick="leaveAllianceConfirm()">🚪 Leave Kingdom</button>
-      </div>
-      <div style="font-size:10px;color:var(--dim);margin-top:6px;">${state.allianceRole==='leader' ? 'Leadership passes automatically to the next-ranking member when you leave.' : 'Your lifetime donation record is kept.'} A 24h cooldown applies before pledging to another kingdom.</div>
     </div>`;
 }
 
