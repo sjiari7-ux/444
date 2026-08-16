@@ -71,5 +71,16 @@ const ICONS = {
   bag_full: "icons/bag_full.png",
   market_chart: "icons/market_chart.png",
   craft: "icons/craft.png",
-  business: "icons/business.png"
+  business: "icons/business.png",
+
+  // New icons — waiting to know where each one is used
+  bell: "icons/bell.png",
+  leaderboard_trophy: "icons/leaderboard_trophy.png",
+  spellbook: "icons/spellbook.png",
+  class_shield: "icons/class_shield.png",
+  levelup_badge: "icons/levelup_badge.png",
+  quest_scroll: "icons/quest_scroll.png",
+  global_chat: "icons/global_chat.png",
+  star_coin: "icons/star_coin.png",
+  upgrade_scroll: "icons/upgrade_scroll.png"
 };
