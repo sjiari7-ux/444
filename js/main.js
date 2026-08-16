@@ -57,20 +57,22 @@ function updateMissionProgress(track, amount){
     const pool = type === 'daily' ? DAILY_MISSIONS : WEEKLY_MISSIONS;
     pool.forEach(m => {
       if(m.track === track && !state.missions[type].claimed.includes(m.id)){
+        const target = missionTarget(m, state.level);
         const current = state.missions[type].progress[m.id] || 0;
         state.missions[type].progress[m.id] = isAbsolute
-          ? Math.min(m.target, Math.max(current, amount))
-          : Math.min(m.target, current + amount);
+          ? Math.min(target, Math.max(current, amount))
+          : Math.min(target, current + amount);
       }
     });
   });
 
   STARTING_MISSIONS.forEach(m => {
     if(m.track === track && !state.missions.starting.claimed.includes(m.id)){
+      const target = missionTarget(m, state.level);
       const current = state.missions.starting.progress[m.id] || 0;
       state.missions.starting.progress[m.id] = isAbsolute
-        ? Math.min(m.target, Math.max(current, amount))
-        : Math.min(m.target, current + amount);
+        ? Math.min(target, Math.max(current, amount))
+        : Math.min(target, current + amount);
     }
   });
 }
@@ -81,27 +83,30 @@ function claimMissionReward(missionId, type){
   const mission = pool.find(m => m.id === missionId);
   if(!mission) return;
 
+  const target = missionTarget(mission, state.level);
+  const reward = missionReward(mission, state.level);
+  const title = missionTitle(mission, state.level);
   const progress = state.missions[type].progress[missionId] || 0;
-  if(progress < mission.target) return;
+  if(progress < target) return;
   if(state.missions[type].claimed.includes(missionId)) return;
 
-  if(mission.reward.xp){
-    const leveled = grantXp(state, mission.reward.xp);
+  if(reward.xp){
+    const leveled = grantXp(state, reward.xp);
     if(leveled){
       pushLog(state, `Level up! You are now level ${state.level}`, 'levelup');
       showToast('Level Up!', `Level ${state.level}`, 'levelup');
     }
   }
-  if(mission.reward.gold){
-    state.gold += mission.reward.gold;
-    state.totalGoldEarned += mission.reward.gold;
+  if(reward.gold){
+    state.gold += reward.gold;
+    state.totalGoldEarned += reward.gold;
   }
 
   state.missions[type].claimed.push(missionId);
   state.missions[type].completed = (state.missions[type].completed || 0) + 1;
 
-  pushLog(state, `Claimed ${type} mission: ${mission.title}`, 'win');
-  showToast('Mission Complete', `${mission.title} — Rewards claimed!`, 'win');
+  pushLog(state, `Claimed ${type} mission: ${title}`, 'win');
+  showToast('Mission Complete', `${title} — Rewards claimed!`, 'win');
   scheduleSave();
   renderBody();
 }
@@ -368,11 +373,6 @@ function updatePrices(){
     state.priceHistory[k].push(state.prices[k]);
     if(state.priceHistory[k].length > PRICE_HISTORY_LENGTH) state.priceHistory[k].shift();
   });
-}
-function ensureMarketReserve(key){
-  if(!state.marketReserves) state.marketReserves = {};
-  if(!state.marketReserves[key]) state.marketReserves[key] = makeMarketReserve(state.prices[key] || MARKET_CATALOG[key].basePrice);
-  return state.marketReserves[key];
 }
 function ensureMarketReserve(key){
   if(!state.marketReserves) state.marketReserves = {};
