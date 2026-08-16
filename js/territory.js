@@ -257,6 +257,10 @@ async function attackTerritory(tid){
     });
   } catch(e){
     console.error('[Arcadia Territory] Attack failed:', e.code || e.name, e.message);
+    // Transaction didn't go through, so the attack never happened server-side —
+    // give the energy back instead of silently losing it (matches the refund
+    // behavior already used in contributeToWar() for the same failure case).
+    state.energy = Math.min(getMaxEnergy(state), state.energy + cost);
     showToast('❌', 'Attack failed', 'Could not reach the server — try again.');
     scheduleSave();
     renderBody();
@@ -583,7 +587,7 @@ function renderWarFighterRow(c, kd, isTop){
   const dmgLabel = formatWarNumber(c.dmg) + (isTop ? '!' : '');
   return `<div class="war-fighter-row ${isTop ? 'top' : ''}">
     <span class="war-fighter-emblem" style="background:${kd ? kd.color : '#555'}">${kd ? kd.emblem : '❔'}</span>
-    <span class="war-fighter-name">${c.name || 'Player'}</span>
+    <span class="war-fighter-name">${escapeHtml(c.name || 'Player')}</span>
     <span class="war-fighter-dmg">🔥 ${dmgLabel}</span>
   </div>`;
 }
@@ -596,7 +600,7 @@ function renderWarRankRow(c, kd, rank){
   return `<div class="war-rank-row">
     <span class="war-rank-num">${rank}</span>
     <span class="war-rank-emblem" style="background:${kd ? kd.color : '#555'}">${kd ? kd.emblem : '❔'}</span>
-    <span class="war-rank-name">${c.name || 'Player'}</span>
+    <span class="war-rank-name">${escapeHtml(c.name || 'Player')}</span>
     <span class="war-rank-dmg">🔥 ${formatWarNumber(c.dmg)}</span>
   </div>`;
 }
