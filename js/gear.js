@@ -350,7 +350,7 @@ function renderGear(){
     ${state.gearBag.length === 0 ? '<div class="panel" style="text-align:center;color:var(--dim);padding:20px;">Bag is empty. Defeat monsters to find gear!</div>' : `<div class="gear-inv-grid-v2">${bagTiles}</div>`}
     ${bagDetail}
     <div class="panel" style="overflow-x:auto;margin-top:14px;">
-      <div class="panel-header">📈 Upgrade Table</div>
+      <div class="panel-header"><img class="ui-icon" src="${ICONS.upgrade_scroll}" alt="📈"> Upgrade Table</div>
       <div style="font-size:11px;color:var(--dim);margin-bottom:10px;margin-top:-4px;">Failure downgrades by 1 (except +0)</div>
       <table class="upgrade-table">
         <tr><th>Level</th><th>Shards</th><th>Gold</th><th>Gems</th><th>Success</th></tr>
@@ -413,7 +413,7 @@ function craftGear(slot, tier){
   const leveled = grantXp(state, recipe.xp);
   updateMissionProgress('gear_crafted', 1);
   pushLog(state, `Forged [${t.symbol}] ${finalName}!`, 'gear');
-  if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast('Level Up!', `Level ${state.level}`, 'levelup'); }
+  if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `Level ${state.level}`, 'levelup'); }
   customWeaponName = '';
   forgeReqOpen = false;
   renderBody(); scheduleSave();
