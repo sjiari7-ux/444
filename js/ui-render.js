@@ -679,7 +679,7 @@ function renderMissions(){
 
     const rewards = [];
     if(reward.xp) rewards.push(`<span class="mission-reward-xp">✨ ${reward.xp}</span>`);
-    if(reward.gold) rewards.push(`<span class="mission-reward-gold">🪙 ${reward.gold}</span>`);
+    if(reward.gold) rewards.push(`<span class="mission-reward-gold"><img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙"> ${reward.gold}</span>`);
 
     return `
       <div class="mission-card ${isClaimed?'claimed':''} ${isComplete&&!isClaimed?'ready':''}">
