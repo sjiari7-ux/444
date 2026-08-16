@@ -669,23 +669,26 @@ function renderMissions(){
   const data = current.data || { progress:{}, claimed:[] };
 
   const rows = pool.map(m => {
+    const target = missionTarget(m, state.level);
+    const reward = missionReward(m, state.level);
+    const title = missionTitle(m, state.level);
     const progress = data.progress[m.id] || 0;
     const isClaimed = data.claimed.includes(m.id);
-    const isComplete = progress >= m.target;
-    const pct = Math.min(100, (progress/m.target)*100);
+    const isComplete = progress >= target;
+    const pct = Math.min(100, (progress/target)*100);
 
     const rewards = [];
-    if(m.reward.xp) rewards.push(`<span class="mission-reward-xp">✨ ${m.reward.xp}</span>`);
-    if(m.reward.gold) rewards.push(`<span class="mission-reward-gold">🪙 ${m.reward.gold}</span>`);
+    if(reward.xp) rewards.push(`<span class="mission-reward-xp">✨ ${reward.xp}</span>`);
+    if(reward.gold) rewards.push(`<span class="mission-reward-gold">🪙 ${reward.gold}</span>`);
 
     return `
       <div class="mission-card ${isClaimed?'claimed':''} ${isComplete&&!isClaimed?'ready':''}">
         <div class="mission-icon">${m.icon}</div>
         <div class="mission-body">
-          <div class="mission-title">${m.title}</div>
+          <div class="mission-title">${title}</div>
           <div class="mission-progress-bar-track">
             <div class="mission-progress-bar-fill" style="width:${pct}%"></div>
-            <span class="mission-progress-text">${progress}/${m.target}</span>
+            <span class="mission-progress-text">${progress}/${target}</span>
           </div>
         </div>
         <div class="mission-rewards">${rewards.join('')}</div>
