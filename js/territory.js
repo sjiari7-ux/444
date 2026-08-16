@@ -1072,13 +1072,23 @@ function renderWarDetailModal(){
       <div class="war-modal-title">${z.icon || '🗺️'} ${z.names[idx]}</div>
 
       <div class="war-modal-kingdoms">
-        <div class="war-modal-kd">
-          <span class="war-modal-kd-emblem" style="background:${atkColor}">${kdAtk ? kdAtk.emblem : '❔'}</span>
-          <span class="war-modal-kd-name" style="color:${atkColor}">${kdAtk ? kdAtk.name : 'Attacker'}</span>
+        <div class="war-modal-kd" style="flex-direction:column;align-items:flex-start;gap:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="war-modal-kd-emblem" style="background:${atkColor}">${kdAtk ? kdAtk.emblem : '❔'}</span>
+            <span class="war-modal-kd-name" style="color:${atkColor}">${kdAtk ? kdAtk.name : 'Attacker'}</span>
+          </div>
+          <button class="war-modal-btn attack" onclick="contributeToWar('${t.id}','attack')" style="width:100%;background:color-mix(in srgb, ${atkColor} 18%, transparent);border:1px solid color-mix(in srgb, ${atkColor} 55%, transparent);color:${atkColor};">
+            ⚔️ ATTACK<div class="war-modal-btn-cost">−${cost} energy</div>
+          </button>
         </div>
-        <div class="war-modal-kd reverse">
-          <span class="war-modal-kd-name" style="color:${defColor}">${kdDef ? kdDef.name : 'Defender'}</span>
-          <span class="war-modal-kd-emblem" style="background:${defColor}">${kdDef ? kdDef.emblem : '❔'}</span>
+        <div class="war-modal-kd reverse" style="flex-direction:column;align-items:flex-end;gap:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="war-modal-kd-name" style="color:${defColor}">${kdDef ? kdDef.name : 'Defender'}</span>
+            <span class="war-modal-kd-emblem" style="background:${defColor}">${kdDef ? kdDef.emblem : '❔'}</span>
+          </div>
+          <button class="war-modal-btn defend" onclick="contributeToWar('${t.id}','defend')" style="width:100%;background:color-mix(in srgb, ${defColor} 18%, transparent);border:1px solid color-mix(in srgb, ${defColor} 55%, transparent);color:${defColor};">
+            🛡️ DEFEND<div class="war-modal-btn-cost">−${cost} energy</div>
+          </button>
         </div>
       </div>
 
@@ -1096,10 +1106,6 @@ function renderWarDetailModal(){
         <span>${war.defenderHits || 0} strikes · ${formatWarNumber(war.defenderDamage)} 🔥</span>
       </div>
 
-      <div class="war-modal-actions">
-        <button class="war-modal-btn defend" onclick="contributeToWar('${t.id}','defend')">🛡️ DEFEND<div class="war-modal-btn-cost">−${cost} energy</div></button>
-        <button class="war-modal-btn attack" onclick="contributeToWar('${t.id}','attack')">⚔️ ATTACK<div class="war-modal-btn-cost">−${cost} energy</div></button>
-      </div>
       <div class="war-modal-note">Fight for either side — your strikes count for whichever banner you choose.</div>
 
       <div class="war-modal-ranking-title">📜 Full Battle Ranking</div>
