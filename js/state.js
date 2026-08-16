@@ -16,19 +16,34 @@ function escapeHtml(str){
   });
 }
 
+// ─── Market: supply & demand (AMM-style virtual reserves) ───
+// Every resource gets a virtual { supply, gold } pool. Price = gold/supply.
+// Buying removes units from supply (price rises along the curve); selling
+// adds units back (price falls). GOLD_DEPTH is the same "weight" of virtual
+// gold behind every item, so higher-priced (normally scarcer/lower-volume)
+// items get a smaller virtual unit-depth and are naturally more sensitive
+// to each trade, while cheap bulk items (wood, stone...) need bigger volume
+// to move.
+const MARKET_GOLD_DEPTH = 3000;
+function makeMarketReserve(basePrice){
+    const supply = Math.max(20, MARKET_GOLD_DEPTH / basePrice);
+    return { supply, gold: supply * basePrice };
+}
+
 // ─── State & Save System ───
 function defaultState(){
     const inv = {}; Object.keys(MARKET_CATALOG).forEach(k=> inv[k]=0);
     const prices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prices[k]=MARKET_CATALOG[k].basePrice);
     const prevPrices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prevPrices[k]=MARKET_CATALOG[k].basePrice);
     const priceHistory = {}; Object.keys(MARKET_CATALOG).forEach(k=> priceHistory[k]=[MARKET_CATALOG[k].basePrice]);
+    const marketReserves = {}; Object.keys(MARKET_CATALOG).forEach(k=> marketReserves[k]=makeMarketReserve(MARKET_CATALOG[k].basePrice));
     return {
-        version: 8,
+        version: 9,
         zoneView: null,
         level: 1, xp: 0, xpToNext: xpForLevel(1), gold: 150,
         energy: 100, maxEnergy: 100, lastEnergyTs: Date.now(),
         storageCap: 500,
-        inv, prices, prevPrices, priceHistory, lastPriceTs: Date.now(),
+        inv, prices, prevPrices, priceHistory, marketReserves, lastPriceTs: Date.now(),
         combat: { wins: 0, losses: 0 },
         missions: null,
         log: [], lastTimestamp: Date.now(),
@@ -86,10 +101,11 @@ accentColor: '#d4a24c', // Hex color code
 
 function migrateState(s){
     if(!s.version) s.version = 1;
-    if(s.version < 8) s.version = 8;
+    if(s.version < 9) s.version = 9;
     
     // Use the full MARKET_CATALOG (items + weapons) so weapon keys are never left
     // undefined — undefined inv/price values used to crash the Market screen.
+    if(!s.marketReserves) s.marketReserves = {};
     Object.keys(MARKET_CATALOG).forEach(k=>{
         if(typeof s.inv[k] !== 'number') s.inv[k] = 0;
         if(typeof s.prices[k] !== 'number') s.prices[k] = MARKET_CATALOG[k].basePrice;
@@ -97,6 +113,9 @@ function migrateState(s){
         if(typeof s.prevPrices[k] !== 'number') s.prevPrices[k] = MARKET_CATALOG[k].basePrice;
         if(!s.priceHistory) s.priceHistory = {};
         if(!s.priceHistory[k]) s.priceHistory[k] = [MARKET_CATALOG[k].basePrice];
+        // Seed the reserve from whatever price this save already has, so migrating
+        // an existing game doesn't suddenly snap every price back to basePrice.
+        if(!s.marketReserves[k]) s.marketReserves[k] = makeMarketReserve(s.prices[k]);
     });
     
     if(!s.log) s.log = [];
