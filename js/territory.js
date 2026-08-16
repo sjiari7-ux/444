@@ -434,6 +434,7 @@ async function contributeToWar(tid, side){
 
   try{
     const ref = db.collection('territories').doc(tid);
+    const contribKey = `${UID}__${side}`; // per-side entry: a player fighting both sides in one war gets two separate tallies, not one merged total
     await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
       if(!doc.exists || !doc.data().war) throw new Error('This siege has already ended.');
@@ -442,18 +443,19 @@ async function contributeToWar(tid, side){
       tx.update(ref, {
         [dmgField]: firebase.firestore.FieldValue.increment(dmg),
         [hitField]: firebase.firestore.FieldValue.increment(1),
-        [`war.contributions.${UID}.dmg`]: firebase.firestore.FieldValue.increment(dmg),
-        [`war.contributions.${UID}.hits`]: firebase.firestore.FieldValue.increment(1),
-        [`war.contributions.${UID}.name`]: playerName,
-        [`war.contributions.${UID}.side`]: side,
-        [`war.contributions.${UID}.kingdom`]: state.allianceId,
+        [`war.contributions.${contribKey}.dmg`]: firebase.firestore.FieldValue.increment(dmg),
+        [`war.contributions.${contribKey}.hits`]: firebase.firestore.FieldValue.increment(1),
+        [`war.contributions.${contribKey}.name`]: playerName,
+        [`war.contributions.${contribKey}.side`]: side,
+        [`war.contributions.${contribKey}.uid`]: UID,
+        [`war.contributions.${contribKey}.kingdom`]: state.allianceId,
       });
     });
     if(isAttacker){ t.war.attackerDamage = (t.war.attackerDamage || 0) + dmg; t.war.attackerHits = (t.war.attackerHits || 0) + 1; }
     else { t.war.defenderDamage = (t.war.defenderDamage || 0) + dmg; t.war.defenderHits = (t.war.defenderHits || 0) + 1; }
     if(!t.war.contributions) t.war.contributions = {};
-    const prev = t.war.contributions[UID] || { dmg: 0, hits: 0 };
-    t.war.contributions[UID] = { dmg: prev.dmg + dmg, hits: prev.hits + 1, name: playerName, side, kingdom: state.allianceId };
+    const prev = t.war.contributions[contribKey] || { dmg: 0, hits: 0 };
+    t.war.contributions[contribKey] = { dmg: prev.dmg + dmg, hits: prev.hits + 1, name: playerName, side, uid: UID, kingdom: state.allianceId };
     pushLog(state, `${isAttacker ? 'Struck' : 'Defended'} outpost ${tid.toUpperCase()} for ${dmg} damage.`, isAttacker ? 'win' : 'info');
     showToast(isAttacker ? '⚔️' : '🛡️', isAttacker ? 'Strike!' : 'Defended!', `+${dmg} damage this round`);
   }catch(e){
