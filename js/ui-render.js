@@ -526,10 +526,10 @@ function renderClass(){
       <div class="stat-overview-box"><div class="label">🌀 DODGE</div><div class="value">${(stats.dodge*100).toFixed(0)}%</div></div>
     </div>
     <div class="sp-banner" style="background:linear-gradient(135deg,${cls.color} 0%,${cls.color}99 100%);">
-      <div class="sp-label">🎯 Class Skill Points</div>
+      <div class="sp-label"><img class="ui-icon" src="${ICONS.spellbook}" alt="🎯"> Class Skill Points</div>
       <div class="sp-value">${state.classSkillPoints}</div>
     </div>
-    <div class="section-title"><h2>🎯 Unique Skills</h2></div>
+    <div class="section-title"><h2><img class="ui-icon" src="${ICONS.spellbook}" alt="🎯"> Unique Skills</h2></div>
     <div class="skill-grid-v2">${skillCards}</div>
     <div class="panel" style="margin-top:16px;text-align:center;padding:20px;">
       <div style="font-size:24px;margin-bottom:8px;">🔄</div>
@@ -619,7 +619,7 @@ function renderSkills(){
     <button class="mini-btn" style="margin-bottom:12px;" onclick="activeTab='settings';renderBody();">← Back to Settings</button>
     <div class="stat-overview-grid">${overview}</div>
     <div class="sp-banner">
-      <div class="sp-label">🎯 Skill Points</div>
+      <div class="sp-label"><img class="ui-icon" src="${ICONS.spellbook}" alt="🎯"> Skill Points</div>
       <div class="sp-value">${state.skillPoints}</div>
     </div>
     <div class="skill-grid-v2">${cards}</div>
@@ -806,7 +806,7 @@ function renderSettings(){
         <div class="settings-group-label">Character</div>
         <div class="settings-list">
           ${settingsRow(classIcon,'Class',`${className} · Unique skills`,`activeTab='class';renderBody();`)}
-          ${settingsRow('🎯','Skills','Spend skill points',`activeTab='skills';renderBody();`)}
+          ${settingsRow(`<img class="ui-icon" src="${ICONS.spellbook}" alt="🎯">`,'Skills','Spend skill points',`activeTab='skills';renderBody();`)}
         </div>
       </div>
 
@@ -998,7 +998,7 @@ function openAchievementsModal() {
             <div>🎒 Gear Items: <b style="color:var(--text);">${state.gearBag.length}</b></div>
             <div>🔷 Shards: <b style="color:var(--text);">${state.shards}</b></div>
             <div>💎 Gems: <b style="color:var(--text);">${state.gems}</b></div>
-            <div>🎯 Skill Points: <b style="color:var(--text);">${state.skillPoints}</b></div>
+            <div><img class="ui-icon" src="${ICONS.spellbook}" alt="🎯"> Skill Points: <b style="color:var(--text);">${state.skillPoints}</b></div>
             <div>💰 Total Gold Earned: <b style="color:var(--text);">${fmtG(state.totalGoldEarned)}</b></div>
             <div>🤝 Total Donated to Alliances: <b style="color:var(--text);">${fmtG(state.totalAllianceDonated || 0)}</b></div>
             <div>✨ Prestige Points: <b style="color:var(--prestige);">${state.prestige.points}</b></div>
