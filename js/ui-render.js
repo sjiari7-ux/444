@@ -731,7 +731,7 @@ function renderLeaderboard(){
   const tbl = (list, valueKey)=> `
     <table class="lb-table">
       <tr><th>#</th><th>Player</th><th>${valueKey==='gold'?'Gold':'Level'}</th></tr>
-      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="viewChatProfile('${r.uid}')">${(r.me?'You':r.name).replace(/</g,'&lt;')}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':r.level}</td></tr>`).join('')}
+      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="viewChatProfile('${r.uid}')">${escapeHtml(r.me?'You':r.name)}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':r.level}</td></tr>`).join('')}
     </table>`;
   return `
     <div class="lb-note">🌐 Live server-wide leaderboard, top ${LEADERBOARD_SIZE} players.
