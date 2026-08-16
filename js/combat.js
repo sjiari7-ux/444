@@ -272,7 +272,7 @@ function awardBattleRewards(){
   }
   bs.rewards = { gold, xp, loot, shards, gearDrop, gemDrop, taxPaid, stolenGold: bs.rewards && bs.rewards.stolenGold ? bs.rewards.stolenGold : 0 };
   pushLog(state, taxPaid > 0 ? `Victory! Defeated ${m.name} (+${gold}g, -${taxPaid}g tax, +${xp}xp)` : `Victory! Defeated ${m.name} (+${gold}g, +${xp}xp)`, 'win');
-  if(leveled){ pushLog(state, `Reached level ${state.level}! (+1 skill point)`, 'levelup'); showToast('Level Up!', `You reached level ${state.level}. +1 Skill Point`, 'levelup'); }
+  if(leveled){ pushLog(state, `Reached level ${state.level}! (+1 skill point)`, 'levelup'); showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `You reached level ${state.level}. +1 Skill Point`, 'levelup'); }
   if(gearDrop){ const t = GEAR_TIERS[gearDrop.tier]; pushLog(state, `Found [${t.symbol}] ${gearDrop.name}!`, 'gear'); }
   if(gemDrop > 0){ pushLog(state, `Found ${gemDrop} <img class="ui-icon" src="${ICONS.gem}" alt="💎"> Gem(s)!`, 'win'); }
   if(spiritHeal > 0){ pushLog(state, `Warrior Spirit: +${spiritHeal} HP`, 'win'); }
