@@ -435,7 +435,7 @@ function renderClass(){
   if(!state.playerClass){
     return `
       ${backLink}
-      <div class="section-title"><h2>🧙 Select Your Class</h2><div class="sub">Each class has unique stats and 3 exclusive skills. You can change later for a gold cost.</div></div>
+      <div class="section-title"><h2><img class="ui-icon" src="${ICONS.class_shield}" alt="🧙"> Select Your Class</h2><div class="sub">Each class has unique stats and 3 exclusive skills. You can change later for a gold cost.</div></div>
       <div class="class-select-grid">${Object.keys(CLASS_DATA).map(key=>{
         const c = CLASS_DATA[key];
         return `<div class="class-select-card" style="--cc:${c.color};" onclick="selectClass('${key}')">
@@ -637,7 +637,7 @@ function renderMissions(){
   const tabs = [
     { id:'daily', label:'Daily', icon:'📅', data: mData.daily, pool: DAILY_MISSIONS },
     { id:'weekly', label:'Weekly', icon:'📅', data: mData.weekly, pool: WEEKLY_MISSIONS },
-    { id:'starting', label:'Starting', icon:'⭐', data: mData.starting, pool: STARTING_MISSIONS },
+    { id:'starting', label:'Starting', icon:`<img class="ui-icon" src="${ICONS.star_coin}" alt="⭐">`, data: mData.starting, pool: STARTING_MISSIONS },
   ];
 
   const tabHtml = tabs.map(t => {
