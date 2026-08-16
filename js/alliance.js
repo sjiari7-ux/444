@@ -440,14 +440,18 @@ async function toggleMemberExempt(targetUid, exempt){
   renderBody();
 }
 
-async function warnMember(targetUid, targetName){
+async function warnMember(targetUid){
   if(!allianceCan(state.allianceRole,'removeInactive') || !db) return;
+  // Look up the display name ourselves instead of trusting a value baked
+  // into the caller's onclick string — a username is free text the player
+  // controls, so it must never be interpolated straight into inline JS.
+  const targetName = (allianceData.members || []).find(m => m.uid === targetUid)?.username || 'Member';
   try{
     await db.collection('alliances').doc(state.allianceId).collection('members').doc(targetUid).update({
       warnings: firebase.firestore.FieldValue.increment(1),
     });
     await loadMyAlliance();
-    showToast('⚠️ Warned', `${targetName || 'Member'} has been warned for inactivity.`, 'success');
+    showToast('⚠️ Warned', `${escapeHtml(targetName)} has been warned for inactivity.`, 'success');
   }catch(e){ console.error(e); }
   renderBody();
 }
@@ -698,12 +702,12 @@ function renderAllianceOverview(){
             const roleInfo = ALLIANCE_ROLES[m.role] || ALLIANCE_ROLES.member;
             const cls = m.role === 'leader' ? 'leader' : m.role === 'coleader' ? 'coleader' : 'officer';
             return `
-            <div class="gov-card" title="${m.username} · ${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)}">
+            <div class="gov-card" title="${escapeHtml(m.username)} · ${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)}">
               <div class="gov-avatar-wrap">
                 <div class="gov-avatar ${cls}">${roleInfo.icon}</div>
                 <div class="gov-badge">${fmtG(m.totalDonated||0)}</div>
               </div>
-              <div class="gov-name">${m.username}</div>
+              <div class="gov-name">${escapeHtml(m.username)}</div>
               <div class="gov-role">${roleInfo.name}</div>
             </div>`;
           }).join('')}
@@ -802,7 +806,7 @@ function renderAllianceMemberRow(m){
         <div title="Activity ${activity}%" style="position:absolute;bottom:-2px;right:-2px;width:9px;height:9px;border-radius:50%;background:${dotColor};border:1.5px solid var(--panel);"></div>
       </div>
       <div style="flex:1;min-width:0;${hasActions?'cursor:pointer;':''}" ${hasActions?`onclick="openMemberActionsModal('${m.uid}')"`:''}>
-        <div style="font-weight:700;color:var(--text);font-size:13px;${hasActions?'text-decoration:underline;text-decoration-color:var(--border-light);text-underline-offset:2px;':''}">${m.username}${isMe?' <span style="color:var(--dim);font-size:11px;">(you)</span>':''}</div>
+        <div style="font-weight:700;color:var(--text);font-size:13px;${hasActions?'text-decoration:underline;text-decoration-color:var(--border-light);text-underline-offset:2px;':''}">${escapeHtml(m.username)}${isMe?' <span style="color:var(--dim);font-size:11px;">(you)</span>':''}</div>
         <div style="font-size:11px;color:var(--dim);">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)} · Activity ${activity}%${atRisk?' · <span style="color:var(--red);">Inactive</span>':''}${m.exempt?' · <span style="color:var(--green);">Exempt</span>':''}${(m.warnings||0)>0?` · <span style="color:var(--brass-bright);">⚠️ ${m.warnings}</span>`:''}</div>
       </div>
       ${hasActions?`<button class="mini-btn" onclick="openMemberActionsModal('${m.uid}')" title="Member actions">⋯</button>`:''}
@@ -832,14 +836,14 @@ function openMemberActionsModal(uid){
     <div class="modal-overlay" style="z-index:130;" onclick="if(event.target===this)closeMemberActionsModal()">
       <div class="modal-box" style="max-width:320px;">
         <div class="modal-header">
-          <h3>${roleInfo.icon} ${m.username}</h3>
+          <h3>${roleInfo.icon} ${escapeHtml(m.username)}</h3>
           <button class="modal-close" onclick="closeMemberActionsModal()">✕</button>
         </div>
         <div style="padding:16px 18px;">
           <div style="font-size:11px;color:var(--dim);margin-bottom:14px;">${roleInfo.name} · Donated ${fmtG(m.totalDonated||0)}${(m.warnings||0)>0?` · <span style="color:var(--brass-bright);">⚠️ ${m.warnings} warning${m.warnings===1?'':'s'}</span>`:''}</div>
           ${canPromote?`<button class="member-action-btn" onclick="closeMemberActionsModal();promoteMember('${m.uid}','${m.role}')"><span class="icon">⬆️</span> Promote to ${promoteTo.name}</button>`:''}
           ${canDemote?`<button class="member-action-btn" onclick="closeMemberActionsModal();demoteMember('${m.uid}','${m.role}')"><span class="icon">⬇️</span> Demote to ${demoteTo.name}</button>`:''}
-          ${canExempt?`<button class="member-action-btn" onclick="closeMemberActionsModal();warnMember('${m.uid}','${m.username}')"><span class="icon">⚠️</span> Warn for Inactivity</button>`:''}
+          ${canExempt?`<button class="member-action-btn" onclick="closeMemberActionsModal();warnMember('${m.uid}')"><span class="icon">⚠️</span> Warn for Inactivity</button>`:''}
           ${canExempt?`<button class="member-action-btn" onclick="closeMemberActionsModal();toggleMemberExempt('${m.uid}', ${!!m.exempt})"><span class="icon">${m.exempt?'🔓':'🔒'}</span> ${m.exempt?'Remove Inactivity Exemption':'Exempt from Inactivity'}</button>`:''}
           ${canManage?`<button class="member-action-btn danger" onclick="closeMemberActionsModal();kickMember('${m.uid}','${m.role}')"><span class="icon">✕</span> Remove from Kingdom</button>`:''}
           ${(!canPromote && !canDemote && !canExempt && !canManage)?`<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0;">No actions available for this member.</div>`:''}
@@ -865,9 +869,9 @@ function renderAllianceManage(){
       <div style="font-size:11px;color:var(--dim);margin-bottom:8px;">Members inactive 7+ days with activity below 10% are flagged. Exempt them below or remove them from the Members tab.</div>
       ${atRiskMembers.length ? atRiskMembers.map(m => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
-          <div style="font-size:12px;color:var(--red);">${m.username} — ${memberActivityPct(m)}% activity${(m.warnings||0)>0?` <span style="color:var(--brass-bright);">(⚠️${m.warnings})</span>`:''}</div>
+          <div style="font-size:12px;color:var(--red);">${escapeHtml(m.username)} — ${memberActivityPct(m)}% activity${(m.warnings||0)>0?` <span style="color:var(--brass-bright);">(⚠️${m.warnings})</span>`:''}</div>
           <div style="display:flex;gap:6px;">
-            <button class="mini-btn" onclick="warnMember('${m.uid}','${m.username}')">Warn</button>
+            <button class="mini-btn" onclick="warnMember('${m.uid}')">Warn</button>
             <button class="mini-btn" onclick="toggleMemberExempt('${m.uid}', ${!!m.exempt})">Exempt</button>
             <button class="mini-btn" style="color:var(--red);border-color:var(--red);" onclick="kickMember('${m.uid}','${m.role}')">Remove</button>
           </div>
