@@ -279,9 +279,9 @@ function renderGlobalChatFab(){
 
 function renderChatMsgsHTML(msgs){
   return (msgs && msgs.length) ? msgs.map(m=>{
-    const name = (m.username || 'Player').replace(/</g,'&lt;');
-    const text = (m.text || '').replace(/</g,'&lt;');
-    const avatar = (m.avatar || '🧙').replace(/</g,'&lt;');
+    const name = escapeHtml(m.username || 'Player');
+    const text = escapeHtml(m.text || '');
+    const avatar = escapeHtml(m.avatar || '🧙');
     const mine = m.uid === UID;
     return `
     <div class="chat-msg-row ${mine?'mine':''}">
@@ -321,13 +321,17 @@ async function viewChatProfile(uid){
       return;
     }
     const d = doc.data();
-    const cls = (d.class || 'adventurer').replace(/</g,'&lt;');
-    const clsColor = `var(--${d.class||'brass'},var(--brass))`;
+    const cls = escapeHtml(d.class || 'adventurer');
+    // d.class also gets used inside a CSS var() lookup below — a raw value
+    // there could break out of the style="" attribute, so restrict it to a
+    // safe whitelist-like token (letters only) before interpolating.
+    const safeClassToken = /^[a-zA-Z_-]{1,30}$/.test(d.class || '') ? d.class : 'brass';
+    const clsColor = `var(--${safeClassToken},var(--brass))`;
     box.innerHTML = `
       <div class="modal-header"><h3>Player Profile</h3><button class="modal-close" onclick="closeChatProfile()">✕</button></div>
       <div style="padding:24px 20px;text-align:center;">
-        <div class="profile-hero-avatar" style="margin:0 auto 12px;">${d.avatar || '🧙'}</div>
-        <div class="profile-hero-name">${(d.username||'Player').replace(/</g,'&lt;')}</div>
+        <div class="profile-hero-avatar" style="margin:0 auto 12px;">${escapeHtml(d.avatar || '🧙')}</div>
+        <div class="profile-hero-name">${escapeHtml(d.username||'Player')}</div>
         <div style="color:${clsColor};font-size:12px;font-weight:600;text-transform:capitalize;margin:4px 0 2px;">${cls}</div>
         <div style="color:var(--dim);font-size:11px;margin-bottom:14px;">Level ${d.level||1}</div>
         <div style="display:flex;justify-content:center;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);">
