@@ -356,15 +356,28 @@ function tick(){
   checkMissionResets();
   renderHeader();
 }
+// Called on the regular price tick. Prices are NOT randomized and are not
+// pulled back toward any baseline here — the only thing that moves a price
+// is an actual buy() or sell() (below), which shifts that resource's
+// virtual supply/demand reserve. This tick just snapshots the current AMM
+// price into history so the market graph has a trail.
 function updatePrices(){
   Object.keys(MARKET_CATALOG).forEach(k=>{
     state.prevPrices[k] = state.prices[k];
-    const change = (Math.random()-0.5)*0.3;
-    state.prices[k] = Math.max(1, Math.round(state.prices[k]*(1+change)*10)/10);
     if(!state.priceHistory[k]) state.priceHistory[k]=[];
     state.priceHistory[k].push(state.prices[k]);
     if(state.priceHistory[k].length > PRICE_HISTORY_LENGTH) state.priceHistory[k].shift();
   });
+}
+function ensureMarketReserve(key){
+  if(!state.marketReserves) state.marketReserves = {};
+  if(!state.marketReserves[key]) state.marketReserves[key] = makeMarketReserve(state.prices[key] || MARKET_CATALOG[key].basePrice);
+  return state.marketReserves[key];
+}
+function ensureMarketReserve(key){
+  if(!state.marketReserves) state.marketReserves = {};
+  if(!state.marketReserves[key]) state.marketReserves[key] = makeMarketReserve(state.prices[key] || MARKET_CATALOG[key].basePrice);
+  return state.marketReserves[key];
 }
 /* ===== GATHERING & CONSUMABLES ===== */
 function collect(key){
@@ -465,18 +478,41 @@ function clearMarketFilters(){
   renderBody(); scheduleSave();
 }
 
-/* ===== MARKET ===== */
+/* ===== MARKET (supply & demand via a virtual AMM reserve) ===== */
+// Each resource holds a virtual { supply, gold } pool with supply*gold held
+// constant between trades. Price is always gold/supply. Buying pulls units
+// out of supply (price climbs along the curve — the more you buy in one go,
+// the steeper the climb). Selling pushes units back in (price falls the
+// same way). This is the only thing that moves a price now.
 function buy(key, amount){
-  const price = state.prices[key];
+  const reserve = ensureMarketReserve(key);
+  const invariant = reserve.supply * reserve.gold;
   const cap = getStorageCap(state);
   const used = getTotalStorageUsed(state);
-  if(amount === 'max') amount = Math.floor(state.gold / Math.ceil(price));
-  amount = Math.min(amount, cap - used);
+  const maxByReserve = Math.floor(reserve.supply - 1); // never fully drain the pool
+  if(amount === 'max'){
+    // Binary-search the largest amount affordable within gold + storage limits.
+    let lo = 0, hi = Math.max(0, Math.min(maxByReserve, cap - used));
+    while(lo < hi){
+      const mid = Math.ceil((lo+hi+1)/2);
+      const newSupply = reserve.supply - mid;
+      const cost = Math.ceil((invariant/newSupply) - reserve.gold);
+      if(cost <= state.gold) lo = mid; else hi = mid-1;
+    }
+    amount = lo;
+  }
+  amount = Math.min(amount, cap - used, maxByReserve);
   if(amount <= 0) return;
-  const cost = Math.ceil(price * amount);
+  const newSupply = reserve.supply - amount;
+  const newGold = invariant / newSupply;
+  const cost = Math.ceil(newGold - reserve.gold);
   if(cost > state.gold){ pushLog(state, 'Not enough gold!', 'lose'); return; }
   state.gold -= cost;
   state.inv[key] += amount;
+  reserve.supply = newSupply;
+  reserve.gold = newGold;
+  state.prevPrices[key] = state.prices[key];
+  state.prices[key] = Math.max(1, Math.round((reserve.gold/reserve.supply)*10)/10);
   updateMissionProgress('bought', amount);
   pushLog(state, `Bought ${amount} ${MARKET_CATALOG[key].name} for ${cost}g`, 'gain');
   renderBody(); scheduleSave();
@@ -485,11 +521,18 @@ function sell(key, amount){
   if(amount === 'max') amount = state.inv[key];
   amount = Math.min(amount, state.inv[key]);
   if(amount <= 0) return;
-  const price = state.prices[key] * getSellMult(state);
-  const gold = Math.floor(price * amount);
+  const reserve = ensureMarketReserve(key);
+  const invariant = reserve.supply * reserve.gold;
+  const newSupply = reserve.supply + amount;
+  const newGold = invariant / newSupply;
+  const gold = Math.floor((reserve.gold - newGold) * getSellMult(state));
+  reserve.supply = newSupply;
+  reserve.gold = newGold;
   state.gold += gold;
   state.totalGoldEarned += gold;
   state.inv[key] -= amount;
+  state.prevPrices[key] = state.prices[key];
+  state.prices[key] = Math.max(1, Math.round((reserve.gold/reserve.supply)*10)/10);
   updateMissionProgress('sold', amount);
   pushLog(state, `Sold ${amount} ${MARKET_CATALOG[key].name} for ${gold}g`, 'sell');
   renderBody(); scheduleSave();
