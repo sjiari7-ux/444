@@ -643,7 +643,7 @@ function renderAllianceDashboard(){
     <div class="alliance-hero">
       <div class="alliance-hero-icons">
         <button class="alliance-icon-btn discord" title="${alliance.discordLink ? 'Open Discord' : 'No Discord link set'}" onclick="openAllianceDiscord()">💬</button>
-        <button class="alliance-icon-btn donate" title="Donate Gold" onclick="openAllianceDonateModal()">🪙</button>
+        <button class="alliance-icon-btn donate" title="Donate Gold" onclick="openAllianceDonateModal()"><img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙"></button>
       </div>
       <div class="alliance-hero-top" style="padding-right:44px;">
         <div class="alliance-hero-emblem">${alliance.emblem||'⚔️'}</div>
@@ -671,7 +671,7 @@ function renderAllianceOverview(){
   const weeklyPerMember = activeThisWeek > 0 ? weeklyTotal / activeThisWeek : 0;
 
   const rankCards = [
-    { cls:'gold', icon:'🪙', label:'Weekly Donated', value: fmtG(weeklyTotal) },
+    { cls:'gold', icon:`<img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙">`, label:'Weekly Donated', value: fmtG(weeklyTotal) },
     { cls:'gold', icon:'📊', label:'Donated / Member', value: fmtG(weeklyPerMember) },
     { cls:'gold', icon:'🏆', label:'Total Contribution', value: fmtG(alliance.points||0) },
     { cls:'mint', icon:'👥', label:'Active Members', value: `${activeThisWeek}/${memberCount}` },
@@ -760,13 +760,13 @@ function renderAllianceTreasury(){
       <div class="panel-header">💰 Treasury</div>
       ${treasuryEntries.length ? `
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
-          ${treasuryEntries.map(k => `<span class="resource-chip">${k==='gold'?'🪙':(ITEMS[k]?ITEMS[k].icon:'')} ${k==='gold'?'Gold':(ITEMS[k]?ITEMS[k].name:k)}: ${fmtG(treasury[k])}</span>`).join('')}
+          ${treasuryEntries.map(k => `<span class="resource-chip">${k==='gold'?`<img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙">`:(ITEMS[k]?ITEMS[k].icon:'')} ${k==='gold'?'Gold':(ITEMS[k]?ITEMS[k].name:k)}: ${fmtG(treasury[k])}</span>`).join('')}
         </div>` : `<div style="font-size:12px;color:var(--dim);margin-bottom:12px;">The treasury is empty. Be the first to donate!</div>`}
       <div style="font-size:11px;color:var(--dim);margin-bottom:6px;">Donate to the treasury (earns kingdom points):</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${ALLIANCE_DONATABLE.map(k => {
           const have = k==='gold' ? state.gold : (state.inv[k]||0);
-          const icon = k==='gold' ? '🪙' : (ITEMS[k] ? ITEMS[k].icon : '');
+          const icon = k==='gold' ? `<img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙">` : (ITEMS[k] ? ITEMS[k].icon : '');
           const name = k==='gold' ? 'Gold' : (ITEMS[k] ? ITEMS[k].name : k);
           const amt = Math.min(have, k==='gold'?500:50);
           return `<button class="mini-btn" style="font-size:11px;" ${have<=0?'disabled':''} onclick="donateToAlliance('${k}', promptAllianceDonateAmount('${k}','${name}', ${have}))">${icon} ${name} (${fmtG(have)})</button>`;
