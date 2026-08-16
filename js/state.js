@@ -1,3 +1,21 @@
+// ─── Security: HTML escaping for any user-supplied text rendered via
+// innerHTML (usernames, chat messages, bios, etc). Escapes all five
+// HTML-significant characters — not just '<' — because text can land
+// either as element content OR inside a quoted HTML attribute value
+// (e.g. onclick="fn('${name}')"), and only escaping '<' leaves the
+// attribute-breakout path (via ' or ") wide open. ───
+function escapeHtml(str){
+  return String(str == null ? '' : str).replace(/[&<>"']/g, function(m){
+    switch(m){
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+    }
+  });
+}
+
 // ─── State & Save System ───
 function defaultState(){
     const inv = {}; Object.keys(MARKET_CATALOG).forEach(k=> inv[k]=0);
