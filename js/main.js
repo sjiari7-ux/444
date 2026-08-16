@@ -37,7 +37,7 @@ function checkMissionResets(){
     state.missions.daily.completed = 0;
     state.missions.daily.lastReset = getNextDailyReset();
     pushLog(state, 'Daily missions have been reset!', 'prestige');
-    if(typeof addNotification === 'function') addNotification('daily_missions', '📋 Daily Missions Reset', 'New daily missions are available — go claim your rewards!');
+    if(typeof addNotification === 'function') addNotification('daily_missions', `<img class="ui-icon" src="${ICONS.quest_scroll}" alt="📋"> Daily Missions Reset`, 'New daily missions are available — go claim your rewards!');
   }
   if(now >= (state.missions.weekly.lastReset || 0)){
     state.missions.weekly.progress = {};
@@ -45,7 +45,7 @@ function checkMissionResets(){
     state.missions.weekly.completed = 0;
     state.missions.weekly.lastReset = getNextWeeklyReset();
     pushLog(state, 'Weekly missions have been reset!', 'prestige');
-    if(typeof addNotification === 'function') addNotification('weekly_missions', '📋 Weekly Missions Reset', 'New weekly missions are available — go claim your rewards!');
+    if(typeof addNotification === 'function') addNotification('weekly_missions', `<img class="ui-icon" src="${ICONS.quest_scroll}" alt="📋"> Weekly Missions Reset`, 'New weekly missions are available — go claim your rewards!');
   }
 }
 
@@ -94,7 +94,7 @@ function claimMissionReward(missionId, type){
     const leveled = grantXp(state, reward.xp);
     if(leveled){
       pushLog(state, `Level up! You are now level ${state.level}`, 'levelup');
-      showToast('Level Up!', `Level ${state.level}`, 'levelup');
+      showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `Level ${state.level}`, 'levelup');
     }
   }
   if(reward.gold){
@@ -206,7 +206,7 @@ function renderHeader(){
           <div class="v3-gold-amount">${fmtG(state.gold)}</div>
         </div>
         <div class="v3-btns">
-          <button class="top-icon-btn" style="position:relative;" onclick="openNotifications()" title="Notifications">🔔${unreadNotificationCount()>0 ? `<span class="badge">${unreadNotificationCount()>9?'9+':unreadNotificationCount()}</span>` : ''}</button>
+          <button class="top-icon-btn" style="position:relative;" onclick="openNotifications()" title="Notifications"><img class="ui-icon" src="${ICONS.bell}" alt="🔔">${unreadNotificationCount()>0 ? `<span class="badge">${unreadNotificationCount()>9?'9+':unreadNotificationCount()}</span>` : ''}</button>
         </div>
       </div>
     </div>
@@ -229,8 +229,8 @@ function renderBottomNav(){
     {id:'gear',icon:`<img class="ui-icon" src="${ICONS.defense_ui}" alt="🛡️">`,label:'Gear'},
     {id:'companies',icon:`<img class="ui-icon" src="${ICONS.business}" alt="🏭">`,label:'Biz'},
     {id:'alliance',icon:`<img class="ui-icon" src="${ICONS.alliance}" alt="🏛️">`,label:'Kingdom'},
-    {id:'missions',icon:'📋',label:'Missions'},
-    {id:'leaderboard',icon:'🏆',label:'Rank'},
+    {id:'missions',icon:`<img class="ui-icon" src="${ICONS.quest_scroll}" alt="📋">`,label:'Missions'},
+    {id:'leaderboard',icon:`<img class="ui-icon" src="${ICONS.leaderboard_trophy}" alt="🏆">`,label:'Rank'},
     {id:'settings',icon:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️">`,label:'More'},
   ];
   const allianceBadge = (typeof alliancePendingBadgeCount === 'function') ? alliancePendingBadgeCount() : 0;
@@ -305,8 +305,8 @@ function openNotifications(){
         </div>
       `).join('')}
     </div>
-  ` : `<div style="text-align:center;padding:24px 0;color:var(--dim);font-size:13px;">🔔 No notifications yet</div>`;
-  showModal('🔔 Notifications', bodyHtml);
+  ` : `<div style="text-align:center;padding:24px 0;color:var(--dim);font-size:13px;"><img class="ui-icon" src="${ICONS.bell}" alt="🔔"> No notifications yet</div>`;
+  showModal(`<img class="ui-icon" src="${ICONS.bell}" alt="🔔"> Notifications`, bodyHtml);
   (state.notifications || []).forEach(n => n.read = true);
   scheduleSave();
   renderHeader();
@@ -554,7 +554,7 @@ function craft(key){
   const leveled = grantXp(state, r.xp);
   updateMissionProgress('crafted', 1);
   pushLog(state, `Crafted ${r.output} ${ITEMS[key].name} (+${r.xp}XP)`, 'gain');
-  if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast('Level Up!', `Level ${state.level}`, 'levelup'); }
+  if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `Level ${state.level}`, 'levelup'); }
   renderBody(); scheduleSave();
 }
 function craftMax(key){
@@ -579,7 +579,7 @@ function craftMax(key){
     const leveled = grantXp(state, xp);
     updateMissionProgress('crafted', count);
     pushLog(state, `Crafted ${count*r.output} ${ITEMS[key].name} (+${xp}XP)`, 'gain');
-    if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast('Level Up!', `Level ${state.level}`, 'levelup'); }
+    if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `Level ${state.level}`, 'levelup'); }
     renderBody(); scheduleSave();
   }
 }
