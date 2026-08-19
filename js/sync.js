@@ -180,6 +180,7 @@ async function linkGoogleAccount(){
 const LEADERBOARD_SIZE = 20;
 let leaderboardByGold = null;   // [{uid,name,avatar,level,gold}] or null = not loaded yet
 let leaderboardByLevel = null;
+let leaderboardByPvpWins = null;
 let leaderboardLoading = false;
 let leaderboardError = '';
 let lastLeaderboardFetch = 0;
@@ -193,6 +194,7 @@ function playerDocToLbRow(doc){
     avatar: d.avatar || '🧙',
     level: d.level || 1,
     gold: d.gold || 0,
+    pvpWins: (d.pvp && d.pvp.wins) || 0,
     me: doc.id === UID,
   };
 }
@@ -204,12 +206,14 @@ async function loadRealLeaderboard(force){
   leaderboardLoading = true;
   leaderboardError = '';
   try{
-    const [goldSnap, levelSnap] = await Promise.all([
+    const [goldSnap, levelSnap, pvpSnap] = await Promise.all([
       db.collection('players').orderBy('gold', 'desc').limit(LEADERBOARD_SIZE).get(),
       db.collection('players').orderBy('level', 'desc').limit(LEADERBOARD_SIZE).get(),
+      db.collection('players').orderBy('pvp.wins', 'desc').limit(LEADERBOARD_SIZE).get(),
     ]);
     leaderboardByGold = goldSnap.docs.map(playerDocToLbRow);
     leaderboardByLevel = levelSnap.docs.map(playerDocToLbRow);
+    leaderboardByPvpWins = pvpSnap.docs.map(playerDocToLbRow);
     lastLeaderboardFetch = Date.now();
   }catch(e){
     console.error('[Arcadia Leaderboard] Load failed:', e.code || e.name, e.message);
