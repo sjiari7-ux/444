@@ -96,6 +96,8 @@ accentColor: '#d4a24c', // Hex color code
         allianceRole: null,
         allianceJoinCooldownUntil: 0,
         allianceDisbandCooldownUntil: 0,
+        // ===== ARENA / PVP (NEW) =====
+        pvp: { wins: 0, losses: 0, protectedUntil: 0 },
     };
 }
 
@@ -145,6 +147,12 @@ if (typeof s.accentColor !== 'string') s.accentColor = '#d4a24c';
     if (typeof s.allianceRole === 'undefined') s.allianceRole = null;
     if (typeof s.allianceJoinCooldownUntil !== 'number') s.allianceJoinCooldownUntil = 0;
     if (typeof s.allianceDisbandCooldownUntil !== 'number') s.allianceDisbandCooldownUntil = 0;
+
+    // ===== ARENA / PVP MIGRATION =====
+    if (!s.pvp || typeof s.pvp !== 'object') s.pvp = { wins: 0, losses: 0, protectedUntil: 0 };
+    if (typeof s.pvp.wins !== 'number') s.pvp.wins = 0;
+    if (typeof s.pvp.losses !== 'number') s.pvp.losses = 0;
+    if (typeof s.pvp.protectedUntil !== 'number') s.pvp.protectedUntil = 0;
     
     // Resources migration
     if(typeof s.inv['magic_stones'] !== 'number') s.inv['magic_stones'] = 0;
