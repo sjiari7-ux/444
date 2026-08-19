@@ -136,6 +136,7 @@ async function startGame(){
   if(typeof applyAccentColor === 'function') applyAccentColor(state.accentColor);
   initMissions();
   await initAllianceOnStart();
+  if(typeof initPvpOnStart === 'function') initPvpOnStart();
   // Kingdom Map / Territory Wars — disabled for now, re-add when ready:
   // if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
   render();
@@ -230,6 +231,7 @@ function renderBottomNav(){
     {id:'gear',icon:`<img class="ui-icon" src="${ICONS.defense_ui}" alt="🛡️">`,label:'Gear'},
     {id:'companies',icon:`<img class="ui-icon" src="${ICONS.business}" alt="🏭">`,label:'Biz'},
     {id:'alliance',icon:`<img class="ui-icon" src="${ICONS.alliance}" alt="🏛️">`,label:'Kingdom'},
+    {id:'pvp',icon:'⚔️',label:'Arena'},
     {id:'missions',icon:`<img class="ui-icon" src="${ICONS.quest_scroll}" alt="📋">`,label:'Missions'},
     {id:'leaderboard',icon:`<img class="ui-icon" src="${ICONS.leaderboard_trophy}" alt="🏆">`,label:'Rank'},
     {id:'settings',icon:`<img class="ui-icon" src="${ICONS.settings_ui}" alt="⚙️">`,label:'More'},
@@ -239,6 +241,7 @@ function renderBottomNav(){
     let onclick;
     if(t.id==='alliance') onclick = 'openAllianceTab();';
     else if(t.id==='leaderboard') onclick = 'openLeaderboardTab();';
+    else if(t.id==='pvp') onclick = 'openPvpTab();';
     else onclick = `activeTab='${t.id}';renderBody();`;
     const dot = (t.id==='alliance' && allianceBadge>0) ? `<span class="nav-dot">${allianceBadge>9?'9+':allianceBadge}</span>` : '';
     return `<button class="nav-item ${activeTab===t.id?'active':''}" onclick="${onclick}"><span class="nav-icon">${t.icon}${dot}</span><span>${t.label}</span></button>`;
