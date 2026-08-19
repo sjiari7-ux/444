@@ -1296,19 +1296,9 @@ function hmsUntil(ts){
 
 // ─── Zone Rendering ───
 function renderZonesTab(){
-  const toggle = `<div class="wrap animate-fade" style="padding-bottom:0;">
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
-      <button class="act-btn ${zoneSubTab==='adventure'?'buy':''}" style="width:auto;padding:7px 16px;font-size:12px;" onclick="setZoneSubTab('adventure')">⚔️ Adventure</button>
-      <button class="act-btn ${zoneSubTab==='territory'?'buy':''}" style="width:auto;padding:7px 16px;font-size:12px;" onclick="setZoneSubTab('territory')"><img class="ui-icon" src="${ICONS.zones_map}" alt="🗺️" style="width:14px;height:14px;vertical-align:-2px;"> Kingdom Map</button>
-      <button class="act-btn ${zoneSubTab==='wars'?'buy':''}" style="width:auto;padding:7px 16px;font-size:12px;" onclick="setZoneSubTab('wars')">🔥 Active Wars</button>
-    </div>
-  </div>`;
-  const body = zoneSubTab === 'territory'
-    ? renderKingdomMap()
-    : zoneSubTab === 'wars'
-    ? renderActiveWarsList()
-    : (state.zoneView ? renderZoneView() : renderZones());
-  return toggle + body;
+  // Kingdom Map / Active Wars sub-tabs disabled for now (territory.js not
+  // loaded) — re-add the toggle bar + zoneSubTab branches when that's back.
+  return state.zoneView ? renderZoneView() : renderZones();
 }
 
 function renderZones(){
