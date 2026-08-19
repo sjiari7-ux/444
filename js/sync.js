@@ -127,7 +127,7 @@ function firestoreToState(data){
     language: data.language || 'en',
     theme: data.theme || 'dark',
     fontSize: data.fontSize || 'medium',
-    accentColor: data.accentColor || '#d4a24c',
+    accentColor: data.accentColor || '#e0623a',
   };
 }
 
