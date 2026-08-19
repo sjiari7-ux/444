@@ -136,7 +136,8 @@ async function startGame(){
   if(typeof applyAccentColor === 'function') applyAccentColor(state.accentColor);
   initMissions();
   await initAllianceOnStart();
-  if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
+  // Kingdom Map / Territory Wars — disabled for now, re-add when ready:
+  // if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
   render();
   setInterval(tick, TICK_MS);
   setInterval(()=>{ updatePrices(); if(activeTab !== 'zones') renderBodyUnlessTyping(); }, PRICE_TICK_MS);
