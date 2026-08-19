@@ -172,7 +172,7 @@ function renderHeader(){
   const hPct = maxH>0?(state.health/maxH)*100:0;
   const xpPct = state.xpToNext>0?(state.xp/state.xpToNext)*100:0;
   const cls = state.playerClass ? CLASS_DATA[state.playerClass] : null;
-  const clsColor = cls ? cls.color : '#d4a24c';
+  const clsColor = cls ? cls.color : '#e0623a';
   el.innerHTML = `
   <div class="topbar-v3">
     <div class="topbar-v3-inner">
