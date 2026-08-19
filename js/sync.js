@@ -59,6 +59,9 @@ function stateToFirestore(s){
     allianceId: s.allianceId, allianceRole: s.allianceRole,
     allianceJoinCooldownUntil: s.allianceJoinCooldownUntil,
     allianceDisbandCooldownUntil: s.allianceDisbandCooldownUntil,
+    // Arena / PVP (protectedUntil is also read directly by other players'
+    // pvp.js when they search for targets, so it must stay in this doc)
+    pvp: s.pvp,
     // Profile (previously never synced, so avatar/bio/theme/username changes were lost on reload)
     username: s.username, avatar: s.avatar, bio: s.bio,
     language: s.language, theme: s.theme, fontSize: s.fontSize, accentColor: s.accentColor,
@@ -115,6 +118,8 @@ function firestoreToState(data){
     allianceId: data.allianceId || null, allianceRole: data.allianceRole || null,
     allianceJoinCooldownUntil: data.allianceJoinCooldownUntil || 0,
     allianceDisbandCooldownUntil: data.allianceDisbandCooldownUntil || 0,
+    // Arena / PVP
+    pvp: data.pvp || { wins: 0, losses: 0, protectedUntil: 0 },
     // Profile (was missing — caused the player's name to not show up in Settings)
     username: data.username || 'Player',
     avatar: data.avatar || '🧙',
