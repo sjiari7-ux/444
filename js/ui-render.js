@@ -734,16 +734,17 @@ function renderLeaderboard(){
   }
   const tbl = (list, valueKey)=> `
     <table class="lb-table">
-      <tr><th>#</th><th>Player</th><th>${valueKey==='gold'?'Gold':'Level'}</th></tr>
-      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="viewChatProfile('${r.uid}')">${escapeHtml(r.me?'You':r.name)}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':r.level}</td></tr>`).join('')}
+      <tr><th>#</th><th>Player</th><th>${valueKey==='gold'?'Gold':valueKey==='level'?'Level':'Wins'}</th></tr>
+      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="viewChatProfile('${r.uid}')">${escapeHtml(r.me?'You':r.name)}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':valueKey==='level'?r.level:r.pvpWins}</td></tr>`).join('')}
     </table>`;
   return `
     <div class="lb-note">🌐 Live server-wide leaderboard, top ${LEADERBOARD_SIZE} players.
       <span style="cursor:pointer;color:var(--brass-bright);" onclick="refreshLeaderboard()">↻ Refresh</span>
     </div>
-    <div class="grid" style="grid-template-columns:1fr 1fr;">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
       <div class="panel"><div class="section-title" style="margin-top:0;"><h2>🥇 Richest</h2></div>${tbl(leaderboardByGold||[],'gold')}</div>
       <div class="panel"><div class="section-title" style="margin-top:0;"><h2>🥈 Highest Level</h2></div>${tbl(leaderboardByLevel||[],'level')}</div>
+      <div class="panel"><div class="section-title" style="margin-top:0;"><h2>⚔️ Most PvP Wins</h2></div>${tbl(leaderboardByPvpWins||[],'pvpWins')}</div>
     </div>`;
 }
 
