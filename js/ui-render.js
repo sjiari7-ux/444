@@ -552,7 +552,7 @@ function renderClass(){
 // ─── Skills, Missions, Leaderboard, Settings, Log ───
 const SKILL_COLORS = {
   health: '#d44c4c', damage: '#e8bd6e', defense: '#6fa285',
-  stamina: '#7ab8d4', storage: '#b8a0d4', profit: '#d4a24c',
+  stamina: '#7ab8d4', storage: '#b8a0d4', profit: '#e0623a',
 };
 
 function renderSkills(){
@@ -958,7 +958,7 @@ function openPreferencesModal() {
                 onclick="changeFontSize('${size}');this.closest('.modal-overlay').remove();openPreferencesModal();">
             ${size.charAt(0).toUpperCase() + size.slice(1)}
         </button>`).join('');
-    const accentColors = ['#d4a24c', '#4a8cc4', '#6fa285', '#c44c4c', '#b8a0d4'];
+    const accentColors = ['#e0623a', '#4a8cc4', '#6fa285', '#c44c4c', '#b8a0d4'];
     const accentHtml = accentColors.map(color => `
         <button class="mini-btn ${state.accentColor === color ? 'buy' : ''}"
                 onclick="changeAccentColor('${color}');this.closest('.modal-overlay').remove();openPreferencesModal();"
@@ -1408,12 +1408,12 @@ function applyTheme(theme) {
         // يمكنك إضافة المزيد من المتغيرات حسب الحاجة
     } else {
         // العودة إلى القيم الافتراضية (الموجودة في :root)
-        root.style.setProperty('--bg', '#0f1b1a');
-        root.style.setProperty('--panel', '#16302b');
-        root.style.setProperty('--panel-light', '#1e3d36');
-        root.style.setProperty('--text', '#e5ddc8');
-        root.style.setProperty('--dim', '#9fb0a8');
-        root.style.setProperty('--border', '#2c4a42');
+        root.style.setProperty('--bg', '#0a0d12');
+        root.style.setProperty('--panel', '#131922');
+        root.style.setProperty('--panel-light', '#1d2530');
+        root.style.setProperty('--text', '#eef1f5');
+        root.style.setProperty('--dim', '#7e8b9a');
+        root.style.setProperty('--border', '#1c2530');
     }
     applyAccentColor(state.accentColor);
 }
@@ -1470,7 +1470,7 @@ function showPlayerProfile(playerData){
   };
 
   const cls = p.playerClass ? CLASS_DATA[p.playerClass] : null;
-  const clsColor = cls ? cls.color : '#d4a24c';
+  const clsColor = cls ? cls.color : '#e0623a';
   const clsName = cls ? cls.nameAr : 'Adventurer';
   const clsIcon = cls ? cls.icon : '🧭';
 
