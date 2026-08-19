@@ -90,7 +90,7 @@ function defaultState(){
         // ===== THEME SETTINGS (NEW) =====
 theme: 'dark',         // 'dark' or 'light'
 fontSize: 'medium',    // 'small', 'medium', 'large'
-accentColor: '#d4a24c', // Hex color code
+accentColor: '#e0623a', // Hex color code
         // ===== ALLIANCE SYSTEM (NEW) =====
         allianceId: null,
         allianceRole: null,
@@ -140,7 +140,7 @@ function migrateState(s){
     // ===== THEME MIGRATION =====
 if (typeof s.theme !== 'string') s.theme = 'dark';
 if (typeof s.fontSize !== 'string') s.fontSize = 'medium';
-if (typeof s.accentColor !== 'string') s.accentColor = '#d4a24c';
+if (typeof s.accentColor !== 'string') s.accentColor = '#e0623a';
 
     // ===== ALLIANCE MIGRATION =====
     if (typeof s.allianceId === 'undefined') s.allianceId = null;
