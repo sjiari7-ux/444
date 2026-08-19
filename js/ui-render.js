@@ -13,6 +13,7 @@ function renderBodyHTML(){
     case 'leaderboard': html = renderLeaderboard(); break;
     case 'companies': html = renderCompanies(); break;
     case 'alliance': html = renderAlliance(); break;
+    case 'pvp': html = renderPvpTab(); break;
     case 'settings': html = renderSettings(); break;
     case 'zones': html = renderZonesTab(); break;
     default: html = ''; break;
