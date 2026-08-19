@@ -442,7 +442,7 @@ function renderBattle(){
     </div>
   ` : '';
 
-  return `<div style="position:relative;display:flex;flex-direction:column;height:100%;min-height:calc(100vh - 60px);background:linear-gradient(180deg,#0a140f 0%,#142820 40%,#1a3020 100%);overflow:hidden;">
+  return `<div style="position:relative;display:flex;flex-direction:column;height:100%;min-height:calc(100vh - 60px);background:linear-gradient(180deg,#080b10 0%,#131a24 40%,#1a2530 100%);overflow:hidden;">
     <!-- Top Bar -->
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;z-index:5;">
       <div>
