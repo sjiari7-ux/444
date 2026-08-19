@@ -170,50 +170,57 @@ function renderHeader(){
   const maxH = getMaxHealth(state);
   const ePct = maxE>0?(state.energy/maxE)*100:0;
   const hPct = maxH>0?(state.health/maxH)*100:0;
+  const mPct = state.maxMana>0?(state.mana/state.maxMana)*100:0;
   const xpPct = state.xpToNext>0?(state.xp/state.xpToNext)*100:0;
   const cls = state.playerClass ? CLASS_DATA[state.playerClass] : null;
   const clsColor = cls ? cls.color : '#e0623a';
   el.innerHTML = `
-  <div class="topbar-v3">
-    <div class="topbar-v3-inner">
-      <!-- LEFT: Avatar + Level -->
-      <div class="v3-avatar-section" style="cursor:pointer;" onclick="showPlayerProfile()" title="View Profile">
-        <div class="v3-avatar-ring" style="--cls:${clsColor};">
-          <div class="v3-avatar">${state.playerClass==='merchant'?`<img class="ui-icon" src="${ICONS.business}" alt="💰" style="width:100%;height:100%;object-fit:contain;">`:(cls?cls.icon:'🧙')}</div>
+  <div class="topbar-v4">
+    <div class="tb4-inner">
+      <div class="tb4-top">
+        <div class="tb4-avatar-section" onclick="showPlayerProfile()" title="View Profile">
+          <div class="tb4-avatar-ring" style="--cls:${clsColor};">
+            <div class="tb4-avatar">${state.playerClass==='merchant'?`<img class="ui-icon" src="${ICONS.business}" alt="💰" style="width:100%;height:100%;object-fit:contain;">`:(cls?cls.icon:'🧙')}</div>
+          </div>
+          <div class="tb4-lvl">${state.level}</div>
         </div>
-        <div class="v3-lvl-badge">${state.level}</div>
-      </div>
-      <!-- CENTER: Bars -->
-      <div class="v3-bars">
-        <div class="v3-bar-row">
-          <span class="v3-bar-icon energy">⚡</span>
-          <div class="v3-bar-track"><div class="v3-bar-fill energy" style="width:${ePct}%"></div></div>
-          <span class="v3-bar-val">${Math.floor(state.energy)}<span class="v3-bar-max">/${maxE}</span></span>
+        <div class="tb4-id">
+          <div class="tb4-name">${state.username || 'Player'}</div>
+          <div class="tb4-class" style="color:${clsColor};">${cls ? cls.name : ''}</div>
         </div>
-        <div class="v3-bar-row">
-          <span class="v3-bar-icon health">❤️</span>
-          <div class="v3-bar-track"><div class="v3-bar-fill health ${hPct<25?'low':''}" style="width:${hPct}%"></div></div>
-          <span class="v3-bar-val">${Math.floor(state.health)}<span class="v3-bar-max">/${maxH}</span></span>
-        </div>
-        <div class="v3-bar-row">
-          <span class="v3-bar-icon xp">✨</span>
-          <div class="v3-bar-track"><div class="v3-bar-fill xp" style="width:${xpPct}%"></div></div>
-          <span class="v3-bar-val">${state.xp}<span class="v3-bar-max">/${state.xpToNext}</span></span>
+        <div class="tb4-right">
+          <div class="tb4-gold">
+            <span class="tb4-gold-icon">🪙</span>
+            <span class="tb4-gold-amount">${fmtG(state.gold)}</span>
+          </div>
+          <button class="tb4-bell" onclick="openNotifications()" title="Notifications"><img class="ui-icon" src="${ICONS.bell}" alt="🔔">${unreadNotificationCount()>0 ? `<span class="badge">${unreadNotificationCount()>9?'9+':unreadNotificationCount()}</span>` : ''}</button>
         </div>
       </div>
-      <!-- RIGHT: Gold + Buttons -->
-      <div class="v3-actions">
-        <div class="v3-gold">
-          <div class="v3-gold-icon">🪙</div>
-          <div class="v3-gold-amount">${fmtG(state.gold)}</div>
+
+      <div class="tb4-hp">
+        <span class="tb4-vlabel hp">HP</span>
+        <div class="tb4-track"><div class="tb4-fill hp ${hPct<25?'low':''}" style="width:${hPct}%"></div></div>
+        <span class="tb4-val">${Math.floor(state.health)}/${maxH}</span>
+      </div>
+
+      <div class="tb4-twin">
+        <div class="tb4-vrow">
+          <span class="tb4-vlabel en">EN</span>
+          <div class="tb4-track sm"><div class="tb4-fill en" style="width:${ePct}%"></div></div>
+          <span class="tb4-val sm">${Math.floor(state.energy)}/${maxE}</span>
         </div>
-        <div class="v3-btns">
-          <button class="top-icon-btn" style="position:relative;" onclick="openNotifications()" title="Notifications"><img class="ui-icon" src="${ICONS.bell}" alt="🔔">${unreadNotificationCount()>0 ? `<span class="badge">${unreadNotificationCount()>9?'9+':unreadNotificationCount()}</span>` : ''}</button>
+        <div class="tb4-vrow">
+          <span class="tb4-vlabel mp">MP</span>
+          <div class="tb4-track sm"><div class="tb4-fill mp" style="width:${mPct}%"></div></div>
+          <span class="tb4-val sm">${state.mana}/${state.maxMana}</span>
         </div>
       </div>
-    </div>
-    <div class="topbar-v3-sub">
-      <div class="v3-sub-pill mp"><span class="v3-sub-dot mp"></span>${state.mana}/${state.maxMana} MP</div>
+
+      <div class="tb4-xp">
+        <span class="tb4-xp-label">XP</span>
+        <div class="tb4-xp-track"><div class="tb4-xp-fill" style="width:${xpPct}%"></div></div>
+        <span class="tb4-xp-val">${state.xp}/${state.xpToNext}</span>
+      </div>
     </div>
   </div>`;
 }
