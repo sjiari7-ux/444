@@ -1157,6 +1157,81 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 /* Hide old topbar */
 .topbar-v2{display:none !important;}
 .topbar{display:none !important;}
+.topbar-v3{display:none !important;}
+
+/* ═══════════════════════════════════════════════════════════
+   TOPBAR v4 — clarity-first header
+   HP gets top billing (biggest, most urgent). EN/MP sit side by
+   side as a matched pair (both are "fuel" for actions). XP is a
+   quiet thin line at the very bottom — visible, never competing
+   for attention. Every bar carries a short text label so a new
+   player never has to guess what an icon means.
+   ═══════════════════════════════════════════════════════════ */
+.topbar-v4{
+  position:sticky;top:0;z-index:20;
+  background:rgba(8,11,16,0.94);
+  backdrop-filter:blur(20px) saturate(150%);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 4px 24px rgba(0,0,0,0.45);
+}
+.tb4-inner{max-width:1040px;margin:0 auto;padding:10px 14px 8px;}
+
+.tb4-top{display:flex;align-items:center;gap:10px;}
+.tb4-avatar-section{position:relative;flex-shrink:0;cursor:pointer;}
+.tb4-avatar-ring{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--cls,var(--brass)),var(--cls,var(--brass-bright)));padding:2px;box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(224,98,58,0.22);}
+.tb4-avatar{width:100%;height:100%;border-radius:11px;background:var(--panel);display:flex;align-items:center;justify-content:center;font-size:20px;}
+.tb4-lvl{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);background:var(--panel);border:1.5px solid var(--brass);color:var(--brass-bright);font-family:var(--font-mono);font-size:9px;font-weight:700;min-width:20px;height:16px;padding:0 5px;border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.5);}
+
+.tb4-id{min-width:0;flex-shrink:1;}
+.tb4-name{font-family:var(--font-head);font-weight:700;font-size:12.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
+.tb4-class{font-family:var(--font-mono);font-size:9.5px;color:var(--cls,var(--dim));white-space:nowrap;}
+
+.tb4-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.tb4-gold{display:flex;align-items:center;gap:5px;background:linear-gradient(160deg,rgba(224,98,58,0.12),rgba(224,98,58,0.04));border:1px solid rgba(224,98,58,0.25);padding:6px 10px;border-radius:10px;}
+.tb4-gold-icon{font-size:14px;filter:drop-shadow(0 0 4px rgba(224,98,58,0.4));}
+.tb4-gold-amount{font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--brass-bright);letter-spacing:0.02em;}
+.tb4-bell{position:relative;width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--dim);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+.tb4-bell:hover{background:rgba(255,255,255,0.08);border-color:var(--brass);color:var(--brass-bright);}
+.tb4-bell .badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg);}
+
+/* HP — top priority, full width, biggest */
+.tb4-hp{display:flex;align-items:center;gap:8px;margin-top:9px;}
+.tb4-vlabel{font-family:var(--font-mono);font-weight:700;font-size:10px;letter-spacing:.03em;width:22px;flex-shrink:0;}
+.tb4-vlabel.hp{color:var(--health);}
+.tb4-vlabel.en{color:var(--brass-bright);}
+.tb4-vlabel.mp{color:var(--skill);}
+.tb4-track{flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden;position:relative;}
+.tb4-track.sm{height:7px;}
+.tb4-fill{height:100%;border-radius:999px;transition:width .4s cubic-bezier(.4,0,.2,1);}
+.tb4-fill.hp{background:linear-gradient(90deg,#8b2020,var(--health),#ff8888);box-shadow:0 0 8px rgba(255,87,87,.3);}
+.tb4-fill.hp.low{background:linear-gradient(90deg,#ff0000,#ff4444,#ff8888);animation:pulse 1.2s ease-in-out infinite;}
+.tb4-fill.en{background:linear-gradient(90deg,var(--brass-dim),var(--brass-bright));box-shadow:0 0 6px rgba(224,98,58,.3);}
+.tb4-fill.mp{background:linear-gradient(90deg,#1a6a85,var(--skill));box-shadow:0 0 6px rgba(79,209,255,.3);}
+.tb4-val{font-family:var(--font-mono);font-size:10.5px;color:var(--text);font-weight:600;white-space:nowrap;min-width:48px;text-align:right;flex-shrink:0;}
+.tb4-val.sm{font-size:9.5px;min-width:40px;}
+
+/* EN + MP — matched pair, same weight, side by side */
+.tb4-twin{display:flex;gap:14px;margin-top:6px;}
+.tb4-twin .tb4-vrow{flex:1;min-width:0;display:flex;align-items:center;gap:6px;}
+
+/* XP — quiet line at the very bottom, never competes for attention */
+.tb4-xp{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,0.04);}
+.tb4-xp-label{font-family:var(--font-mono);font-size:8.5px;color:var(--dim);letter-spacing:.04em;flex-shrink:0;}
+.tb4-xp-track{flex:1;height:3px;background:rgba(255,255,255,0.05);border-radius:999px;overflow:hidden;}
+.tb4-xp-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#7b5aa6,var(--prestige));transition:width .4s;}
+.tb4-xp-val{font-family:var(--font-mono);font-size:8.5px;color:var(--dim);flex-shrink:0;}
+
+@media (max-width:600px){
+  .tb4-inner{padding:8px 10px 7px;}
+  .tb4-avatar-ring{width:38px;height:38px;}
+  .tb4-avatar{font-size:17px;}
+  .tb4-name{max-width:88px;font-size:11.5px;}
+  .tb4-gold{padding:5px 8px;}
+  .tb4-gold-amount{font-size:11px;}
+  .tb4-bell{width:29px;height:29px;font-size:13px;}
+  .tb4-val{min-width:42px;font-size:9.5px;}
+  .tb4-twin{gap:10px;}
+}
 
 /* Responsive */
 @media (max-width:600px){
