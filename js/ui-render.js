@@ -125,14 +125,14 @@ function renderInventory(){
 
   const emptyState = ownedKeys.length === 0 ? `
     <div class="panel" style="text-align:center;padding:40px 20px;">
-      <div style="margin-bottom:12px;"><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒" style="width:48px;height:48px;"></div>
+      <div style="font-size:48px;margin-bottom:12px;">🎒</div>
       <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);margin-bottom:6px;">Your bag is empty</div>
       <div style="font-size:12px;color:var(--dim);">Gather resources from zones or craft items to fill your bag.</div>
     </div>
   ` : '';
 
   return `
-    <div class="section-title"><h2><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Bag</h2><span class="rule"></span><div class="sub">${ownedKeys.length} item${ownedKeys.length===1?'':'s'}</div></div>
+    <div class="section-title"><h2>🎒 Bag</h2><span class="rule"></span><div class="sub">${ownedKeys.length} item${ownedKeys.length===1?'':'s'}</div></div>
     <div class="panel" style="margin-bottom:14px;padding:12px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span style="font-size:13px;color:var(--dim);">Total Backpack Used (resources + gear)</span>
@@ -146,33 +146,65 @@ function renderInventory(){
 
 function renderCrafting(){
   const cap = getStorageCap(state);
-  const cards = Object.keys(RECIPES).map(key=>{
+  const readyCards = [];
+  const blockedCards = [];
+  const lockedRows = [];
+
+  Object.keys(RECIPES).forEach(key=>{
     const r = RECIPES[key];
     const g = GOODS[key];
     const locked = state.level < r.minLevel;
+
+    if(locked){
+      lockedRows.push(`<div class="item-row" style="opacity:0.55;">
+        <div class="ir-icon">${g.icon}</div>
+        <div class="ir-info"><div class="ir-name">${g.name}</div><div class="ir-meta"><span class="ir-type" style="color:var(--dim);"><img class="ui-icon" src="${ICONS.lock}" alt="🔒"> Requires level ${r.minLevel}</span></div></div>
+      </div>`);
+      return;
+    }
+
     const hasInputs = Object.keys(r.inputs).every(inp=> state.inv[inp] >= r.inputs[inp]);
     const inputsSum = Object.values(r.inputs).reduce((a,b)=>a+b,0);
     const hasSpace = getTotalStorageUsed(state) - inputsSum + r.output <= cap;
     const cost = getEnergyCost(state, r.energyCost);
     const hasEnergy = state.energy >= cost;
+    const canCraft = hasInputs && hasSpace && hasEnergy;
+
+    // Max craftable quantity, so the "Craft Max" button always shows a real number.
+    let maxQty = Infinity;
+    Object.keys(r.inputs).forEach(inp=>{ maxQty = Math.min(maxQty, Math.floor((state.inv[inp]||0) / r.inputs[inp])); });
+    if(cost > 0) maxQty = Math.min(maxQty, Math.floor(state.energy / cost));
+    const netStorage = r.output - inputsSum;
+    if(netStorage > 0) maxQty = Math.min(maxQty, Math.floor((cap - getTotalStorageUsed(state)) / netStorage));
+    maxQty = Number.isFinite(maxQty) ? Math.max(0, maxQty) : 0;
+
     const inputsHtml = Object.keys(r.inputs).map(inp=>{
       const have = state.inv[inp] || 0;
       const need = r.inputs[inp];
       const enough = have >= need;
       return `<span class="resource-chip" style="border-color:${enough?'var(--green)':'var(--red)'};color:${enough?'var(--green)':'var(--red)'};">${ITEMS[inp].icon} ${have}/${need}</span>`;
     }).join(' ');
-    const canCraft = !locked && hasInputs && hasSpace && hasEnergy;
-    return `<div class="card ${canCraft?'animate-glow':''}" style="${canCraft?'border-color:rgba(212,162,76,0.3);':''}">
-      <div class="card-top"><div class="card-icon">${g.icon}</div><div><div class="card-name">${g.name}</div><div class="card-sub">Produces ${r.output} · <img class="ui-icon" src="${ICONS.energy}" alt="⚡">${cost} · +${r.xp}XP</div></div></div>
-      <div style="margin:8px 0;display:flex;flex-wrap:wrap;gap:5px;">${inputsHtml}</div>
-      ${locked ? `<div class="locked-tag"><img class="ui-icon" src="${ICONS.lock}" alt="🔒"> Requires level ${r.minLevel}</div>` :
-        `<div style="display:flex;gap:6px;">
-          <button class="act-btn" style="flex:1;" ${(!hasInputs||!hasSpace||!hasEnergy)?'disabled':''} onclick="craft('${key}')">Craft</button>
-          <button class="act-btn buy" style="flex:1;" ${(!hasInputs||!hasSpace||!hasEnergy)?'disabled':''} onclick="craftMax('${key}')">Craft Max</button>
-        </div>`}
+    const energyChip = `<span class="resource-chip" style="border-color:${hasEnergy?'var(--brass-bright)':'var(--red)'};color:${hasEnergy?'var(--brass-bright)':'var(--red)'};"><img class="ui-icon" src="${ICONS.energy}" alt="⚡">${cost}</span>`;
+
+    const stateClass = canCraft ? 'ready' : (!hasEnergy ? 'blocked-energy' : (!hasSpace ? 'blocked-space' : 'blocked-mats'));
+
+    const card = `<div class="card recipe-card ${stateClass}">
+      <div class="card-top"><div class="card-icon">${g.icon}</div><div><div class="card-name">${g.name}</div><div class="card-sub">Produces ${r.output} · +${r.xp}XP</div></div></div>
+      <div class="req-label">Requires</div>
+      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:5px;">${energyChip}${inputsHtml}</div>
+      <div style="display:flex;gap:6px;">
+        <button class="act-btn" style="flex:1;" ${!canCraft?'disabled':''} onclick="craft('${key}')">Craft</button>
+        <button class="act-btn buy" style="flex:1;" ${maxQty<1?'disabled':''} onclick="craftMax('${key}')">Craft ×${maxQty}</button>
+      </div>
     </div>`;
-  }).join('');
-  return `<div class="grid">${cards}</div>`;
+    (canCraft ? readyCards : blockedCards).push(card);
+  });
+
+  const lockedSection = lockedRows.length ? `
+    <div class="section-title" style="margin-top:18px;"><h2>🔒 Locked</h2><span class="rule"></span><div class="sub">${lockedRows.length} recipe${lockedRows.length===1?'':'s'}</div></div>
+    <div style="display:flex;flex-direction:column;gap:6px;">${lockedRows.join('')}</div>` : '';
+
+  return `<div class="grid">${readyCards.join('')}${blockedCards.join('')}</div>${lockedSection}`;
 }
 function sparklineSVG(history){
   if(!history || history.length < 2) return '';
@@ -184,7 +216,7 @@ function sparklineSVG(history){
     return `${x},${y}`;
   }).join(' ');
   const last = history[history.length-1], prev = history[history.length-2] || last;
-  const color = last >= prev ? '#8fbf6f' : '#b23a34';
+  const color = last >= prev ? '#6fa285' : '#c2694a';
   return `<svg class="sparkline" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/>
   </svg>`;
@@ -447,7 +479,7 @@ function renderClass(){
       <div class="class-select-grid">${Object.keys(CLASS_DATA).map(key=>{
         const c = CLASS_DATA[key];
         return `<div class="class-select-card" style="--cc:${c.color};" onclick="selectClass('${key}')">
-          <div class="cs-icon"><img class="ui-icon" src="${ICONS['class_'+key]}" alt="${c.icon}" style="width:100%;height:100%;object-fit:contain;" onerror="this.replaceWith(document.createTextNode('${c.icon}'))"></div>
+          <div class="cs-icon">${c.icon}</div>
           <div class="cs-name">${c.nameAr}</div>
           <div class="cs-desc">${c.desc}</div>
           <div class="cs-stats">
@@ -521,7 +553,7 @@ function renderClass(){
   return `
     ${backLink}
     <div class="gear-hero-card" style="--tc:${cls.color};border-color:${cls.color}40;">
-      <div class="gh-icon" style="background:linear-gradient(135deg,${cls.color},${cls.color}99);border-color:${cls.color};"><img class="ui-icon" src="${ICONS['class_'+state.playerClass]}" alt="${cls.icon}" style="width:100%;height:100%;object-fit:contain;" onerror="this.replaceWith(document.createTextNode('${cls.icon}'))"></div>
+      <div class="gh-icon" style="background:linear-gradient(135deg,${cls.color},${cls.color}99);border-color:${cls.color};">${state.playerClass==='merchant'?`<img class="ui-icon" src="${ICONS.business}" alt="💰" style="width:100%;height:100%;object-fit:contain;">`:cls.icon}</div>
       <div class="gh-name" style="color:${cls.color};">${cls.nameAr}</div>
       <div class="gh-sub">${cls.name} · ${cls.desc}</div>
     </div>
@@ -547,7 +579,7 @@ function renderClass(){
       <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;">
         ${Object.keys(CLASS_DATA).filter(k=>k!==state.playerClass).map(k=>{
           const c = CLASS_DATA[k];
-          return `<button class="mini-btn" style="border-color:${c.color};color:${c.color};" ${canReset?'':'disabled'} onclick="if(confirm('Reset to ${c.nameAr} ${c.icon} for ${fmtG(resetCost)}g?'))resetClass('${k}')"><img class="ui-icon" src="${ICONS['class_'+k]}" alt="${c.icon}" onerror="this.replaceWith(document.createTextNode('${c.icon}'))"> ${c.nameAr}</button>`;
+          return `<button class="mini-btn" style="border-color:${c.color};color:${c.color};" ${canReset?'':'disabled'} onclick="if(confirm('Reset to ${c.nameAr} ${c.icon} for ${fmtG(resetCost)}g?'))resetClass('${k}')">${c.icon} ${c.nameAr}</button>`;
         }).join('')}
       </div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--dim);">Cost: <b style="color:var(--brass-bright);">${fmtG(resetCost)}g</b></div>
@@ -558,8 +590,8 @@ function renderClass(){
 
 // ─── Skills, Missions, Leaderboard, Settings, Log ───
 const SKILL_COLORS = {
-  health: '#b23a34', damage: '#d4a544', defense: '#6fc4b0',
-  stamina: '#5fb0c9', storage: '#a78bd4', profit: '#d4a544',
+  health: '#d44c4c', damage: '#e8bd6e', defense: '#6fa285',
+  stamina: '#7ab8d4', storage: '#b8a0d4', profit: '#d4a24c',
 };
 
 function renderSkills(){
@@ -965,7 +997,7 @@ function openPreferencesModal() {
                 onclick="changeFontSize('${size}');this.closest('.modal-overlay').remove();openPreferencesModal();">
             ${size.charAt(0).toUpperCase() + size.slice(1)}
         </button>`).join('');
-    const accentColors = ['#d4a544', '#5fb0c9', '#6fc4b0', '#b23a34', '#a78bd4'];
+    const accentColors = ['#d4a24c', '#4a8cc4', '#6fa285', '#c44c4c', '#b8a0d4'];
     const accentHtml = accentColors.map(color => `
         <button class="mini-btn ${state.accentColor === color ? 'buy' : ''}"
                 onclick="changeAccentColor('${color}');this.closest('.modal-overlay').remove();openPreferencesModal();"
@@ -1004,7 +1036,7 @@ function openAchievementsModal() {
             <div>🏅 Level: <b style="color:var(--text);">${state.level}</b></div>
             <div>⚔️ Wins: <b style="color:var(--green);">${state.combat.wins}</b></div>
             <div>💀 Losses: <b style="color:var(--red);">${state.combat.losses}</b></div>
-            <div><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Gear Items: <b style="color:var(--text);">${state.gearBag.length}</b></div>
+            <div>🎒 Gear Items: <b style="color:var(--text);">${state.gearBag.length}</b></div>
             <div>🔷 Shards: <b style="color:var(--text);">${state.shards}</b></div>
             <div>💎 Gems: <b style="color:var(--text);">${state.gems}</b></div>
             <div><img class="ui-icon" src="${ICONS.spellbook}" alt="🎯"> Skill Points: <b style="color:var(--text);">${state.skillPoints}</b></div>
@@ -1403,21 +1435,21 @@ function changeTheme(theme) {
 function applyTheme(theme) {
     const root = document.documentElement;
     if (theme === 'light') {
-        // Parchment / vellum ledger page
-        root.style.setProperty('--bg', '#ede6d3');
-        root.style.setProperty('--panel', '#e3dabf');
-        root.style.setProperty('--panel-light', '#f0e9d6');
-        root.style.setProperty('--text', '#20281f');
-        root.style.setProperty('--dim', '#5c6b58');
-        root.style.setProperty('--border', '#c9bc98');
+        root.style.setProperty('--bg', '#f0ece4');
+        root.style.setProperty('--panel', '#e8e0d5');
+        root.style.setProperty('--panel-light', '#f5f0e8');
+        root.style.setProperty('--text', '#1a1522');
+        root.style.setProperty('--dim', '#5a5068');
+        root.style.setProperty('--border', '#c8bdb0');
+        // يمكنك إضافة المزيد من المتغيرات حسب الحاجة
     } else {
-        // العودة إلى القيم الافتراضية (الموجودة في :root) — Verdigris Ledger
-        root.style.setProperty('--bg', '#0d1210');
-        root.style.setProperty('--panel', '#16211d');
-        root.style.setProperty('--panel-light', '#1e2f29');
-        root.style.setProperty('--text', '#e8e2d0');
-        root.style.setProperty('--dim', '#8fa39a');
-        root.style.setProperty('--border', '#22322c');
+        // العودة إلى القيم الافتراضية (الموجودة في :root)
+        root.style.setProperty('--bg', '#0f1b1a');
+        root.style.setProperty('--panel', '#16302b');
+        root.style.setProperty('--panel-light', '#1e3d36');
+        root.style.setProperty('--text', '#e5ddc8');
+        root.style.setProperty('--dim', '#9fb0a8');
+        root.style.setProperty('--border', '#2c4a42');
     }
     applyAccentColor(state.accentColor);
 }
@@ -1474,9 +1506,9 @@ function showPlayerProfile(playerData){
   };
 
   const cls = p.playerClass ? CLASS_DATA[p.playerClass] : null;
-  const clsColor = cls ? cls.color : '#d4a544';
+  const clsColor = cls ? cls.color : '#d4a24c';
   const clsName = cls ? cls.nameAr : 'Adventurer';
-  const clsIcon = cls ? `<img class="ui-icon" src="${ICONS['class_'+p.playerClass]}" alt="${cls.icon}" onerror="this.replaceWith(document.createTextNode('${cls.icon}'))">` : '🧭';
+  const clsIcon = cls ? cls.icon : '🧭';
 
   const allianceHtml = p.allianceName ? `
     <div class="pp-alliance">
@@ -1538,7 +1570,7 @@ function showPlayerProfile(playerData){
           <div class="pp-stat-label">Total Earned</div>
         </div>
         <div class="pp-stat-box">
-          <div class="pp-stat-icon" style="color:var(--skill);"><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"></div>
+          <div class="pp-stat-icon" style="color:var(--skill);">🎒</div>
           <div class="pp-stat-val" style="color:var(--skill);">${p.gearCount || 0}</div>
           <div class="pp-stat-label">Gear Items</div>
         </div>
