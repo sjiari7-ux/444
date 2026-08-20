@@ -180,7 +180,7 @@ function renderHeader(){
       <div class="tb4-top">
         <div class="tb4-avatar-section" onclick="showPlayerProfile()" title="View Profile">
           <div class="tb4-avatar-ring" style="--cls:${clsColor};">
-            <div class="tb4-avatar">${state.playerClass==='merchant'?`<img class="ui-icon" src="${ICONS.business}" alt="💰" style="width:100%;height:100%;object-fit:contain;">`:(cls?cls.icon:'🧙')}</div>
+            <div class="tb4-avatar">${cls?`<img class="ui-icon" src="${ICONS['class_'+state.playerClass]}" alt="${cls.icon}" style="width:100%;height:100%;object-fit:contain;">`:'🧙'}</div>
           </div>
           <div class="tb4-lvl">${state.level}</div>
         </div>
