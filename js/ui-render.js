@@ -184,7 +184,7 @@ function sparklineSVG(history){
     return `${x},${y}`;
   }).join(' ');
   const last = history[history.length-1], prev = history[history.length-2] || last;
-  const color = last >= prev ? '#6fa285' : '#c2694a';
+  const color = last >= prev ? '#8fbf6f' : '#b23a34';
   return `<svg class="sparkline" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/>
   </svg>`;
@@ -558,8 +558,8 @@ function renderClass(){
 
 // ─── Skills, Missions, Leaderboard, Settings, Log ───
 const SKILL_COLORS = {
-  health: '#d44c4c', damage: '#e8bd6e', defense: '#6fa285',
-  stamina: '#7ab8d4', storage: '#b8a0d4', profit: '#d4a24c',
+  health: '#b23a34', damage: '#d4a544', defense: '#6fc4b0',
+  stamina: '#5fb0c9', storage: '#a78bd4', profit: '#d4a544',
 };
 
 function renderSkills(){
@@ -965,7 +965,7 @@ function openPreferencesModal() {
                 onclick="changeFontSize('${size}');this.closest('.modal-overlay').remove();openPreferencesModal();">
             ${size.charAt(0).toUpperCase() + size.slice(1)}
         </button>`).join('');
-    const accentColors = ['#d4a24c', '#4a8cc4', '#6fa285', '#c44c4c', '#b8a0d4'];
+    const accentColors = ['#d4a544', '#5fb0c9', '#6fc4b0', '#b23a34', '#a78bd4'];
     const accentHtml = accentColors.map(color => `
         <button class="mini-btn ${state.accentColor === color ? 'buy' : ''}"
                 onclick="changeAccentColor('${color}');this.closest('.modal-overlay').remove();openPreferencesModal();"
@@ -1403,21 +1403,21 @@ function changeTheme(theme) {
 function applyTheme(theme) {
     const root = document.documentElement;
     if (theme === 'light') {
-        root.style.setProperty('--bg', '#f0ece4');
-        root.style.setProperty('--panel', '#e8e0d5');
-        root.style.setProperty('--panel-light', '#f5f0e8');
-        root.style.setProperty('--text', '#1a1522');
-        root.style.setProperty('--dim', '#5a5068');
-        root.style.setProperty('--border', '#c8bdb0');
-        // يمكنك إضافة المزيد من المتغيرات حسب الحاجة
+        // Parchment / vellum ledger page
+        root.style.setProperty('--bg', '#ede6d3');
+        root.style.setProperty('--panel', '#e3dabf');
+        root.style.setProperty('--panel-light', '#f0e9d6');
+        root.style.setProperty('--text', '#20281f');
+        root.style.setProperty('--dim', '#5c6b58');
+        root.style.setProperty('--border', '#c9bc98');
     } else {
-        // العودة إلى القيم الافتراضية (الموجودة في :root)
-        root.style.setProperty('--bg', '#0f1b1a');
-        root.style.setProperty('--panel', '#16302b');
-        root.style.setProperty('--panel-light', '#1e3d36');
-        root.style.setProperty('--text', '#e5ddc8');
-        root.style.setProperty('--dim', '#9fb0a8');
-        root.style.setProperty('--border', '#2c4a42');
+        // العودة إلى القيم الافتراضية (الموجودة في :root) — Verdigris Ledger
+        root.style.setProperty('--bg', '#0d1210');
+        root.style.setProperty('--panel', '#16211d');
+        root.style.setProperty('--panel-light', '#1e2f29');
+        root.style.setProperty('--text', '#e8e2d0');
+        root.style.setProperty('--dim', '#8fa39a');
+        root.style.setProperty('--border', '#22322c');
     }
     applyAccentColor(state.accentColor);
 }
@@ -1474,7 +1474,7 @@ function showPlayerProfile(playerData){
   };
 
   const cls = p.playerClass ? CLASS_DATA[p.playerClass] : null;
-  const clsColor = cls ? cls.color : '#d4a24c';
+  const clsColor = cls ? cls.color : '#d4a544';
   const clsName = cls ? cls.nameAr : 'Adventurer';
   const clsIcon = cls ? cls.icon : '🧭';
 
