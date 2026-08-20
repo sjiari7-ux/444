@@ -845,11 +845,16 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
   .nav-icon{font-size:19px;}
   .chat-fab{bottom:24px;}
   .topbar-v2{border-radius:0 0 18px 18px;}
+  .topbar-v4{border-radius:0 0 18px 18px;}
+  .tb4-inner{max-width:920px;}
+  .tb4-avatar-section:hover .tb4-avatar-ring{filter:brightness(1.15);box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(224,98,58,0.4);}
+  .tb4-avatar-ring{transition:filter .15s,box-shadow .15s;}
 }
 
 /* ---- Wide desktop — a touch more breathing room, wider grids ---- */
 @media (min-width:1200px){
   .wrap{max-width:1080px;}
+  .tb4-inner{max-width:1080px;}
   .grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));}
   .skill-grid-v2{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
 }
@@ -857,6 +862,7 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 /* ---- Ultra-wide ---- */
 @media (min-width:1500px){
   .wrap{max-width:1240px;}
+  .tb4-inner{max-width:1240px;}
 }
 
 /* ═══════════════════════════════════════════════════════════
