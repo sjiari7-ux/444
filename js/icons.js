@@ -82,5 +82,12 @@ const ICONS = {
   quest_scroll: "icons/quest_scroll.png",
   global_chat: "icons/global_chat.png",
   star_coin: "icons/star_coin.png",
-  upgrade_scroll: "icons/upgrade_scroll.png"
+  upgrade_scroll: "icons/upgrade_scroll.png",
+
+  // Class icons — one per playable class (replaces the emoji avatar)
+  class_warrior: "icons/class_warrior.png",
+  class_archer: "icons/class_archer.png",
+  class_mage: "icons/class_mage.png",
+  class_support: "icons/class_support.png",
+  class_merchant: "icons/class_merchant.png"
 };
