@@ -31,7 +31,7 @@
    permission-denied warning when that happens.
    ═══════════════════════════════════════════════════════════════ */
 
-const PVP_MIN_LEVEL = 5;                 // must be this level to attack or appear as a target
+const PVP_MIN_LEVEL = 1;                 // must be this level to attack or appear as a target — open to everyone
 const PVP_ENERGY_COST = 15;              // base energy cost per attack (before stamina skill reduction)
 const PVP_LEVEL_RANGE_MIN = 4;           // minimum ± level spread even at low levels
 const PVP_LEVEL_RANGE_PCT = 0.2;         // ± spread scales with your own level above that floor
