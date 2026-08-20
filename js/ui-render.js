@@ -125,14 +125,14 @@ function renderInventory(){
 
   const emptyState = ownedKeys.length === 0 ? `
     <div class="panel" style="text-align:center;padding:40px 20px;">
-      <div style="font-size:48px;margin-bottom:12px;">🎒</div>
+      <div style="margin-bottom:12px;"><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒" style="width:48px;height:48px;"></div>
       <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);margin-bottom:6px;">Your bag is empty</div>
       <div style="font-size:12px;color:var(--dim);">Gather resources from zones or craft items to fill your bag.</div>
     </div>
   ` : '';
 
   return `
-    <div class="section-title"><h2>🎒 Bag</h2><span class="rule"></span><div class="sub">${ownedKeys.length} item${ownedKeys.length===1?'':'s'}</div></div>
+    <div class="section-title"><h2><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Bag</h2><span class="rule"></span><div class="sub">${ownedKeys.length} item${ownedKeys.length===1?'':'s'}</div></div>
     <div class="panel" style="margin-bottom:14px;padding:12px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span style="font-size:13px;color:var(--dim);">Total Backpack Used (resources + gear)</span>
@@ -447,7 +447,7 @@ function renderClass(){
       <div class="class-select-grid">${Object.keys(CLASS_DATA).map(key=>{
         const c = CLASS_DATA[key];
         return `<div class="class-select-card" style="--cc:${c.color};" onclick="selectClass('${key}')">
-          <div class="cs-icon"><img class="ui-icon" src="${ICONS['class_'+key]}" alt="${c.icon}" style="width:100%;height:100%;object-fit:contain;"></div>
+          <div class="cs-icon"><img class="ui-icon" src="${ICONS['class_'+key]}" alt="${c.icon}" style="width:100%;height:100%;object-fit:contain;" onerror="this.replaceWith(document.createTextNode('${c.icon}'))"></div>
           <div class="cs-name">${c.nameAr}</div>
           <div class="cs-desc">${c.desc}</div>
           <div class="cs-stats">
@@ -521,7 +521,7 @@ function renderClass(){
   return `
     ${backLink}
     <div class="gear-hero-card" style="--tc:${cls.color};border-color:${cls.color}40;">
-      <div class="gh-icon" style="background:linear-gradient(135deg,${cls.color},${cls.color}99);border-color:${cls.color};"><img class="ui-icon" src="${ICONS['class_'+state.playerClass]}" alt="${cls.icon}" style="width:100%;height:100%;object-fit:contain;"></div>
+      <div class="gh-icon" style="background:linear-gradient(135deg,${cls.color},${cls.color}99);border-color:${cls.color};"><img class="ui-icon" src="${ICONS['class_'+state.playerClass]}" alt="${cls.icon}" style="width:100%;height:100%;object-fit:contain;" onerror="this.replaceWith(document.createTextNode('${cls.icon}'))"></div>
       <div class="gh-name" style="color:${cls.color};">${cls.nameAr}</div>
       <div class="gh-sub">${cls.name} · ${cls.desc}</div>
     </div>
@@ -547,7 +547,7 @@ function renderClass(){
       <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;">
         ${Object.keys(CLASS_DATA).filter(k=>k!==state.playerClass).map(k=>{
           const c = CLASS_DATA[k];
-          return `<button class="mini-btn" style="border-color:${c.color};color:${c.color};" ${canReset?'':'disabled'} onclick="if(confirm('Reset to ${c.nameAr} ${c.icon} for ${fmtG(resetCost)}g?'))resetClass('${k}')"><img class="ui-icon" src="${ICONS['class_'+k]}" alt="${c.icon}"> ${c.nameAr}</button>`;
+          return `<button class="mini-btn" style="border-color:${c.color};color:${c.color};" ${canReset?'':'disabled'} onclick="if(confirm('Reset to ${c.nameAr} ${c.icon} for ${fmtG(resetCost)}g?'))resetClass('${k}')"><img class="ui-icon" src="${ICONS['class_'+k]}" alt="${c.icon}" onerror="this.replaceWith(document.createTextNode('${c.icon}'))"> ${c.nameAr}</button>`;
         }).join('')}
       </div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--dim);">Cost: <b style="color:var(--brass-bright);">${fmtG(resetCost)}g</b></div>
@@ -1004,7 +1004,7 @@ function openAchievementsModal() {
             <div>🏅 Level: <b style="color:var(--text);">${state.level}</b></div>
             <div>⚔️ Wins: <b style="color:var(--green);">${state.combat.wins}</b></div>
             <div>💀 Losses: <b style="color:var(--red);">${state.combat.losses}</b></div>
-            <div>🎒 Gear Items: <b style="color:var(--text);">${state.gearBag.length}</b></div>
+            <div><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Gear Items: <b style="color:var(--text);">${state.gearBag.length}</b></div>
             <div>🔷 Shards: <b style="color:var(--text);">${state.shards}</b></div>
             <div>💎 Gems: <b style="color:var(--text);">${state.gems}</b></div>
             <div><img class="ui-icon" src="${ICONS.spellbook}" alt="🎯"> Skill Points: <b style="color:var(--text);">${state.skillPoints}</b></div>
@@ -1476,7 +1476,7 @@ function showPlayerProfile(playerData){
   const cls = p.playerClass ? CLASS_DATA[p.playerClass] : null;
   const clsColor = cls ? cls.color : '#d4a544';
   const clsName = cls ? cls.nameAr : 'Adventurer';
-  const clsIcon = cls ? `<img class="ui-icon" src="${ICONS['class_'+p.playerClass]}" alt="${cls.icon}">` : '🧭';
+  const clsIcon = cls ? `<img class="ui-icon" src="${ICONS['class_'+p.playerClass]}" alt="${cls.icon}" onerror="this.replaceWith(document.createTextNode('${cls.icon}'))">` : '🧭';
 
   const allianceHtml = p.allianceName ? `
     <div class="pp-alliance">
@@ -1538,7 +1538,7 @@ function showPlayerProfile(playerData){
           <div class="pp-stat-label">Total Earned</div>
         </div>
         <div class="pp-stat-box">
-          <div class="pp-stat-icon" style="color:var(--skill);">🎒</div>
+          <div class="pp-stat-icon" style="color:var(--skill);"><img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"></div>
           <div class="pp-stat-val" style="color:var(--skill);">${p.gearCount || 0}</div>
           <div class="pp-stat-label">Gear Items</div>
         </div>
