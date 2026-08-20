@@ -608,7 +608,7 @@ function renderAllianceBrowseList(){
   const cooldownActive = state.allianceJoinCooldownUntil && Date.now() < state.allianceJoinCooldownUntil;
   return allianceBrowseResults.map(k => `
     <div class="card alliance-list-card" style="border-left:3px solid ${k.color};">
-      <div class="alliance-list-emblem">${k.emblem}</div>
+      <div class="alliance-list-emblem"><img class="ui-icon-lg" src="${ICONS['kingdom_'+k.id]}" alt="${k.emblem}" onerror="this.replaceWith(document.createTextNode('${k.emblem}'))"></div>
       <div style="flex:1;min-width:0;">
         <div class="alliance-list-name">${k.name} <span style="color:var(--dim);font-size:11px;font-weight:400;">Lv.${k.level}</span></div>
         <div class="alliance-list-meta" style="margin-bottom:2px;">${k.description}</div>
@@ -646,7 +646,7 @@ function renderAllianceDashboard(){
         <button class="alliance-icon-btn donate" title="Donate Gold" onclick="openAllianceDonateModal()"><img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙"></button>
       </div>
       <div class="alliance-hero-top" style="padding-right:44px;">
-        <div class="alliance-hero-emblem">${alliance.emblem||'⚔️'}</div>
+        <div class="alliance-hero-emblem"><img class="ui-icon-xl" src="${ICONS['kingdom_'+alliance.continent]}" alt="${alliance.emblem||'⚔️'}" onerror="this.replaceWith(document.createTextNode('${alliance.emblem||'⚔️'}'))"></div>
         <div style="flex:1;min-width:0;">
           <div class="alliance-hero-name">${alliance.name}</div>
           <div class="alliance-hero-meta">${alliance.memberCount||0} member${alliance.memberCount===1?'':'s'} · ${roleInfo.icon} ${roleInfo.name}</div>
