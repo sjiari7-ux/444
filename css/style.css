@@ -82,6 +82,7 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 
 .panel{background:linear-gradient(160deg,rgba(39,28,16,0.75) 0%,rgba(12,8,5,0.75) 130%);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.03),var(--shadow-soft);}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;}
+.grid-compact{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;}
 .card{background:linear-gradient(160deg,var(--panel-light) 0%,var(--panel) 130%);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;transition:transform 0.2s,box-shadow 0.2s,border-color 0.2s;}
 .card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,0.3);border-color:var(--brass);}
 .card:active{transform:translateY(0);}
@@ -89,6 +90,31 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 .card-icon{font-size:22px;}
 .res-icon{width:1em;height:1em;object-fit:contain;vertical-align:-0.15em;display:inline-block;}
 .card-name{font-family:var(--font-head);font-weight:700;font-size:14px;}
+.item-type-tag{display:inline-block;font-family:var(--font-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;opacity:0.85;}
+.item-effect{font-family:var(--font-mono);font-size:12px;font-weight:600;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:6px 10px;text-align:center;margin-top:6px;}
+
+/* Small square item card with qty badge pinned top-right */
+.item-card-v2{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px 8px;gap:2px;}
+.item-card-v2 .inv-qty-badge{position:absolute;top:6px;right:6px;background:var(--bg-deep);border:1px solid var(--brass);color:var(--brass-bright);font-family:var(--font-mono);font-weight:700;font-size:10.5px;min-width:20px;height:18px;padding:0 5px;border-radius:6px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);}
+.item-card-v2 .card-top{flex-direction:column;gap:4px;margin-bottom:2px;}
+.item-card-v2 .card-icon{font-size:28px;}
+.item-card-v2 .card-name{font-size:12px;line-height:1.2;}
+.item-card-v2 .item-type-tag{font-size:8.5px;margin-top:0;}
+.item-card-v2 .item-effect{font-size:10px;padding:3px 6px;margin-top:2px;}
+.item-card-v2 .mini-btn{font-size:10.5px;padding:6px;margin-top:6px;}
+
+/* Alternate style: horizontal list row */
+.item-row{display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,var(--panel-light) 0%,var(--panel) 130%);border:1px solid var(--border);border-radius:12px;padding:10px 14px;transition:border-color .15s,transform .15s;}
+.item-row:hover{border-color:var(--brass);transform:translateX(2px);}
+.item-row .ir-icon{font-size:26px;width:40px;height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border-radius:10px;}
+.item-row .ir-info{flex:1;min-width:0;}
+.item-row .ir-name{font-family:var(--font-head);font-weight:700;font-size:13.5px;}
+.item-row .ir-meta{display:flex;align-items:center;gap:6px;margin-top:2px;}
+.item-row .ir-type{font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:.03em;opacity:.85;}
+.item-row .ir-effect{font-family:var(--font-mono);font-size:10.5px;font-weight:600;}
+.item-row .ir-qty{font-family:var(--font-mono);font-weight:700;font-size:14px;color:var(--brass-bright);flex-shrink:0;min-width:40px;text-align:right;}
+.item-row .ir-action{flex-shrink:0;background:linear-gradient(180deg,var(--panel-light),var(--panel));border:1px solid var(--brass);color:var(--brass-bright);font-family:var(--font-head);font-weight:600;font-size:11.5px;padding:7px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;}
+.item-row .ir-action:disabled{opacity:0.4;cursor:not-allowed;}
 .card-sub{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);}
 .bar-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:8px 0;position:relative;}
 .bar-track::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);background-size:200% 100%;animation:barShine 3s linear infinite;}
