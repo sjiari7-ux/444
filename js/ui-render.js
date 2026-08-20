@@ -87,32 +87,38 @@ function renderInventory(){
   const allCards = ownedKeys.map(key=>{
     const it = MARKET_CATALOG[key];
     const qty = state.inv[key] || 0;
-    const pct = Math.min(100, (qty/cap)*100);
     const isResource = RESOURCES[key] !== undefined;
     const isWeapon = WEAPONS[key] !== undefined;
     const isBread = BREAD_TIERS[key] !== undefined;
     const isEnergy = ENERGY_POTION_TIERS[key] !== undefined;
     const isHealthPotion = key === 'health_potion';
-    const canConsume = (isBread || isEnergy || isHealthPotion) && qty > 0;
+    const isConsumable = isBread || isEnergy || isHealthPotion;
+    const typeLabel = isResource?'Resource':(isConsumable?'Consumable':(isWeapon?'Weapon':'Good'));
+    const typeColor = isResource?'var(--dim)':(isConsumable?'var(--health)':(isWeapon?'var(--brass-bright)':'var(--skill)'));
+    let effectLine = '';
     let consumeBtn = '';
     if(isBread){
       const maxed = state.health >= getMaxHealth(state);
-      consumeBtn = `<button class="mini-btn" style="border-color:var(--health);color:var(--health);margin-top:8px;width:100%;" ${maxed?'disabled':''} onclick="consumeBread('${key}')">🍽️ Eat (+${BREAD_TIERS[key].heal} HP)</button>`;
+      effectLine = `<div class="item-effect" style="color:var(--health);">❤️ +${BREAD_TIERS[key].heal} HP</div>`;
+      consumeBtn = `<button class="mini-btn" style="border-color:var(--health);color:var(--health);margin-top:8px;width:100%;" ${maxed?'disabled':''} onclick="consumeBread('${key}')">${maxed?'HP Full':'🍽️ Eat'}</button>`;
     } else if(isEnergy){
       const maxed = state.energy >= getMaxEnergy(state);
-      consumeBtn = `<button class="mini-btn" style="border-color:var(--brass-bright);color:var(--brass-bright);margin-top:8px;width:100%;" ${maxed?'disabled':''} onclick="consumeEnergyPotion('${key}')">🧪 Drink (+${ENERGY_POTION_TIERS[key].energy}<img class="ui-icon" src="${ICONS.energy}" alt="⚡">)</button>`;
+      effectLine = `<div class="item-effect" style="color:var(--brass-bright);">⚡ +${ENERGY_POTION_TIERS[key].energy} Energy</div>`;
+      consumeBtn = `<button class="mini-btn" style="border-color:var(--brass-bright);color:var(--brass-bright);margin-top:8px;width:100%;" ${maxed?'disabled':''} onclick="consumeEnergyPotion('${key}')">${maxed?'Energy Full':'🧪 Drink'}</button>`;
     } else if(isHealthPotion){
       const maxed = state.health >= getMaxHealth(state);
-      consumeBtn = `<button class="mini-btn" style="border-color:var(--health);color:var(--health);margin-top:8px;width:100%;" ${maxed?'disabled':''} onclick="consumeBread('${key}')">🍽️ Use (+30-50 HP)</button>`;
+      effectLine = `<div class="item-effect" style="color:var(--health);">❤️ +30-50 HP</div>`;
+      consumeBtn = `<button class="mini-btn" style="border-color:var(--health);color:var(--health);margin-top:8px;width:100%;" ${maxed?'disabled':''} onclick="consumeBread('${key}')">${maxed?'HP Full':'🍽️ Use'}</button>`;
     }
-    return `<div class="card">
+    return `<div class="card item-card-v2">
       <div class="inv-qty-badge">${fmtG(qty)}</div>
-      <div class="card-top"><div class="card-icon" style="font-size:32px;">${it.icon}</div><div><div class="card-name">${it.name}</div></div></div>
-      <div class="bar-track"><div class="bar-fill ${isResource?'':'warn'}" style="width:${pct}%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;">
-        <span style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;">${pct.toFixed(0)}%</span>
-        <span style="font-size:10px;color:var(--dim);">${isResource?'Resource':(isBread||isEnergy||isHealthPotion?'Consumable':(isWeapon?'Weapon':'Good'))}</span>
+      <div class="card-top"><div class="card-icon" style="font-size:32px;">${it.icon}</div>
+        <div style="min-width:0;">
+          <div class="card-name">${it.name}</div>
+          <div class="item-type-tag" style="color:${typeColor};">${typeLabel}</div>
+        </div>
       </div>
+      ${effectLine}
       ${consumeBtn}
     </div>`;
   }).join('');
@@ -135,7 +141,7 @@ function renderInventory(){
       <div class="bar-track" style="height:10px;"><div class="bar-fill ${storagePct>90?'warn':''}" style="width:${storagePct}%"></div></div>
     </div>
     ${emptyState}
-    <div class="grid">${allCards}</div>`;
+    <div class="grid-compact">${allCards}</div>`;
 }
 
 function renderCrafting(){
@@ -788,9 +794,9 @@ function renderSettings(){
           <div class="profile-hero-divider"></div>
           <div class="profile-hero-stat"><div class="num" style="color:var(--red);">${state.combat.losses}</div><div class="lbl">Losses</div></div>
         </div>
-        <div class="profile-hero-info">
-          <span style="font-size:15px;">${isGuest ? '🎮' : '✉️'}</span>
-          <span><b>${isGuest ? 'Guest Account' : (EMAIL || 'Linked Account')}</b> ${state.bio ? '· '+state.bio : ''}</span>
+        <div class="profile-hero-info" style="min-width:0;">
+          <span style="font-size:15px;flex-shrink:0;">${isGuest ? '🎮' : '✉️'}</span>
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><b>${isGuest ? 'Guest Account' : (EMAIL || 'Linked Account')}</b> ${state.bio ? '· '+state.bio : ''}</span>
         </div>
       </div>
 
@@ -940,7 +946,7 @@ function openPersonalDetailsModal() {
         </div>
         <div>
             <div style="font-size:12px;color:var(--dim);margin-bottom:6px;">📝 Bio</div>
-            <input type="text" class="username-input" id="bioInput" value="${state.bio || ''}"
+            <input type="text" class="username-input" id="bioInput" value="${state.bio || ''}" maxlength="60"
                    placeholder="Write something about yourself..."
                    oninput="state.bio=this.value;scheduleSave();renderHeader();"
                    style="padding:8px 12px;font-size:13px;">
