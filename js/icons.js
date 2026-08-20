@@ -89,5 +89,13 @@ const ICONS = {
   class_archer: "icons/class_archer.png",
   class_mage: "icons/class_mage.png",
   class_support: "icons/class_support.png",
-  class_merchant: "icons/class_merchant.png"
+  class_merchant: "icons/class_merchant.png",
+
+  // Kingdom icons — one per one of the six kingdoms (Alliance tab)
+  kingdom_europe: "icons/kingdom_europe.png",
+  kingdom_asia: "icons/kingdom_asia.png",
+  kingdom_arab_world: "icons/kingdom_arab_world.png",
+  kingdom_africa: "icons/kingdom_africa.png",
+  kingdom_north_america: "icons/kingdom_north_america.png",
+  kingdom_south_america: "icons/kingdom_south_america.png"
 };
