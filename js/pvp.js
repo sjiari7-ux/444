@@ -389,6 +389,12 @@ async function pvpDeliverReport(uid, won, goldLost){
   }
 }
 
+function pvpForfeitBattle(){
+  if(!pvpBattleState) return; pvpBattleState.fled = true;
+  pushLog(state, `Forfeited the fight with ${pvpBattleState.opponent.username}.`, 'lose');
+  renderBody(); scheduleSave();
+}
+
 function pvpCloseBattle(){
   pvpBattleState = null; pvpItemMenuOpen = false; pvpCodexOpen = false;
   renderBody();
@@ -579,46 +585,134 @@ function renderPvpBattle(){
   ` : '';
 
   return `<div style="position:relative;display:flex;flex-direction:column;height:100%;min-height:calc(100vh - 60px);background:linear-gradient(180deg,#080b10 0%,#131a24 40%,#1a2530 100%);overflow:hidden;">
+    <!-- Top Bar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;z-index:5;">
+      <div>
+        <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:18px;color:var(--text);text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(o.username)}</div>
+        <div style="font-size:12px;color:var(--dim);">Level ${o.level}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="${canAct?'animate-pulse':''}" style="font-family:'Cairo',sans-serif;font-weight:800;font-size:11px;letter-spacing:0.06em;padding:5px 10px;border-radius:20px;background:${canAct?'rgba(255,195,92,0.15)':'rgba(196,76,76,0.15)'};color:${canAct?'var(--green)':'var(--red)'};border:1px solid ${canAct?'var(--green)':'var(--red)'};text-transform:uppercase;">${canAct?'⚡ Your Turn':'⚔️ Rival Turn'}</div>
+        <button class="mini-btn" style="border-color:var(--border);color:var(--dim);font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;" onclick="pvpToggleCodex()"><img class="ui-icon" src="${ICONS.book_codex}" alt="📖"> Codex</button>
+      </div>
+    </div>
+
+    <!-- Battle Scene -->
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;padding:0 20px;gap:24px;">
+      <div style="position:absolute;bottom:30%;left:0;right:0;height:40%;background:linear-gradient(0deg,rgba(30,60,35,0.6) 0%,transparent 100%);pointer-events:none;"></div>
+
+      <!-- Characters Row -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;max-width:420px;position:relative;z-index:2;">
+        <!-- Player -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div id="battle-player-sprite" style="font-size:52px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">${cls?cls.icon:'🧙'}</div>
+          <div style="width:90px;height:10px;background:#3a1a1a;border-radius:5px;overflow:hidden;border:1px solid #5a2a2a;position:relative;">
+            <div style="width:${pPct}%;height:100%;background:linear-gradient(90deg,#c44c4c,#e06060);transition:width 0.4s ease-out;"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.8);font-weight:700;">${Math.floor(pHp)}</div>
+          </div>
+          <div style="width:90px;height:6px;background:#1a2a3a;border-radius:3px;overflow:hidden;border:1px solid #2a4a5a;">
+            <div style="width:${manaPct}%;height:100%;background:linear-gradient(90deg,#4a8cc4,#6ab8e0);transition:width 0.4s ease-out;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;">${Math.floor(state.mana)} MP</div>
+        </div>
+
+        <!-- VS or Charge indicator -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          ${chargeText ? `<div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:var(--brass-bright);text-shadow:0 0 12px rgba(212,162,76,0.4);animation:pulse 1s ease-in-out infinite;"><img class="ui-icon" src="${ICONS.energy}" alt="⚡"> ${chargeText}</div>` : `<div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:14px;color:var(--dim);opacity:0.5;">VS</div>`}
+          ${bs.isDefending ? `<div style="font-size:11px;color:var(--skill);font-weight:700;">🛡️ Defending</div>` : ''}
+          ${o.burnTurns > 0 ? `<div style="font-size:11px;color:var(--copper);font-weight:700;">🔥 Burn ${o.burnTurns}t</div>` : ''}
+        </div>
+
+        <!-- Opponent -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div id="battle-monster-sprite" style="font-size:52px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">${oCls?oCls.icon:o.avatar}</div>
+          <div style="width:90px;height:10px;background:#3a1a1a;border-radius:5px;overflow:hidden;border:1px solid #5a2a2a;position:relative;">
+            <div style="width:${oPct}%;height:100%;background:linear-gradient(90deg,#c44c4c,#e06060);transition:width 0.4s ease-out;"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.8);font-weight:700;">${Math.floor(oHp)}</div>
+          </div>
+          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;">${escapeHtml(o.username)}</div>
+        </div>
+      </div>
+
+      <!-- Mini Log -->
+      <div style="width:100%;max-width:400px;height:32px;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
+        ${logLines || '<span style="color:var(--dim);font-size:11px;">Battle started...</span>'}
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="padding:12px 16px 24px;display:flex;flex-direction:column;gap:8px;z-index:5;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <!-- CHARGE -->
+        <button class="battle-btn" style="${!canAct?'opacity:0.35;':''}" ${!canAct?'disabled':''} onclick="pvpChargeAttack()">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:2px;">FREE · STACKS ×0.5</div>
+          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.08em;">CHARGE</div>
+        </button>
+        <!-- ATTACK -->
+        <button class="battle-btn" style="${!canAct?'opacity:0.35;':''}" ${!canAct?'disabled':''} onclick="pvpPlayerAttackAction(false)">
+          <div style="font-size:22px;margin-bottom:2px;">⚔️</div>
+          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.08em;">ATTACK</div>
+        </button>
+        <!-- DEFEND -->
+        <button class="battle-btn" style="${!canAct?'opacity:0.35;':''}" ${!canAct?'disabled':''} onclick="pvpDefendStance()">
+          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.08em;">DEFEND</div>
+        </button>
+        <!-- SKILL -->
+        <button class="battle-btn" style="border-color:${skillBtn && !skillBtn.disabled ? 'var(--prestige)' : 'var(--border)'};color:${skillBtn && !skillBtn.disabled ? 'var(--prestige)' : 'var(--dim)'};${(skillBtn && skillBtn.disabled) || !canAct ? 'opacity:0.35;' : ''}" ${(skillBtn && skillBtn.disabled) || !canAct ? 'disabled' : ''} onclick="pvpUseSkill('${skillBtn ? skillBtn.key : ''}')">
+          <div style="font-size:22px;margin-bottom:2px;">✨</div>
+          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.08em;">SKILL</div>
+          ${skillBtn ? `<div style="font-size:9px;color:var(--dim);margin-top:1px;"><img class="ui-icon" src="${ICONS.mana}" alt="🔮"> ${skillBtn.mana} MP</div>` : ''}
+        </button>
+        <!-- FLEE -->
+        <button class="battle-btn" style="${!canAct?'opacity:0.35;':''}" ${!canAct?'disabled':''} onclick="pvpAttemptFlee()">
+          <div style="font-size:22px;margin-bottom:2px;">👢</div>
+          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.08em;">FLEE</div>
+        </button>
+        <!-- ITEM -->
+        <button class="battle-btn" style="${!canAct?'opacity:0.35;':''}" ${!canAct?'disabled':''} onclick="pvpToggleItems()">
+          <div style="font-size:22px;margin-bottom:2px;">🧪</div>
+          <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.08em;">ITEM</div>
+        </button>
+      </div>
+      <!-- Forfeit row -->
+      <div style="display:flex;justify-content:center;gap:8px;margin-top:4px;">
+        <button class="mini-btn" style="font-size:10px;padding:4px 12px;opacity:0.6;" onclick="pvpForfeitBattle()">🏃 Forfeit</button>
+      </div>
+    </div>
+
     ${resultHtml}
-    ${codexHtml}
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);">
-      <button class="mini-btn" onclick="pvpAttemptFlee()" ${!canAct?'disabled':''}>🏃 Retreat</button>
-      <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:13px;color:var(--brass-bright);">⚔️ ARENA</div>
-      <button class="mini-btn" onclick="pvpToggleCodex()">ℹ️</button>
-    </div>
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px;gap:24px;position:relative;">
-      <div id="battle-monster-sprite" style="display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform 0.2s;">
-        <div style="font-size:52px;">${oCls ? oCls.icon : o.avatar}</div>
-        <div style="font-size:12px;color:var(--brass-bright);font-weight:700;">${escapeHtml(o.username)} · Lv.${o.level}</div>
-        <div style="width:160px;height:10px;background:var(--panel-light);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-          <div style="height:100%;width:${oPct}%;background:var(--red);transition:width 0.3s;"></div>
-        </div>
-        <div style="font-size:10px;color:var(--dim);">${oHp}/${oMax} HP</div>
-      </div>
-      <div style="font-size:20px;color:var(--dim);">VS</div>
-      <div id="battle-player-sprite" style="display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform 0.2s;">
-        <div style="font-size:52px;">${cls ? cls.icon : '🧑'}</div>
-        <div style="font-size:12px;color:var(--brass-bright);font-weight:700;">You</div>
-        <div style="width:160px;height:10px;background:var(--panel-light);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-          <div style="height:100%;width:${pPct}%;background:var(--health);transition:width 0.3s;"></div>
-        </div>
-        <div style="font-size:10px;color:var(--dim);">${pHp}/${pMax} HP</div>
-        <div style="width:120px;height:6px;background:var(--panel-light);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-          <div style="height:100%;width:${manaPct}%;background:var(--skill);transition:width 0.3s;"></div>
-        </div>
-      </div>
-    </div>
-    <div style="padding:6px 16px;min-height:22px;display:flex;overflow-x:auto;">${logLines}</div>
     ${itemMenuHtml}
-    <div style="padding:12px 16px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-      <button class="act-btn" ${!canAct?'disabled':''} onclick="pvpChargeAttack()"><img class="ui-icon" src="${ICONS.energy}" alt="⚡"> Charge ${chargeText}</button>
-      <button class="act-btn buy" ${!canAct?'disabled':''} onclick="pvpPlayerAttackAction(false)">⚔️ Attack</button>
-      <button class="act-btn" ${!canAct?'disabled':''} onclick="pvpDefendStance()">🛡️ Defend</button>
-      ${skillBtn ? `<button class="act-btn" style="color:var(--prestige);" ${skillBtn.disabled?'disabled':''} onclick="pvpUseSkill('${skillBtn.key}')">✨ ${skillBtn.label} (${skillBtn.mana}mp)</button>` : `<div></div>`}
-      <button class="act-btn" ${!canAct?'disabled':''} onclick="pvpToggleItems()">🧪 Item</button>
-      <div></div>
-    </div>
-  </div>`;
+    ${codexHtml}
+  </div>
+  <style>
+    .battle-btn {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      padding: 14px 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 72px;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .battle-btn:hover:not(:disabled) {
+      border-color: var(--brass);
+      background: linear-gradient(180deg, rgba(212,162,76,0.08) 0%, rgba(212,162,76,0.02) 100%);
+      transform: translateY(-1px);
+    }
+    .battle-btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+    .battle-btn:disabled {
+      cursor: not-allowed;
+    }
+  </style>`;
 }
 
 function renderPvpTab(){
