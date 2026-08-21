@@ -1,6 +1,7 @@
 // ─── UI Renderers ───
 function renderBodyHTML(){
   if(battleState) return renderBattle();
+  if(pvpBattleState) return renderPvpBattle();
   let html;
   switch(activeTab){
     case 'production': html = renderProduction(); break;
