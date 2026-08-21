@@ -17,11 +17,32 @@ let isSyncing = false;
 const SYNC_INTERVAL = 10000;
 let lastSyncTime = 0;
 
+// ─── Gold sync: increment-based, not overwrite-based ───
+// Every other field here is safe to overwrite wholesale on each periodic
+// sync because only THIS player's own client ever changes it. Gold is
+// different now that the Player Market is real: another player's buy can
+// credit gold to this player's `players/{uid}` doc at any moment (see
+// buyFromListing() in marketplace.js), including while this client is
+// mid-session. If this sync just wrote `gold: state.gold` wholesale, the
+// next periodic tick would silently overwrite (and erase) any sale that
+// landed in between. So instead we only ever push the *change* in this
+// client's own local gold since its last successful sync, as a Firestore
+// increment — which composes correctly with a remote increment no matter
+// which one lands first.
+let lastSyncedGold = null;
+
 async function syncToFirestore(){
   if(!UID || isSyncing || !db) return;
   isSyncing = true;
   try{
     const data = stateToFirestore(state);
+    const goldDelta = lastSyncedGold === null ? state.gold : (state.gold - lastSyncedGold);
+    if(goldDelta !== 0){
+      data.gold = firebase.firestore.FieldValue.increment(goldDelta);
+    } else {
+      delete data.gold; // nothing this client changed — don't touch the field at all
+    }
+    lastSyncedGold = state.gold;
     await db.collection('players').doc(UID).update(data);
     lastSyncTime = Date.now();
     const dot = document.querySelector('.save-dot');
@@ -51,9 +72,8 @@ function stateToFirestore(s){
     marketTab: s.marketTab, marketSearch: s.marketSearch,
     marketLevelFilter: s.marketLevelFilter,
     watchedItems: s.watchedItems, marketNotifications: s.marketNotifications,
-    // Supply & demand: persist each resource's virtual reserve + last known
-    // price so a player's own buying/selling impact survives a reload.
-    marketReserves: s.marketReserves, prices: s.prices,
+    // Last traded price per resource (real trades only — see recordTradePrice).
+    prices: s.prices,
     notifications: s.notifications,
     // Alliance (membership is the source of truth on the players doc;
     // allianceId/allianceRole are also updated directly by alliance.js actions)
@@ -77,6 +97,7 @@ async function loadFromFirestore(){
     const data = doc.data();
     state = firestoreToState(data);
     migrateState(state);
+    lastSyncedGold = state.gold; // baseline so the next sync only pushes what changes locally from here
     return true;
   }catch(e){ console.error('Load failed:', e); return false; }
 }
@@ -90,12 +111,11 @@ function firestoreToState(data){
   const prices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prices[k]=(data.prices && typeof data.prices[k]==='number') ? data.prices[k] : MARKET_CATALOG[k].basePrice);
   const prevPrices = {}; Object.keys(MARKET_CATALOG).forEach(k=> prevPrices[k]=prices[k]);
   const priceHistory = {}; Object.keys(MARKET_CATALOG).forEach(k=> priceHistory[k]=[prices[k]]);
-  const marketReserves = {}; Object.keys(MARKET_CATALOG).forEach(k=> marketReserves[k]=(data.marketReserves && data.marketReserves[k]) ? data.marketReserves[k] : makeMarketReserve(prices[k]));
   return {
-    version: 9, level: data.level || 1, xp: data.xp || 0, xpToNext: data.xpToNext || 35,
+    version: 10, level: data.level || 1, xp: data.xp || 0, xpToNext: data.xpToNext || 35,
     gold: data.gold || 100, energy: data.stamina || 100, maxEnergy: data.maxStamina || 100,
     lastEnergyTs: Date.now(), storageCap: 500,
-    inv: inv, prices: prices, prevPrices: prevPrices, priceHistory: priceHistory, marketReserves: marketReserves, lastPriceTs: Date.now(),
+    inv: inv, prices: prices, prevPrices: prevPrices, priceHistory: priceHistory, lastPriceTs: Date.now(),
     combat: data.combat || { wins:0, losses:0 }, missions: null,
     log: [], lastTimestamp: Date.now(),
     prestige: data.prestige || { points:0, gatherBonus:0, sellBonus:0, energyBonus:0, storageBonus:0 },
