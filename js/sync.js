@@ -45,6 +45,7 @@ function stateToFirestore(s){
     totalAllianceDonated: s.totalAllianceDonated,
     shards: s.shards, gems: s.gems,
     playerClass: s.playerClass, potions: s.potions,
+    classResets: s.classResets, lastClassReset: s.lastClassReset,
     lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
         // Advanced Market
     marketTab: s.marketTab, marketSearch: s.marketSearch,
@@ -106,8 +107,8 @@ function firestoreToState(data){
     equipped: data.gear || { weapon:null, armor:null, helmet:null, boots:null, accessory:null, gloves:null },
     gearBag: data.gearBag || [], shards: data.shards || 0, gems: data.gems || 0,
     companies: data.companies || [], companyBuildResource: null, companyMenuOpen: null, companyChangeResourceId: null,
-    playerClass: data.playerClass || null, classSkills: data.classSkills || {}, classSkillPoints: data.classSkillPoints || 0,
-    classResets: 0, lastClassReset: 0, potions: data.potions || { health:0, energy:0 },
+    playerClass: data.playerClass || data.class || null, classSkills: data.classSkills || {}, classSkillPoints: data.classSkillPoints || 0,
+    classResets: data.classResets || 0, lastClassReset: data.lastClassReset || 0, potions: data.potions || { health:0, energy:0 },
     battleLog: [], battleActive: false, battleResult: null,
         // Advanced Market
     marketTab: data.marketTab || 'all', marketSearch: data.marketSearch || '',
@@ -334,11 +335,11 @@ async function viewChatProfile(uid){
       return;
     }
     const d = doc.data();
-    const cls = escapeHtml(d.class || 'adventurer');
-    // d.class also gets used inside a CSS var() lookup below — a raw value
+    const cls = escapeHtml(d.playerClass || d.class || 'adventurer');
+    // d.playerClass also gets used inside a CSS var() lookup below — a raw value
     // there could break out of the style="" attribute, so restrict it to a
     // safe whitelist-like token (letters only) before interpolating.
-    const safeClassToken = /^[a-zA-Z_-]{1,30}$/.test(d.class || '') ? d.class : 'brass';
+    const safeClassToken = /^[a-zA-Z_-]{1,30}$/.test(d.playerClass || d.class || '') ? (d.playerClass || d.class) : 'brass';
     const clsColor = `var(--${safeClassToken},var(--brass))`;
     box.innerHTML = `
       <div class="modal-header"><h3>Player Profile</h3><button class="modal-close" onclick="closeChatProfile()">✕</button></div>
