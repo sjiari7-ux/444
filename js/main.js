@@ -141,7 +141,10 @@ async function startGame(){
   // if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
   render();
   setInterval(tick, TICK_MS);
-  setInterval(()=>{ updatePrices(); if(activeTab !== 'zones') renderBodyUnlessTyping(); }, PRICE_TICK_MS);
+  // Refresh whatever market listings are currently on screen (browse list,
+  // an open item's order book, or "My Listings") so prices/quantities from
+  // other players show up without the player needing to reopen the tab.
+  setInterval(()=>{ if(activeTab === 'market' && typeof refreshOpenMarketViews === 'function') refreshOpenMarketViews(); }, PRICE_TICK_MS);
   setInterval(syncToFirestore, SYNC_INTERVAL);
   if(typeof flushZoneTax === 'function') setInterval(flushZoneTax, SYNC_INTERVAL);
   loadUsername();
@@ -372,23 +375,17 @@ function tick(){
   checkMissionResets();
   renderHeader();
 }
-// Called on the regular price tick. Prices are NOT randomized and are not
-// pulled back toward any baseline here — the only thing that moves a price
-// is an actual buy() or sell() (below), which shifts that resource's
-// virtual supply/demand reserve. This tick just snapshots the current AMM
-// price into history so the market graph has a trail.
-function updatePrices(){
-  Object.keys(MARKET_CATALOG).forEach(k=>{
-    state.prevPrices[k] = state.prices[k];
-    if(!state.priceHistory[k]) state.priceHistory[k]=[];
-    state.priceHistory[k].push(state.prices[k]);
-    if(state.priceHistory[k].length > PRICE_HISTORY_LENGTH) state.priceHistory[k].shift();
-  });
-}
-function ensureMarketReserve(key){
-  if(!state.marketReserves) state.marketReserves = {};
-  if(!state.marketReserves[key]) state.marketReserves[key] = makeMarketReserve(state.prices[key] || MARKET_CATALOG[key].basePrice);
-  return state.marketReserves[key];
+// Records an actual trade price into history so the market sparkline has a
+// trail. Called by marketplace.js the instant a real player-to-player trade
+// executes — this is the ONLY thing that moves state.prices now. There is no
+// more automatic price tick; a resource with no recent trades just keeps
+// showing its last traded price.
+function recordTradePrice(key, price){
+  if(!state.priceHistory[key]) state.priceHistory[key] = [];
+  state.prevPrices[key] = state.prices[key];
+  state.prices[key] = price;
+  state.priceHistory[key].push(price);
+  if(state.priceHistory[key].length > PRICE_HISTORY_LENGTH) state.priceHistory[key].shift();
 }
 /* ===== GATHERING & CONSUMABLES ===== */
 function collect(key){
@@ -489,65 +486,10 @@ function clearMarketFilters(){
   renderBody(); scheduleSave();
 }
 
-/* ===== MARKET (supply & demand via a virtual AMM reserve) ===== */
-// Each resource holds a virtual { supply, gold } pool with supply*gold held
-// constant between trades. Price is always gold/supply. Buying pulls units
-// out of supply (price climbs along the curve — the more you buy in one go,
-// the steeper the climb). Selling pushes units back in (price falls the
-// same way). This is the only thing that moves a price now.
-function buy(key, amount){
-  const reserve = ensureMarketReserve(key);
-  const invariant = reserve.supply * reserve.gold;
-  const cap = getStorageCap(state);
-  const used = getTotalStorageUsed(state);
-  const maxByReserve = Math.floor(reserve.supply - 1); // never fully drain the pool
-  if(amount === 'max'){
-    // Binary-search the largest amount affordable within gold + storage limits.
-    let lo = 0, hi = Math.max(0, Math.min(maxByReserve, cap - used));
-    while(lo < hi){
-      const mid = Math.ceil((lo+hi+1)/2);
-      const newSupply = reserve.supply - mid;
-      const cost = Math.ceil((invariant/newSupply) - reserve.gold);
-      if(cost <= state.gold) lo = mid; else hi = mid-1;
-    }
-    amount = lo;
-  }
-  amount = Math.min(amount, cap - used, maxByReserve);
-  if(amount <= 0) return;
-  const newSupply = reserve.supply - amount;
-  const newGold = invariant / newSupply;
-  const cost = Math.ceil(newGold - reserve.gold);
-  if(cost > state.gold){ pushLog(state, 'Not enough gold!', 'lose'); return; }
-  state.gold -= cost;
-  state.inv[key] += amount;
-  reserve.supply = newSupply;
-  reserve.gold = newGold;
-  state.prevPrices[key] = state.prices[key];
-  state.prices[key] = Math.max(1, Math.round((reserve.gold/reserve.supply)*10)/10);
-  updateMissionProgress('bought', amount);
-  pushLog(state, `Bought ${amount} ${MARKET_CATALOG[key].name} for ${cost}g`, 'gain');
-  renderBody(); scheduleSave();
-}
-function sell(key, amount){
-  if(amount === 'max') amount = state.inv[key];
-  amount = Math.min(amount, state.inv[key]);
-  if(amount <= 0) return;
-  const reserve = ensureMarketReserve(key);
-  const invariant = reserve.supply * reserve.gold;
-  const newSupply = reserve.supply + amount;
-  const newGold = invariant / newSupply;
-  const gold = Math.floor((reserve.gold - newGold) * getSellMult(state));
-  reserve.supply = newSupply;
-  reserve.gold = newGold;
-  state.gold += gold;
-  state.totalGoldEarned += gold;
-  state.inv[key] -= amount;
-  state.prevPrices[key] = state.prices[key];
-  state.prices[key] = Math.max(1, Math.round((reserve.gold/reserve.supply)*10)/10);
-  updateMissionProgress('sold', amount);
-  pushLog(state, `Sold ${amount} ${MARKET_CATALOG[key].name} for ${gold}g`, 'sell');
-  renderBody(); scheduleSave();
-}
+/* ===== PLAYER MARKET =====
+   The old AMM buy()/sell() functions are gone. All buying and selling now
+   goes through the real player-listing order book — see js/marketplace.js
+   for createListing(), cancelListing(), and buyFromListing(). */
 
 /* ===== CRAFTING ===== */
 function craft(key){
