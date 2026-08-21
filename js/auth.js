@@ -243,7 +243,7 @@ async function finishSetup(){
         uid: UID,
         email: EMAIL,
         username: selectedUsername,
-        class: selectedClass,
+        playerClass: selectedClass,
         level: 1,
         xp: 0,
         xpToNext: 35,
