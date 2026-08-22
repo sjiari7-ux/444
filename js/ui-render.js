@@ -190,7 +190,8 @@ function renderCrafting(){
     const stateClass = canCraft ? 'ready' : (!hasEnergy ? 'blocked-energy' : (!hasSpace ? 'blocked-space' : 'blocked-mats'));
 
     const card = `<div class="card recipe-card ${stateClass}">
-      <div class="card-top"><div class="card-icon">${g.icon}</div><div><div class="card-name">${g.name}</div><div class="card-sub">Produces ${r.output} · +${r.xp}XP</div></div></div>
+      <div class="xp-badge">+${r.xp}XP</div>
+      <div class="card-top"><div class="card-icon-box">${g.icon}</div><div><div class="card-name">${g.name}</div><div class="card-sub">Produces ${r.output}</div></div></div>
       <div class="req-label">Requires</div>
       <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:5px;">${energyChip}${inputsHtml}</div>
       <div style="display:flex;gap:6px;">
