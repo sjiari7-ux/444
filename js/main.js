@@ -137,6 +137,7 @@ async function startGame(){
   initMissions();
   await initAllianceOnStart();
   if(typeof initPvpOnStart === 'function') initPvpOnStart();
+  if(typeof initMarketNoticesOnStart === 'function') initMarketNoticesOnStart();
   // Kingdom Map / Territory Wars — disabled for now, re-add when ready:
   // if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
   render();
