@@ -1568,12 +1568,12 @@ function applyTheme(theme) {
         // يمكنك إضافة المزيد من المتغيرات حسب الحاجة
     } else {
         // العودة إلى القيم الافتراضية (الموجودة في :root)
-        root.style.setProperty('--bg', '#0f1b1a');
-        root.style.setProperty('--panel', '#16302b');
-        root.style.setProperty('--panel-light', '#1e3d36');
-        root.style.setProperty('--text', '#e5ddc8');
-        root.style.setProperty('--dim', '#9fb0a8');
-        root.style.setProperty('--border', '#2c4a42');
+        root.style.setProperty('--bg', '#0a0d12');
+        root.style.setProperty('--panel', '#131922');
+        root.style.setProperty('--panel-light', '#1d2530');
+        root.style.setProperty('--text', '#eef1f5');
+        root.style.setProperty('--dim', '#7e8b9a');
+        root.style.setProperty('--border', '#1c2530');
     }
     applyAccentColor(state.accentColor);
 }
