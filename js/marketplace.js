@@ -45,15 +45,32 @@ async function loadListingsFor(key){
     renderBody();
     return;
   }
-  state.marketListingsLoading = true;
-  renderBody();
+  // Only show the "Loading offers…" skeleton on the very first load for
+  // this item. The background poll in refreshOpenMarketViews() (every
+  // PRICE_TICK_MS while the Market tab is open) calls this same function
+  // to quietly pick up other players' activity — flipping the loading
+  // flag and re-rendering on every one of those polls was tearing down
+  // and rebuilding the whole page every 15s, which is what made the
+  // market view look like it kept flashing/disappearing.
+  const hadCache = !!state.marketListingsCache[key];
+  if(!hadCache){
+    state.marketListingsLoading = true;
+    renderBody();
+  }
   try{
     const snap = await marketCollection()
       .where('itemKey', '==', key)
       .orderBy('pricePerUnit', 'asc')
       .limit(MARKET_LISTINGS_PER_ITEM)
       .get();
-    state.marketListingsCache[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const changed = JSON.stringify(fresh) !== JSON.stringify(state.marketListingsCache[key] || null);
+    state.marketListingsCache[key] = fresh;
+    state.marketListingsLoading = false;
+    // Skip the re-render entirely on a background poll that found no
+    // actual change — nothing on screen needs to move.
+    if(!hadCache || changed) renderBody();
+    return;
   }catch(e){
     console.error('[Arcadia Market] Failed to load listings for', key, e);
     state.marketListingsCache[key] = state.marketListingsCache[key] || [];
@@ -146,11 +163,19 @@ function closeSellModal(){
 
 async function loadMyListings(){
   if(!db || !UID) return;
-  state.myListingsLoading = true;
-  renderBody();
+  const hadCache = state.myListingsCache.length > 0;
+  if(!hadCache){
+    state.myListingsLoading = true;
+    renderBody();
+  }
   try{
     const snap = await marketCollection().where('sellerId', '==', UID).get();
-    state.myListingsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const changed = JSON.stringify(fresh) !== JSON.stringify(state.myListingsCache);
+    state.myListingsCache = fresh;
+    state.myListingsLoading = false;
+    if(!hadCache || changed) renderBody();
+    return;
   }catch(e){
     console.error('[Arcadia Market] Failed to load my listings:', e);
     pushLog(state, "Couldn't load your listings right now.", 'lose');
