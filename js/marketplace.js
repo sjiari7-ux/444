@@ -278,16 +278,48 @@ async function createListing(key, qty, pricePerUnit){
   renderBody(); scheduleSave();
 
   try{
-    await marketCollection().add({
-      itemKey: key,
-      sellerId: UID,
-      sellerName: state.username || 'Player',
-      pricePerUnit,
-      quantity: qty,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    // If this seller already has an open listing for this exact item at
+    // this exact price, top it up instead of posting a brand new doc —
+    // otherwise "Wood at 4g" ends up as two separate rows from the same
+    // seller in Browse offers, which just looks like a bug to a buyer
+    // even though technically each one is a valid listing. Only equality
+    // filters here, so this doesn't need a composite Firestore index.
+    const existing = await marketCollection()
+      .where('sellerId', '==', UID)
+      .where('itemKey', '==', key)
+      .where('pricePerUnit', '==', pricePerUnit)
+      .limit(1)
+      .get();
+
+    if(!existing.empty){
+      const ref = existing.docs[0].ref;
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if(!snap.exists){
+          // Listing got cancelled/sold out between the check above and
+          // now — just re-create it fresh instead of updating a ghost.
+          tx.set(ref, {
+            itemKey: key, sellerId: UID, sellerName: state.username || 'Player',
+            pricePerUnit, quantity: qty,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          tx.update(ref, { quantity: (snap.data().quantity || 0) + qty });
+        }
+      });
+      pushLog(state, `Added ${qty} to your existing ${MARKET_CATALOG[key].name} listing at ${pricePerUnit}g each`, 'sell');
+    } else {
+      await marketCollection().add({
+        itemKey: key,
+        sellerId: UID,
+        sellerName: state.username || 'Player',
+        pricePerUnit,
+        quantity: qty,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      pushLog(state, `Listed ${qty} ${MARKET_CATALOG[key].name} at ${pricePerUnit}g each`, 'sell');
+    }
     updateMissionProgress('sold', qty);
-    pushLog(state, `Listed ${qty} ${MARKET_CATALOG[key].name} at ${pricePerUnit}g each`, 'sell');
   }catch(e){
     console.error('[Arcadia Market] Failed to create listing:', e);
     state.inv[key] += qty; // refund locally — the listing never made it to Firestore
