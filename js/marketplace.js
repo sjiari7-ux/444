@@ -61,6 +61,7 @@ async function loadListingsFor(key){
     const snap = await marketCollection()
       .where('itemKey', '==', key)
       .orderBy('pricePerUnit', 'asc')
+      .orderBy('quantity', 'asc')
       .limit(MARKET_LISTINGS_PER_ITEM)
       .get();
     const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
