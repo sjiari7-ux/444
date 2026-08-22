@@ -335,7 +335,11 @@ function renderMyListingsView(){
   return rows;
 }
 
-function renderMarketDetailModal(key){
+// Just the listings-rows portion of the "Browse offers" modal. Split out
+// from renderMarketDetailModal() so it can be re-rendered on its own (see
+// patchMarketDetailModal below) without rebuilding the modal-overlay /
+// modal-box wrapper around it.
+function renderMarketDetailBody(key){
   const it = MARKET_CATALOG[key];
   if(!it) return '';
   const listings = state.marketListingsCache[key] || [];
@@ -343,45 +347,67 @@ function renderMarketDetailModal(key){
   const cap = getStorageCap(state);
   const used = getTotalStorageUsed(state);
   const roomLeft = Math.max(0, cap - used);
-  let body;
   if(loading && !listings.length){
-    body = `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">Loading offers…</div>`;
-  } else if(!listings.length){
-    body = `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">No one is selling ${escapeHtml(it.name)} right now. Be the first — hit Sell from the Browse list.</div>`;
-  } else {
-    body = listings.map(l=>{
-      const mine = l.sellerId === UID;
-      const affordableQty = Math.floor(state.gold / (l.pricePerUnit || 1));
-      const maxQty = Math.max(0, Math.min(l.quantity, roomLeft, affordableQty));
-      const buy1Cost = Math.ceil(l.pricePerUnit);
-      return `<div class="market-row">
-        <div class="market-left">
-          <div>
-            <div class="card-name">${escapeHtml(l.sellerName || 'Player')}${mine?' <span class="stat-pill">You</span>':''}</div>
-            <div class="market-owned">${fmtG(l.quantity)} available</div>
-          </div>
-        </div>
-        <div style="text-align:center;min-width:80px;">
-          <div class="market-price" style="font-size:15px;">${l.pricePerUnit.toFixed(1)}g<span style="color:var(--dim);font-size:10px;"> /ea</span></div>
-        </div>
-        <div class="market-actions">
-          ${mine ? `<span style="font-size:11px;color:var(--dim);">Manage in My Listings</span>` : `
-          <button class="mini-btn buy" ${state.gold>=buy1Cost && roomLeft>=1 ? '':'disabled'} onclick="buyFromListing('${l.id}',1)">Buy ×1</button>
-          ${l.quantity>=10 ? `<button class="mini-btn buy" ${maxQty>=10?'':'disabled'} onclick="buyFromListing('${l.id}',10)">×10</button>` : ''}
-          <button class="mini-btn buy" ${maxQty>0?'':'disabled'} onclick="buyFromListing('${l.id}',${Math.max(1,maxQty)})">Max (${Math.max(0,maxQty)})</button>`}
-        </div>
-      </div>`;
-    }).join('');
+    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">Loading offers…</div>`;
   }
+  if(!listings.length){
+    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">No one is selling ${escapeHtml(it.name)} right now. Be the first — hit Sell from the Browse list.</div>`;
+  }
+  return listings.map(l=>{
+    const mine = l.sellerId === UID;
+    const affordableQty = Math.floor(state.gold / (l.pricePerUnit || 1));
+    const maxQty = Math.max(0, Math.min(l.quantity, roomLeft, affordableQty));
+    const buy1Cost = Math.ceil(l.pricePerUnit);
+    return `<div class="market-row">
+      <div class="market-left">
+        <div>
+          <div class="card-name">${escapeHtml(l.sellerName || 'Player')}${mine?' <span class="stat-pill">You</span>':''}</div>
+          <div class="market-owned">${fmtG(l.quantity)} available</div>
+        </div>
+      </div>
+      <div style="text-align:center;min-width:80px;">
+        <div class="market-price" style="font-size:15px;">${l.pricePerUnit.toFixed(1)}g<span style="color:var(--dim);font-size:10px;"> /ea</span></div>
+      </div>
+      <div class="market-actions">
+        ${mine ? `<span style="font-size:11px;color:var(--dim);">Manage in My Listings</span>` : `
+        <button class="mini-btn buy" ${state.gold>=buy1Cost && roomLeft>=1 ? '':'disabled'} onclick="buyFromListing('${l.id}',1)">Buy ×1</button>
+        ${l.quantity>=10 ? `<button class="mini-btn buy" ${maxQty>=10?'':'disabled'} onclick="buyFromListing('${l.id}',10)">×10</button>` : ''}
+        <button class="mini-btn buy" ${maxQty>0?'':'disabled'} onclick="buyFromListing('${l.id}',${Math.max(1,maxQty)})">Max (${Math.max(0,maxQty)})</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMarketDetailModal(key){
+  const it = MARKET_CATALOG[key];
+  if(!it) return '';
   return `
     <div class="modal-overlay" onclick="if(event.target===this)closeMarketDetail()">
       <div class="modal-box">
         <div class="modal-header"><h3>${it.icon} ${escapeHtml(it.name)} — offers</h3><button class="modal-close" onclick="closeMarketDetail()">✕</button></div>
         <div class="modal-body" style="padding:8px 20px 18px;">
-          ${body}
+          ${renderMarketDetailBody(key)}
         </div>
       </div>
     </div>`;
+}
+
+// Updates just the listing rows inside an already-open "Browse offers"
+// modal, in place — WITHOUT touching the .modal-overlay/.modal-box
+// wrapper. Those wrapper elements carry the fadeIn/slideUp CSS entrance
+// animations (see style.css); a full renderBody() replaces #app's entire
+// innerHTML, which destroys and recreates that wrapper too, restarting
+// the animation from opacity:0 every time. That's what made the modal
+// look like it was flashing/disappearing every ~15s as background price
+// polls came back. Returns false (so the caller can fall back to a full
+// renderBody()) if the modal isn't actually mounted right now.
+function patchMarketDetailModal(key){
+  const overlay = document.querySelector('.modal-overlay');
+  if(!overlay) return false;
+  const bodyEl = overlay.querySelector('.modal-body');
+  if(!bodyEl) return false;
+  bodyEl.innerHTML = renderMarketDetailBody(key);
+  return true;
 }
 
 function renderSellModal(key){
