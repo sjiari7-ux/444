@@ -236,13 +236,24 @@ async function loadMyListings(){
   renderBody();
 }
 
+// Guards against the same listing being posted twice if "List for sale"
+// gets clicked again before the first click's Firestore write has come
+// back (double-click, slow connection, etc). Without this, a repeated
+// click on submitSellForm() -> createListing() posts two separate
+// listings for the same item/price — which is what "Browse offers" was
+// showing (two identical "You" rows for the same item).
+let listingSubmitInFlight = false;
+
 async function createListing(key, qty, pricePerUnit){
+  if(listingSubmitInFlight){ return; }
   if(!db || !UID){ pushLog(state, 'The player market needs a cloud connection.', 'lose'); return; }
   qty = Math.floor(Number(qty));
   pricePerUnit = Math.round(Number(pricePerUnit) * 10) / 10;
   if(!(qty > 0)){ pushLog(state, 'Enter a quantity to list.', 'lose'); return; }
   if(!(pricePerUnit > 0)){ pushLog(state, 'Enter a price per unit.', 'lose'); return; }
   if((state.inv[key] || 0) < qty){ pushLog(state, "You don't have that many to list.", 'lose'); return; }
+
+  listingSubmitInFlight = true;
 
   // Take the items out of the backpack immediately, client-side, exactly
   // like every other inventory change in this game — this is the player's
@@ -268,9 +279,12 @@ async function createListing(key, qty, pricePerUnit){
     state.inv[key] += qty; // refund locally — the listing never made it to Firestore
     pushLog(state, "Couldn't post that listing — items returned to your backpack.", 'lose');
   }
+  listingSubmitInFlight = false;
   renderBody(); scheduleSave();
   loadMyListings();
 }
+
+
 
 async function cancelListing(listingId){
   if(!db || !UID) return;
