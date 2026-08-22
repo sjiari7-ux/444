@@ -411,7 +411,7 @@ function renderSellModal(key){
               <input type="number" id="sellPriceInput" class="username-input" style="margin-bottom:0;" min="0.1" step="0.1" value="${lastPrice.toFixed(1)}">
             </div>
           </div>
-          <button class="act-btn buy" ${owned<1?'disabled':''} onclick="submitSellForm('${key}')">List for sale</button>
+          <button class="act-btn buy" ${(owned<1||listingSubmitInFlight)?'disabled':''} onclick="submitSellForm('${key}')">${listingSubmitInFlight?'Listing…':'List for sale'}</button>
           ${mineRows ? `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:10px;"><div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Your current listings of this item</div>${mineRows}</div>` : ''}
         </div>
       </div>
@@ -419,6 +419,7 @@ function renderSellModal(key){
 }
 
 function submitSellForm(key){
+  if(listingSubmitInFlight) return; // already posting one — ignore extra clicks
   const qtyEl = document.getElementById('sellQtyInput');
   const priceEl = document.getElementById('sellPriceInput');
   const qty = qtyEl ? qtyEl.value : 0;
