@@ -348,25 +348,31 @@ function renderMarketDetailBody(key){
   const used = getTotalStorageUsed(state);
   const roomLeft = Math.max(0, cap - used);
   if(loading && !listings.length){
-    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">Loading offers…</div>`;
+    return `<div class="offer-empty"><span class="oe-icon">⏳</span>Loading offers…</div>`;
   }
   if(!listings.length){
-    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">No one is selling ${escapeHtml(it.name)} right now. Be the first — hit Sell from the Browse list.</div>`;
+    return `<div class="offer-empty"><span class="oe-icon">${it.icon}</span>No one is selling ${escapeHtml(it.name)} right now.<br>Be the first — hit Sell from the Browse list.</div>`;
   }
-  return listings.map(l=>{
+  const bestPrice = listings[0].pricePerUnit;
+  const subhead = `<div class="offers-subhead"><span><b>${listings.length}</b> offer${listings.length===1?'':'s'}</span><span>Sorted: lowest price first</span></div>`;
+  const rows = listings.map(l=>{
     const mine = l.sellerId === UID;
+    const isBest = l.pricePerUnit === bestPrice;
     const affordableQty = Math.floor(state.gold / (l.pricePerUnit || 1));
     const maxQty = Math.max(0, Math.min(l.quantity, roomLeft, affordableQty));
     const buy1Cost = Math.ceil(l.pricePerUnit);
-    return `<div class="market-row">
-      <div class="market-left">
-        <div>
-          <div class="card-name">${escapeHtml(l.sellerName || 'Player')}${mine?' <span class="stat-pill">You</span>':''}</div>
+    const sellerName = l.sellerName || 'Player';
+    const initial = escapeHtml(sellerName.trim().charAt(0).toUpperCase() || '?');
+    return `<div class="offer-row${mine?' mine':''}${isBest?' best':''}">
+      <div class="offer-seller">
+        <div class="offer-avatar">${initial}</div>
+        <div class="offer-seller-info">
+          <div class="offer-seller-name">${escapeHtml(sellerName)}${mine?' <span class="stat-pill">You</span>':''}${isBest?' <span class="offer-best-badge">Best</span>':''}</div>
           <div class="market-owned">${fmtG(l.quantity)} available</div>
         </div>
       </div>
-      <div style="text-align:center;min-width:80px;">
-        <div class="market-price" style="font-size:15px;">${l.pricePerUnit.toFixed(1)}g<span style="color:var(--dim);font-size:10px;"> /ea</span></div>
+      <div class="offer-price-block">
+        <div class="offer-price">${l.pricePerUnit.toFixed(1)}g<span class="unit"> /ea</span></div>
       </div>
       <div class="market-actions">
         ${mine ? `<span style="font-size:11px;color:var(--dim);">Manage in My Listings</span>` : `
@@ -376,6 +382,7 @@ function renderMarketDetailBody(key){
       </div>
     </div>`;
   }).join('');
+  return subhead + rows;
 }
 
 function renderMarketDetailModal(key){
