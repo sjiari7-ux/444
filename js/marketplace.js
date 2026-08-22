@@ -111,7 +111,7 @@ async function buyFromListing(listingId, amount){
       const sellerRef = db.collection('players').doc(listing.sellerId);
       tx.update(sellerRef, { gold: firebase.firestore.FieldValue.increment(cost) });
 
-      return { itemKey: listing.itemKey, qty: buyQty, cost, pricePerUnit: listing.pricePerUnit, sellerName: listing.sellerName };
+      return { itemKey: listing.itemKey, qty: buyQty, cost, pricePerUnit: listing.pricePerUnit, sellerName: listing.sellerName, sellerId: listing.sellerId };
     });
   }catch(e){
     if(e.message === 'OWN_LISTING'){
@@ -147,7 +147,58 @@ async function buyFromListing(listingId, amount){
   recordTradePrice(result.itemKey, result.pricePerUnit);
   renderBody(); scheduleSave();
   loadListingsFor(result.itemKey);
+  marketDeliverSaleNotice(result.sellerId, result.itemKey, result.qty, result.cost);
 }
+
+// Tells the SELLER, next time they're online, that their item sold — who
+// bought it and what/how much, together in one notification. Mirrors the
+// pvpReports pattern in js/pvp.js: a create-only doc in the seller's own
+// subcollection (a buyer can't write anywhere else on the seller's player
+// doc), which the seller's own client reads, turns into a notification,
+// and deletes. Best-effort — if it fails the sale itself already went
+// through in the transaction above, only the notice is lost.
+async function marketDeliverSaleNotice(sellerId, itemKey, qty, cost){
+  if(!db || !sellerId) return;
+  try{
+    await db.collection('players').doc(sellerId).collection('marketSales').add({
+      buyerUid: UID,
+      buyerName: state.username || 'A player',
+      itemKey, qty, cost,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }catch(e){
+    console.warn('[Arcadia Market] Could not deliver sale notice to seller (check Firestore rules):', e.code || e.message);
+  }
+}
+
+// Applies any sales that landed on our own listings while we were offline
+// (or on another tab): credits already happened server-side at buy time,
+// this just surfaces who-bought-what as a notification. Self-writes only.
+async function applyPendingMarketSales(){
+  if(!db || !UID) return;
+  try{
+    const snap = await db.collection('players').doc(UID).collection('marketSales').limit(20).get();
+    if(snap.empty) return;
+    const batch = db.batch();
+    snap.docs.forEach(doc=>{
+      const s = doc.data();
+      const itemName = (MARKET_CATALOG[s.itemKey] && MARKET_CATALOG[s.itemKey].name) || s.itemKey;
+      if(typeof addNotification === 'function'){
+        addNotification('market', '💰 Item Sold!', `${escapeHtml(s.buyerName||'A player')} bought ${s.qty} ${escapeHtml(itemName)} for ${s.cost}g.`);
+      }
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }catch(e){
+    console.error('[Arcadia Market] Failed to apply pending sale notices:', e.code || e.name, e.message);
+  }
+}
+
+async function initMarketNoticesOnStart(){
+  await applyPendingMarketSales();
+  setInterval(()=>{ applyPendingMarketSales(); }, 3 * 60 * 1000);
+}
+
 
 /* ───────────────────────── Sell (listing side) ───────────────────────── */
 
