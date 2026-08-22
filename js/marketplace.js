@@ -31,6 +31,10 @@ function marketCollection(){
 
 function openMarketDetail(key){
   state.marketDetailItem = key;
+  // Mark it loading before this first, modal-mounting render so it opens
+  // straight to "Loading offers…" instead of briefly showing "No one is
+  // selling this" for a frame while we don't have a cache yet.
+  if(!state.marketListingsCache[key]) state.marketListingsLoading = true;
   renderBody();
   loadListingsFor(key);
 }
@@ -48,14 +52,22 @@ async function loadListingsFor(key){
   // Only show the "Loading offers…" skeleton on the very first load for
   // this item. The background poll in refreshOpenMarketViews() (every
   // PRICE_TICK_MS while the Market tab is open) calls this same function
-  // to quietly pick up other players' activity — flipping the loading
-  // flag and re-rendering on every one of those polls was tearing down
-  // and rebuilding the whole page every 15s, which is what made the
-  // market view look like it kept flashing/disappearing.
+  // to quietly pick up other players' activity.
+  //
+  // Every update here goes through patchMarketDetailModal(), which
+  // replaces just the listing rows inside the modal that's already on
+  // screen, instead of renderBody() — renderBody() rebuilds #app's whole
+  // innerHTML, which tears down and recreates the modal-overlay/modal-box
+  // wrapper too. Those wrapper elements carry CSS entrance animations
+  // (fadeIn/slideUp), so every one of those full re-renders restarted the
+  // animation from opacity:0, which is what made the modal look like it
+  // kept flashing/disappearing every time fresh data came in. patch*
+  // falls back to a full renderBody() only if the modal isn't actually
+  // mounted (e.g. this poll fired for an item whose modal already closed).
   const hadCache = !!state.marketListingsCache[key];
   if(!hadCache){
     state.marketListingsLoading = true;
-    renderBody();
+    if(!patchMarketDetailModal(key)) renderBody();
   }
   try{
     const snap = await marketCollection()
@@ -70,7 +82,9 @@ async function loadListingsFor(key){
     state.marketListingsLoading = false;
     // Skip the re-render entirely on a background poll that found no
     // actual change — nothing on screen needs to move.
-    if(!hadCache || changed) renderBody();
+    if(!hadCache || changed){
+      if(!patchMarketDetailModal(key)) renderBody();
+    }
     return;
   }catch(e){
     console.error('[Arcadia Market] Failed to load listings for', key, e);
@@ -78,7 +92,7 @@ async function loadListingsFor(key){
     pushLog(state, "Couldn't load listings right now.", 'lose');
   }
   state.marketListingsLoading = false;
-  renderBody();
+  if(!patchMarketDetailModal(key)) renderBody();
 }
 
 // Buys `amount` units off a single listing (partial buys are fine — the
