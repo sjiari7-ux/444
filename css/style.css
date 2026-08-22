@@ -95,6 +95,9 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 
 /* Craft recipe cards — border/tint communicates state at a glance */
 .req-label{font-family:var(--font-mono);font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+.recipe-card{padding-top:16px;}
+.recipe-card .card-icon-box{width:52px;height:52px;font-size:28px;background:var(--panel-inset);border:1px solid var(--border-light);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.recipe-card .xp-badge{position:absolute;top:10px;right:10px;background:var(--panel-inset);border:1px solid var(--brass-dim);color:var(--copper);font-family:var(--font-mono);font-size:9px;padding:2px 8px;border-radius:10px;letter-spacing:.02em;}
 .recipe-card.ready{border-color:rgba(154,167,181,0.45);background:linear-gradient(160deg,rgba(154,167,181,0.07),var(--panel-light) 65%);}
 .recipe-card.blocked-mats{opacity:0.72;}
 .recipe-card.blocked-energy{border-color:rgba(255,87,87,0.4);background:linear-gradient(160deg,rgba(255,87,87,0.06),var(--panel-light) 65%);}
