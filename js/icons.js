@@ -92,12 +92,12 @@ const ICONS = {
   class_merchant: "icons/class_merchant.png",
 
   // Zone banner photos — one landscape image per adventure zone (Zones tab card)
-  zone_plains: "icons/zone_plains.png",
-  zone_forest: "icons/zone_forest.png",
-  zone_mountain: "icons/zone_mountain.png",
-  zone_cave: "icons/zone_cave.png",
-  zone_swamp: "icons/zone_swamp.png",
-  zone_dark: "icons/zone_dark.png",
+  zone_plains: "icons/zone_plains.jpg",
+  zone_forest: "icons/zone_forest.jpg",
+  zone_mountain: "icons/zone_mountain.jpg",
+  zone_cave: "icons/zone_cave.jpg",
+  zone_swamp: "icons/zone_swamp.jpg",
+  zone_dark: "icons/zone_dark.jpg",
 
   // Kingdom icons — one per one of the six kingdoms (Alliance tab)
   kingdom_europe: "icons/kingdom_europe.png",
