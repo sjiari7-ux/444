@@ -112,6 +112,14 @@ function renderGear(){
       <div class="forge-bag-count">Backpack: <b>${getTotalStorageUsed(state)}</b> / ${getStorageCap(state)}</div>
     </div>`;
 
+  const gearMarketButton = `
+    <div class="forge-cta">
+      <div class="forge-anvil"><img class="ui-icon" src="${ICONS.market_chart}" alt="⚔️" style="width:48px;height:48px;"></div>
+      <div class="forge-title">Gear Market</div>
+      <div class="forge-desc">Buy and sell real crafted gear with other players — the item, its exact stats and upgrade level, hand to hand.</div>
+      <button class="forge-open-btn" onclick="openGearMarket()">Open Gear Market</button>
+    </div>`;
+
   let forgeModal = '';
   if(forgeOpen && forgeSlot === null){
     // Grid of every craftable piece of gear, across all slots and tiers — filterable by category and name.
@@ -294,7 +302,8 @@ function renderGear(){
         <div class="fp-actions">
           <button class="mini-btn buy" onclick="equipGear(${item.id})">Equip</button>
           ${canUpgrade ? `<button class="mini-btn" style="border-color:${t.color};color:${t.color};" ${canAfford?'':'disabled'} onclick="upgradeGear(${item.id})">Upgrade</button>` : ''}
-          <button class="mini-btn sell" onclick="sellGear(${item.id})">Sell</button>
+          <button class="mini-btn" style="border-color:var(--brass-bright);color:var(--brass-bright);" onclick="openGearSellModal(${item.id})">List on Market</button>
+          <button class="mini-btn sell" onclick="sellGear(${item.id})">Sell (instant, ${getGearValue(item)}g)</button>
           <button class="mini-btn" onclick="destroyGear(${item.id})">Scrap +${scrapValue}\ud83d\udd37</button>
         </div>
       </div>`;
@@ -345,10 +354,12 @@ function renderGear(){
       <div class="bonus-row" style="justify-content:flex-start;">${totalStatsHtml}</div>
     </div>
     <div class="section-title"><h2>⚒️ Forge</h2><div class="sub">Craft gear from materials</div></div>
-    ${forgeButton}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">${forgeButton}${gearMarketButton}</div>
     <div class="section-title"><h2>Inventory (${state.gearBag.length})</h2></div>
-    ${state.gearBag.length === 0 ? '<div class="panel" style="text-align:center;color:var(--dim);padding:20px;">Bag is empty. Defeat monsters to find gear!</div>' : `<div class="gear-inv-grid-v2">${bagTiles}</div>`}
+    ${state.gearBag.length === 0 ? '<div class="panel" style="text-align:center;color:var(--dim);padding:20px;">Bag is empty. Defeat monsters to find gear, forge your own, or buy some on the Gear Market!</div>' : `<div class="gear-inv-grid-v2">${bagTiles}</div>`}
     ${bagDetail}
+    ${state.gearMarketOpen ? renderGearMarketModal() : ''}
+    ${state.gearMarketSellItem !== null ? renderGearSellModal(state.gearMarketSellItem) : ''}
     <div class="panel" style="overflow-x:auto;margin-top:14px;">
       <div class="panel-header"><img class="ui-icon" src="${ICONS.upgrade_scroll}" alt="📈"> Upgrade Table</div>
       <div style="font-size:11px;color:var(--dim);margin-bottom:10px;margin-top:-4px;">Failure downgrades by 1 (except +0)</div>
@@ -482,6 +493,127 @@ function destroyGear(id){
   state.gearBag.splice(idx, 1);
   pushLog(state, `Scrapped ${gear.name} for ${shards} shards`, 'gain');
   renderBody(); scheduleSave();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GEAR MARKET — UI (listing/buy/cancel logic lives in js/marketplace.js)
+   ═══════════════════════════════════════════════════════════════ */
+function renderGearMarketModal(){
+  const view = state.gearMarketView || 'browse';
+  const body = view === 'mine' ? renderMyGearListingsRows() : renderGearMarketBrowseRows();
+  const filterButtons = ['all', ...Object.keys(GEAR_SLOTS)].map(slot=>{
+    const active = state.gearMarketSlotFilter === slot;
+    const label = slot === 'all' ? 'All' : GEAR_SLOTS[slot].name;
+    const icon = slot === 'all' ? '🗂️' : GEAR_SLOTS[slot].icon;
+    return `<button class="mini-btn ${active?'buy':''}" onclick="setGearMarketSlotFilter('${slot}')">${icon} ${label}</button>`;
+  }).join('');
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this)closeGearMarket()">
+      <div class="modal-box forge-modal">
+        <div class="modal-header">
+          <h3>⚔️ Gear Market</h3>
+          <button class="modal-close" onclick="closeGearMarket()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Every listing here is a real piece of gear someone forged — exact stats and upgrade level included, ready to equip the moment you buy it.</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="market-tab-btn ${view==='browse'?'active':''}" onclick="setGearMarketView('browse')">🛒 Browse</button>
+            <button class="market-tab-btn ${view==='mine'?'active':''}" onclick="setGearMarketView('mine')">🏷️ My Listings</button>
+          </div>
+          ${view==='browse' ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">${filterButtons}</div>` : ''}
+          ${body}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderGearMarketBrowseRows(){
+  if(state.gearMarketListingsLoading && !state.gearMarketListings.length){
+    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">Loading listings…</div>`;
+  }
+  if(!state.gearMarketListings.length){
+    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">Nobody is selling this kind of gear right now. Be the first — list a piece from your bag!</div>`;
+  }
+  return state.gearMarketListings.map(l=>{
+    const g = l.gear;
+    const t = GEAR_TIERS[g.tier];
+    const info = GEAR_SLOTS[g.slot];
+    const mine = l.sellerId === UID;
+    const eff = getGearEffectiveStats(g);
+    const statsLine = Object.keys(eff).map(st=>{
+      const display = st==='defense'||st==='profit' ? `+${(eff[st]*100).toFixed(0)}%` : `+${eff[st]}`;
+      return `${SKILLS[st].name} ${display}`;
+    }).join(' · ');
+    return `<div class="market-row">
+      <div class="market-left">
+        <div class="card-icon" style="font-size:26px;">${info.icon}</div>
+        <div>
+          <div class="card-name" style="color:${t.color};">[${t.symbol}] ${escapeHtml(g.name)} +${g.upgradeLevel}</div>
+          <div class="market-owned">${escapeHtml(l.sellerName||'Player')}${mine?' (you)':''} · ${statsLine}</div>
+        </div>
+      </div>
+      <div style="text-align:center;min-width:90px;">
+        <div class="market-price" style="font-size:15px;">${fmtG(l.price)}g</div>
+      </div>
+      <div class="market-actions">
+        ${mine ? `<span style="font-size:11px;color:var(--dim);">Manage in My Listings</span>` : `<button class="mini-btn buy" ${state.gold>=l.price?'':'disabled'} onclick="buyGearListing('${l.id}')">Buy</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMyGearListingsRows(){
+  if(state.myGearListingsLoading && !state.myGearListingsCache.length){
+    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">Loading your listings…</div>`;
+  }
+  if(!state.myGearListingsCache.length){
+    return `<div style="padding:24px 0;text-align:center;color:var(--dim);font-size:13px;">You have nothing listed. Pick a piece from your bag and hit "List on Market".</div>`;
+  }
+  return state.myGearListingsCache.map(l=>{
+    const g = l.gear;
+    const t = GEAR_TIERS[g.tier];
+    const info = GEAR_SLOTS[g.slot];
+    return `<div class="market-row">
+      <div class="market-left">
+        <div class="card-icon" style="font-size:26px;">${info.icon}</div>
+        <div>
+          <div class="card-name" style="color:${t.color};">[${t.symbol}] ${escapeHtml(g.name)} +${g.upgradeLevel}</div>
+          <div class="market-owned">Listed at ${fmtG(l.price)}g</div>
+        </div>
+      </div>
+      <div class="market-actions">
+        <button class="mini-btn sell" onclick="cancelGearListing('${l.id}')">✕ Cancel & return</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderGearSellModal(gearId){
+  const gear = state.gearBag.find(g=>g.id===gearId);
+  if(!gear) return ''; // already listed/removed from another tab — nothing to show
+
+  const t = GEAR_TIERS[gear.tier];
+  const info = GEAR_SLOTS[gear.slot];
+  const suggested = getGearValue(gear);
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this)closeGearSellModal()">
+      <div class="modal-box">
+        <div class="modal-header"><h3>${info.icon} List ${escapeHtml(gear.name)}</h3><button class="modal-close" onclick="closeGearSellModal()">✕</button></div>
+        <div class="modal-body">
+          <div class="market-owned" style="margin-bottom:12px;color:${t.color};">[${t.symbol}] +${gear.upgradeLevel} · Instant sell to the game would give ${suggested}g</div>
+          <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px;">Price (g)</label>
+          <input type="number" id="gearSellPriceInput" class="username-input" min="1" step="1" value="${suggested}">
+          <button class="act-btn buy" style="width:100%;margin-top:12px;" ${gearListingSubmitInFlight?'disabled':''} onclick="submitGearSellForm(${gear.id})">${gearListingSubmitInFlight?'Listing…':'List for sale'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function submitGearSellForm(gearId){
+  if(gearListingSubmitInFlight) return;
+  const priceEl = document.getElementById('gearSellPriceInput');
+  const price = priceEl ? priceEl.value : 0;
+  listGearForSale(gearId, price);
 }
 
 /* ===== CLASS SYSTEM ===== */
