@@ -94,7 +94,7 @@ function renderInventory(){
     const isEnergy = ENERGY_POTION_TIERS[key] !== undefined;
     const isHealthPotion = key === 'health_potion';
     const isConsumable = isBread || isEnergy || isHealthPotion;
-    const typeLabel = isResource?'Resource':(isConsumable?'Consumable':(isWeapon?'Weapon':'Good'));
+    const typeLabel = isResource?'Resource':(isConsumable?'Consumable':(isWeapon?'Trade Good':'Good'));
     const typeColor = isResource?'var(--dim)':(isConsumable?'var(--health)':(isWeapon?'var(--brass-bright)':'var(--skill)'));
     let effectLine = '';
     let consumeBtn = '';
@@ -296,14 +296,16 @@ function renderMarketBrowseView(){
       </div>
     </div>`;
   }).join('');
+  const showWeaponsHint = tab === 'weapons';
   return `
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel);">
-      <input type="text" class="market-search" placeholder="Search weapons & items..." value="${state.marketSearch||''}" oninput="setMarketSearch(this.value)" style="flex:1;min-width:160px;">
+      <input type="text" class="market-search" placeholder="Search trade goods & resources..." value="${state.marketSearch||''}" oninput="setMarketSearch(this.value)" style="flex:1;min-width:160px;">
       <button class="market-tab-btn ${state.marketTab==='all'?'active':''}" onclick="setMarketTab('all')">📦 All</button>
-      <button class="market-tab-btn ${state.marketTab==='weapons'?'active':''}" onclick="setMarketTab('weapons')">⚔️ Weapons & Gear</button>
+      <button class="market-tab-btn ${state.marketTab==='weapons'?'active':''}" onclick="setMarketTab('weapons')">⚔️ Weapon Goods</button>
       <button class="market-tab-btn ${state.marketTab==='resources'?'active':''}" onclick="setMarketTab('resources')">🌲 Resources</button>
       <button class="mini-btn" onclick="clearMarketFilters()" style="padding:8px 12px;">✕ Clear</button>
     </div>
+    ${showWeaponsHint ? `<div style="padding:10px 16px;font-size:11.5px;color:var(--dim);background:rgba(255,195,92,0.08);border-bottom:1px solid var(--border);">ℹ️ These are tradeable goods, not equippable gear — buy/sell them here for profit. To actually forge, equip, or upgrade real weapons and armor, go to the <b>Gear</b> tab (Forge + Gear Market).</div>` : ''}
     ${rows}`;
 }
 
