@@ -145,7 +145,10 @@ async function startGame(){
   // Refresh whatever market listings are currently on screen (browse list,
   // an open item's order book, or "My Listings") so prices/quantities from
   // other players show up without the player needing to reopen the tab.
-  setInterval(()=>{ if(activeTab === 'market' && typeof refreshOpenMarketViews === 'function') refreshOpenMarketViews(); }, PRICE_TICK_MS);
+  setInterval(()=>{
+    if(activeTab === 'market' && typeof refreshOpenMarketViews === 'function') refreshOpenMarketViews();
+    if(activeTab === 'gear' && typeof refreshOpenGearMarketViews === 'function') refreshOpenGearMarketViews();
+  }, PRICE_TICK_MS);
   setInterval(syncToFirestore, SYNC_INTERVAL);
   if(typeof flushZoneTax === 'function') setInterval(flushZoneTax, SYNC_INTERVAL);
   loadUsername();
