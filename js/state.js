@@ -80,6 +80,17 @@ function defaultState(){
         myListingsCache: [],        // this player's own active listings, across items
         marketListingsLoading: false,
         myListingsLoading: false,
+        // Gear Market (real player-to-player listings of crafted gear —
+        // transient/local UI state, not synced; the listings themselves
+        // live in the `gearListings` Firestore collection, see js/marketplace.js)
+        gearMarketOpen: false,
+        gearMarketView: 'browse',   // 'browse' | 'mine'
+        gearMarketSlotFilter: 'all',
+        gearMarketSellItem: null,   // gearBag item id currently being listed
+        gearMarketListings: [],     // cached rows from the last browse query
+        myGearListingsCache: [],    // this player's own active gear listings
+        gearMarketListingsLoading: false,
+        myGearListingsLoading: false,
         // Notifications (bell icon in header)
         notifications: [],
         // Battle state
@@ -212,6 +223,16 @@ if (typeof s.accentColor !== 'string') s.accentColor = '#e0623a';
     if(!s.myListingsCache) s.myListingsCache = [];
     if(typeof s.marketListingsLoading !== 'boolean') s.marketListingsLoading = false;
     if(typeof s.myListingsLoading !== 'boolean') s.myListingsLoading = false;
+
+    // Gear Market (transient UI state)
+    if(typeof s.gearMarketOpen !== 'boolean') s.gearMarketOpen = false;
+    if(!s.gearMarketView) s.gearMarketView = 'browse';
+    if(!s.gearMarketSlotFilter) s.gearMarketSlotFilter = 'all';
+    if(typeof s.gearMarketSellItem === 'undefined') s.gearMarketSellItem = null;
+    if(!s.gearMarketListings) s.gearMarketListings = [];
+    if(!s.myGearListingsCache) s.myGearListingsCache = [];
+    if(typeof s.gearMarketListingsLoading !== 'boolean') s.gearMarketListingsLoading = false;
+    if(typeof s.myGearListingsLoading !== 'boolean') s.myGearListingsLoading = false;
 
     // Migrate old gear (v4/v5) to v6 tier system
     function migrateGear(g){
