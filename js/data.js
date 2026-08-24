@@ -52,7 +52,7 @@ const GOODS = {
   glass:     { name:'Glass',       icon:`<img class="res-icon" src="${ICONS.resource_glass}" alt="Glass">`, basePrice:35 },
   bronze:    { name:'Bronze',      icon:`<img class="res-icon" src="${ICONS.resource_bronze}" alt="Bronze">`, basePrice:28 },
   concrete:  { name:'Concrete',    icon:`<img class="res-icon" src="${ICONS.resource_concrete}" alt="Concrete">`, basePrice:15 },
-  wooden_bow: { name:'Wooden Bow', icon:'🏹', basePrice:48 },
+  wooden_bow: { name:'Bow Frame', icon:'🪵', basePrice:48 },
   potion_base: { name:'Potion Base', icon:'🧪', basePrice:20 },
   training_weights: { name:'Training Weights', icon:'🏋️', basePrice:90 },
   magic_core: { name:'Magic Core', icon:'🔮', basePrice:220 },
