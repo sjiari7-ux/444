@@ -70,7 +70,6 @@ let activeTab = 'production';
 let forgeOpen = false;
 let forgeSlot = null;
 let forgeTier = null;
-let forgeReqOpen = false;
 let forgeSearch = '';
 let forgeRailTier = null;
 let customWeaponName = '';
@@ -194,16 +193,15 @@ function renderGear(){
       return `<button class="mini-btn ${active?'buy':''}" style="${active?'background:rgba(255,195,92,0.14);':''}color:${t.color};border-color:${t.color};${tierLocked?'opacity:0.4;':''}" onclick="selectForgeTier(${idx})" ${tierLocked?'disabled':''} title="Lv.${r.levelReq}">[${t.symbol}]</button>`;
     }).join('');
 
-    const resourceRows = Object.keys(recipe.inputs).map(inp=>{
+    const canCraft = !locked && hasInputs && hasEnergy && !bagFull;
+    const stateClass = canCraft ? 'ready' : (!hasEnergy ? 'blocked-energy' : (bagFull ? 'blocked-space' : 'blocked-mats'));
+    const energyChip = `<span class="resource-chip" style="border-color:${hasEnergy?'var(--brass-bright)':'var(--red)'};color:${hasEnergy?'var(--brass-bright)':'var(--red)'};"><img class="ui-icon" src="${ICONS.energy}" alt="⚡">${cost}</span>`;
+    const inputsHtml = Object.keys(recipe.inputs).map(inp=>{
       const have = state.inv[inp] || 0;
       const need = recipe.inputs[inp];
       const enough = have >= need;
-      const it = ITEMS[inp];
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
-        <span style="display:flex;align-items:center;gap:6px;"><span style="font-size:16px;">${it.icon}</span> ${it.name}</span>
-        <span style="font-family:'JetBrains Mono',monospace;color:${enough?'var(--green)':'var(--red)'};font-weight:600;">${fmtG(have)} / ${fmtG(need)}</span>
-      </div>`;
-    }).join('');
+      return `<span class="resource-chip" style="border-color:${enough?'var(--green)':'var(--red)'};color:${enough?'var(--green)':'var(--red)'};">${ITEMS[inp].icon} ${fmtG(have)}/${fmtG(need)}</span>`;
+    }).join(' ');
 
     forgeModal = `
       <div class="modal-overlay" onclick="if(event.target===this)closeForge()">
@@ -217,38 +215,33 @@ function renderGear(){
           </div>
           <div class="modal-body">
             <div style="margin-bottom:14px;">
-              <div style="font-size:11px;color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Select Tier</div>
+              <div class="req-label">Select Tier</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">${tierButtons}</div>
             </div>
 
-            <div class="forge-weapon-plate ${forgeReqOpen?'open':''}" style="--tc:${tier.color};" onclick="toggleForgeReq()">
-              <div class="fwp-icon">${forgeRecipeIcon(forgeSlot, recipe, 48)}</div>
-              <div class="fwp-name" style="color:${tier.color};">[${tier.symbol}] ${recipe.name}</div>
-              <div class="fwp-hint">${forgeReqOpen ? 'Tap to hide requirements ▲' : 'Tap the weapon to view crafting requirements ▼'}</div>
-            </div>
-
-            <div style="margin:12px 0;">
-              <div style="font-size:11px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Name your item</div>
-              <input type="text" class="market-search" maxlength="24" placeholder="${recipe.name}" value="${customWeaponName}" oninput="setCustomWeaponName(this.value)" style="width:100%;">
-            </div>
-
-            ${forgeReqOpen ? `
-            <div class="forge-recipe-box">
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                <div style="font-size:36px;">${forgeRecipeIcon(forgeSlot, recipe, 36)}</div>
+            <div class="card recipe-card ${stateClass}" style="--tc:${tier.color};">
+              <div class="xp-badge">+${recipe.xp}XP</div>
+              <div class="card-top">
+                <div class="card-icon-box">${forgeRecipeIcon(forgeSlot, recipe, 30)}</div>
                 <div>
-                  <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:${tier.color};">[${tier.symbol}] ${customWeaponName.trim() || recipe.name}</div>
-                  <div style="font-size:11px;color:var(--dim);margin-top:3px;">Lv.${recipe.levelReq} required · <img class="ui-icon" src="${ICONS.energy}" alt="⚡">${cost} energy · +${recipe.xp} XP</div>
+                  <div class="card-name" style="color:${tier.color};">[${tier.symbol}] ${customWeaponName.trim() || recipe.name}</div>
+                  <div class="card-sub">Lv.${recipe.levelReq} required</div>
                 </div>
               </div>
-              <div style="margin-bottom:12px;">${resourceRows}</div>
+              <div class="req-label">Requires</div>
+              <div style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:5px;">${energyChip}${inputsHtml}</div>
               ${locked ? `<div class="locked-tag" style="text-align:center;padding:10px;"><img class="ui-icon" src="${ICONS.lock}" alt="🔒"> Requires player level ${recipe.levelReq}</div>` :
-                `<button class="act-btn ${(!hasInputs||!hasEnergy||bagFull)?'':'buy'}" style="width:100%;padding:12px;" ${(!hasInputs||!hasEnergy||bagFull)?'disabled':''} onclick="craftGear('${forgeSlot}',${forgeTier})">
+                `<button class="act-btn ${canCraft?'buy':''}" style="width:100%;" ${!canCraft?'disabled':''} onclick="craftGear('${forgeSlot}',${forgeTier})">
                   ${bagFull ? `<img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Bag Full` : (!hasInputs ? '❌ Missing Materials' : (!hasEnergy ? `<img class="ui-icon" src="${ICONS.energy}" alt="⚡"> Not Enough Energy` : `🔨 Forge ${customWeaponName.trim() || recipe.name}`))}
                 </button>`}
             </div>
+
+            <div style="margin:12px 0;">
+              <div class="req-label">Name your item</div>
+              <input type="text" class="market-search" maxlength="24" placeholder="${recipe.name}" value="${customWeaponName}" oninput="setCustomWeaponName(this.value)" style="width:100%;">
+            </div>
+
             <div style="font-size:11px;color:var(--dim);text-align:center;">Backpack: <b>${getTotalStorageUsed(state)}</b> / ${getStorageCap(state)}</div>
-            ` : ''}
           </div>
         </div>
       </div>`;
@@ -394,11 +387,11 @@ function renderGear(){
 
 
 // ─── Gear Actions (forge, equip, upgrade, sell, destroy) ───
-function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
-function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
-function backToForgeGrid(){ forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
-function selectForgeItem(slot, idx){ forgeSlot=slot; forgeTier=idx; forgeReqOpen=false; customWeaponName=''; renderBody(); }
-function selectForgeTier(idx){ forgeTier=idx; forgeReqOpen=false; renderBody(); }
+function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
+function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
+function backToForgeGrid(){ forgeSlot=null; forgeTier=null; customWeaponName=''; renderBody(); }
+function selectForgeItem(slot, idx){ forgeSlot=slot; forgeTier=idx; customWeaponName=''; renderBody(); }
+function selectForgeTier(idx){ forgeTier=idx; renderBody(); }
 function setForgeRailTier(idx){ forgeRailTier=idx; renderBody(); }
 function setForgeSearch(val){
   forgeSearch = val;
@@ -414,7 +407,6 @@ function setForgeSearch(val){
     }
   }
 }
-function toggleForgeReq(){ forgeReqOpen = !forgeReqOpen; renderBody(); }
 function setCustomWeaponName(val){ customWeaponName = val; }
 function craftGear(slot, tier){
   const recipe = CRAFTABLE_GEAR[slot][tier];
@@ -441,7 +433,6 @@ function craftGear(slot, tier){
   pushLog(state, `Forged [${t.symbol}] ${finalName}!`, 'gear');
   if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `Level ${state.level}`, 'levelup'); }
   customWeaponName = '';
-  forgeReqOpen = false;
   renderBody(); scheduleSave();
 }
 function equipGear(id){
