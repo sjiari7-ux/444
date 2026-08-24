@@ -1,0 +1,678 @@
+/* ═══════════════════════════════════════════════════════════════
+   ARCADIA MMO — Player Market (real listings, real supply & demand)
+   ═══════════════════════════════════════════════════════════════
+   No more synthetic AMM curve. A seller picks their own price and
+   quantity and posts a listing; any other player can buy from it,
+   in full or in part. Price only ever moves because a real trade
+   happened at that price.
+
+   Firestore shape — collection `marketListings`, one doc per listing:
+     {
+       itemKey:      string   (a MARKET_CATALOG key)
+       sellerId:     string   (auth uid)
+       sellerName:   string   (display name at time of listing)
+       pricePerUnit: number   (gold, > 0)
+       quantity:     number   (integer, > 0 — units still unsold)
+       createdAt:    Firestore server timestamp
+     }
+
+   REQUIRED FIRESTORE SECURITY RULES — see MARKET_SETUP.md at the
+   project root. Without those rules, listings can be created but
+   nobody else will be able to read or buy from them.
+   ═══════════════════════════════════════════════════════════════ */
+
+const MARKET_LISTINGS_PER_ITEM = 40;
+
+function marketCollection(){
+  return db.collection('marketListings');
+}
+
+/* ───────────────────────── Browse (buy side) ───────────────────────── */
+
+function openMarketDetail(key){
+  state.marketDetailItem = key;
+  // Mark it loading before this first, modal-mounting render so it opens
+  // straight to "Loading offers…" instead of briefly showing "No one is
+  // selling this" for a frame while we don't have a cache yet.
+  if(!state.marketListingsCache[key]) state.marketListingsLoading = true;
+  renderBody();
+  loadListingsFor(key);
+}
+function closeMarketDetail(){
+  state.marketDetailItem = null;
+  renderBody();
+}
+
+async function loadListingsFor(key){
+  if(!db){
+    pushLog(state, 'The player market needs a cloud connection.', 'lose');
+    renderBody();
+    return;
+  }
+  // Only show the "Loading offers…" skeleton on the very first load for
+  // this item. The background poll in refreshOpenMarketViews() (every
+  // PRICE_TICK_MS while the Market tab is open) calls this same function
+  // to quietly pick up other players' activity.
+  //
+  // Every update here goes through patchMarketDetailModal(), which
+  // replaces just the listing rows inside the modal that's already on
+  // screen, instead of renderBody() — renderBody() rebuilds #app's whole
+  // innerHTML, which tears down and recreates the modal-overlay/modal-box
+  // wrapper too. Those wrapper elements carry CSS entrance animations
+  // (fadeIn/slideUp), so every one of those full re-renders restarted the
+  // animation from opacity:0, which is what made the modal look like it
+  // kept flashing/disappearing every time fresh data came in. patch*
+  // falls back to a full renderBody() only if the modal isn't actually
+  // mounted (e.g. this poll fired for an item whose modal already closed).
+  const hadCache = !!state.marketListingsCache[key];
+  if(!hadCache){
+    state.marketListingsLoading = true;
+    if(!patchMarketDetailModal(key)) renderBody();
+  }
+  try{
+    const snap = await marketCollection()
+      .where('itemKey', '==', key)
+      .orderBy('pricePerUnit', 'asc')
+      .orderBy('quantity', 'asc')
+      .limit(MARKET_LISTINGS_PER_ITEM)
+      .get();
+    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const changed = JSON.stringify(fresh) !== JSON.stringify(state.marketListingsCache[key] || null);
+    state.marketListingsCache[key] = fresh;
+    state.marketListingsLoading = false;
+    // Skip the re-render entirely on a background poll that found no
+    // actual change — nothing on screen needs to move.
+    if(!hadCache || changed){
+      if(!patchMarketDetailModal(key)) renderBody();
+    }
+    return;
+  }catch(e){
+    console.error('[Arcadia Market] Failed to load listings for', key, e);
+    state.marketListingsCache[key] = state.marketListingsCache[key] || [];
+    pushLog(state, "Couldn't load listings right now.", 'lose');
+  }
+  state.marketListingsLoading = false;
+  if(!patchMarketDetailModal(key)) renderBody();
+}
+
+// Buys `amount` units off a single listing (partial buys are fine — the
+// listing's quantity just shrinks; it's deleted once it hits 0). Runs as a
+// Firestore transaction against the listing doc + the seller's player doc
+// so a listing can never be sold twice over and the seller is always paid.
+async function buyFromListing(listingId, amount){
+  if(!db || !UID){ pushLog(state, 'The player market needs a cloud connection.', 'lose'); return; }
+  amount = Math.floor(Number(amount));
+  if(!(amount > 0)) return;
+
+  const listingRef = marketCollection().doc(listingId);
+  let result;
+  try{
+    result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(listingRef);
+      if(!snap.exists) throw new Error('SOLD_OUT');
+      const listing = snap.data();
+      if(listing.sellerId === UID) throw new Error('OWN_LISTING');
+      const buyQty = Math.min(amount, listing.quantity);
+      if(buyQty <= 0) throw new Error('SOLD_OUT');
+      const cost = Math.ceil(buyQty * listing.pricePerUnit);
+
+      if(buyQty >= listing.quantity){
+        tx.delete(listingRef);
+      } else {
+        tx.update(listingRef, { quantity: listing.quantity - buyQty });
+      }
+      // Pay the seller directly in the same atomic transaction — no
+      // window where the listing is gone but the seller wasn't paid.
+      const sellerRef = db.collection('players').doc(listing.sellerId);
+      tx.update(sellerRef, { gold: firebase.firestore.FieldValue.increment(cost) });
+
+      return { itemKey: listing.itemKey, qty: buyQty, cost, pricePerUnit: listing.pricePerUnit, sellerName: listing.sellerName, sellerId: listing.sellerId };
+    });
+  }catch(e){
+    if(e.message === 'OWN_LISTING'){
+      pushLog(state, "That's your own listing — cancel it from My Listings instead.", 'lose');
+    } else if(e.message === 'SOLD_OUT'){
+      pushLog(state, 'That listing is gone — someone beat you to it.', 'lose');
+    } else {
+      console.error('[Arcadia Market] Buy failed:', e);
+      pushLog(state, "Couldn't complete that purchase.", 'lose');
+    }
+    renderBody();
+    if(state.marketDetailItem) loadListingsFor(state.marketDetailItem);
+    return;
+  }
+
+  const cap = getStorageCap(state);
+  const used = getTotalStorageUsed(state);
+  const roomLeft = Math.max(0, cap - used);
+  if(roomLeft < result.qty){
+    // Rare edge case: storage filled up between opening the modal and the
+    // transaction landing. We already paid — keep what fits, refund the rest.
+    const fitQty = roomLeft;
+    const refund = result.cost - Math.floor(fitQty * result.pricePerUnit);
+    state.inv[result.itemKey] += fitQty;
+    state.gold += refund; // refund is purely local bookkeeping against what we already sent
+    pushLog(state, `Storage was full — bought ${fitQty}/${result.qty} ${MARKET_CATALOG[result.itemKey].name}, refunded ${refund}g.`, 'lose');
+  } else {
+    state.gold -= result.cost;
+    state.inv[result.itemKey] += result.qty;
+    updateMissionProgress('bought', result.qty);
+    pushLog(state, `Bought ${result.qty} ${MARKET_CATALOG[result.itemKey].name} from ${escapeHtml(result.sellerName||'a player')} for ${result.cost}g`, 'gain');
+  }
+  recordTradePrice(result.itemKey, result.pricePerUnit);
+  renderBody(); scheduleSave();
+  loadListingsFor(result.itemKey);
+  marketDeliverSaleNotice(result.sellerId, result.itemKey, result.qty, result.cost);
+}
+
+// Tells the SELLER, next time they're online, that their item sold — who
+// bought it and what/how much, together in one notification. Mirrors the
+// pvpReports pattern in js/pvp.js: a create-only doc in the seller's own
+// subcollection (a buyer can't write anywhere else on the seller's player
+// doc), which the seller's own client reads, turns into a notification,
+// and deletes. Best-effort — if it fails the sale itself already went
+// through in the transaction above, only the notice is lost.
+async function marketDeliverSaleNotice(sellerId, itemKey, qty, cost){
+  if(!db || !sellerId) return;
+  try{
+    await db.collection('players').doc(sellerId).collection('marketSales').add({
+      buyerUid: UID,
+      buyerName: state.username || 'A player',
+      itemKey, qty, cost,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }catch(e){
+    console.warn('[Arcadia Market] Could not deliver sale notice to seller (check Firestore rules):', e.code || e.message);
+  }
+}
+
+// Applies any sales that landed on our own listings while we were offline
+// (or on another tab): credits already happened server-side at buy time,
+// this just surfaces who-bought-what as a notification. Self-writes only.
+async function applyPendingMarketSales(){
+  if(!db || !UID) return;
+  try{
+    const snap = await db.collection('players').doc(UID).collection('marketSales').limit(20).get();
+    if(snap.empty) return;
+    const batch = db.batch();
+    snap.docs.forEach(doc=>{
+      const s = doc.data();
+      const itemName = (MARKET_CATALOG[s.itemKey] && MARKET_CATALOG[s.itemKey].name) || s.itemKey;
+      if(typeof addNotification === 'function'){
+        addNotification('market', '💰 Item Sold!', `${escapeHtml(s.buyerName||'A player')} bought ${s.qty} ${escapeHtml(itemName)} for ${s.cost}g.`);
+      }
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }catch(e){
+    console.error('[Arcadia Market] Failed to apply pending sale notices:', e.code || e.name, e.message);
+  }
+}
+
+async function initMarketNoticesOnStart(){
+  await applyPendingMarketSales();
+  await applyPendingGearMarketSales();
+  setInterval(()=>{ applyPendingMarketSales(); applyPendingGearMarketSales(); }, 3 * 60 * 1000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ARCADIA MMO — Gear Market (real crafted gear, player-to-player)
+   ═══════════════════════════════════════════════════════════════
+   Same real-listings model as the Player Market above, but for
+   unique Forge-crafted gear instead of stackable resources — each
+   listing IS one specific gear item (its exact rolled stats and
+   upgrade level travel with it), so there's no quantity/partial-buy
+   concept here: a listing is bought whole or not at all.
+
+   Firestore shape — collection `gearListings`, one doc per listing:
+     {
+       gear:         object  (the full gear item: id, slot, tier,
+                               upgradeLevel, name, stats, sellValue)
+       slot:         string  (denormalized from gear.slot, for filtering)
+       tier:         number  (denormalized from gear.tier, for filtering)
+       sellerId:     string  (auth uid)
+       sellerName:   string  (display name at time of listing)
+       price:        number  (gold, > 0)
+       createdAt:    Firestore server timestamp
+     }
+
+   Needs the same kind of Firestore security rules as `marketListings`
+   (see MARKET_SETUP.md) — anyone signed in can read, only the owner
+   can create/delete their own listing, a buyer's transaction only
+   ever touches the listing doc + the seller's gold field.
+   ═══════════════════════════════════════════════════════════════ */
+
+const GEAR_MARKET_LISTINGS_LIMIT = 60;
+
+function gearMarketCollection(){
+  return db.collection('gearListings');
+}
+
+/* ───────────────────────── Browse (buy side) ───────────────────────── */
+
+function setGearMarketView(view){
+  state.gearMarketView = view;
+  renderBody();
+  if(view === 'mine') loadMyGearListings();
+  else loadGearMarketListings();
+}
+function setGearMarketSlotFilter(slot){
+  state.gearMarketSlotFilter = slot;
+  renderBody();
+  loadGearMarketListings();
+}
+
+async function loadGearMarketListings(){
+  if(!db){
+    pushLog(state, 'The Gear Market needs a cloud connection.', 'lose');
+    renderBody();
+    return;
+  }
+  const hadCache = state.gearMarketListings.length > 0;
+  if(!hadCache){
+    state.gearMarketListingsLoading = true;
+    renderBody();
+  }
+  try{
+    let q = gearMarketCollection().orderBy('price', 'asc').limit(GEAR_MARKET_LISTINGS_LIMIT);
+    if(state.gearMarketSlotFilter !== 'all'){
+      q = gearMarketCollection().where('slot', '==', state.gearMarketSlotFilter).orderBy('price', 'asc').limit(GEAR_MARKET_LISTINGS_LIMIT);
+    }
+    const snap = await q.get();
+    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const changed = JSON.stringify(fresh) !== JSON.stringify(state.gearMarketListings);
+    state.gearMarketListings = fresh;
+    state.gearMarketListingsLoading = false;
+    if(!hadCache || changed) renderBody();
+    return;
+  }catch(e){
+    console.error('[Arcadia Gear Market] Failed to load listings:', e);
+    pushLog(state, "Couldn't load the Gear Market right now.", 'lose');
+  }
+  state.gearMarketListingsLoading = false;
+  renderBody();
+}
+
+// Buys one gear listing outright — no partial buys, a listing is one
+// specific item. Runs as a transaction against the listing doc + the
+// seller's player doc, exactly like buyFromListing() above, so a
+// listing can never be sold twice and the seller is always paid.
+async function buyGearListing(listingId){
+  if(!db || !UID){ pushLog(state, 'The Gear Market needs a cloud connection.', 'lose'); return; }
+
+  const listingRef = gearMarketCollection().doc(listingId);
+  let result;
+  try{
+    result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(listingRef);
+      if(!snap.exists) throw new Error('SOLD_OUT');
+      const listing = snap.data();
+      if(listing.sellerId === UID) throw new Error('OWN_LISTING');
+      tx.delete(listingRef);
+      const sellerRef = db.collection('players').doc(listing.sellerId);
+      tx.update(sellerRef, { gold: firebase.firestore.FieldValue.increment(listing.price) });
+      return { gear: listing.gear, price: listing.price, sellerName: listing.sellerName, sellerId: listing.sellerId };
+    });
+  }catch(e){
+    if(e.message === 'OWN_LISTING'){
+      pushLog(state, "That's your own listing — cancel it from My Listings instead.", 'lose');
+    } else if(e.message === 'SOLD_OUT'){
+      pushLog(state, 'That listing is gone — someone beat you to it.', 'lose');
+    } else {
+      console.error('[Arcadia Gear Market] Buy failed:', e);
+      pushLog(state, "Couldn't complete that purchase.", 'lose');
+    }
+    renderBody();
+    loadGearMarketListings();
+    return;
+  }
+
+  if(state.gold < result.price){
+    // Extremely rare: local gold drifted (e.g. another tab spent it)
+    // between opening the listing and this transaction landing. The
+    // trade already went through server-side and the seller is already
+    // paid, so we still deliver the gear rather than leave the buyer
+    // having paid nothing for a purchase the seller fulfilled — just
+    // note the shortfall instead of silently going negative.
+    pushLog(state, `Bought ${result.gear.name} — your gold balance looked lower than the price, double check your total.`, 'lose');
+  }
+  state.gold -= result.price;
+  // New id so it can never collide with anything already in this
+  // player's own gearBag/equipped — the item is changing hands, so it
+  // gets a fresh one on principle rather than trusting the old owner's.
+  const gear = { ...result.gear, id: Date.now()+Math.random() };
+  state.gearBag.push(gear);
+  updateMissionProgress('bought', 1);
+  pushLog(state, `Bought ${gear.name} from ${escapeHtml(result.sellerName||'a player')} for ${result.price}g`, 'gain');
+  renderBody(); scheduleSave();
+  loadGearMarketListings();
+  gearMarketDeliverSaleNotice(result.sellerId, gear.name, result.price);
+}
+
+// Same self-write notification pattern as marketDeliverSaleNotice() above.
+async function gearMarketDeliverSaleNotice(sellerId, gearName, price){
+  if(!db || !sellerId) return;
+  try{
+    await db.collection('players').doc(sellerId).collection('gearMarketSales').add({
+      buyerUid: UID,
+      buyerName: state.username || 'A player',
+      gearName, price,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }catch(e){
+    console.warn('[Arcadia Gear Market] Could not deliver sale notice to seller (check Firestore rules):', e.code || e.message);
+  }
+}
+
+async function applyPendingGearMarketSales(){
+  if(!db || !UID) return;
+  try{
+    const snap = await db.collection('players').doc(UID).collection('gearMarketSales').limit(20).get();
+    if(snap.empty) return;
+    const batch = db.batch();
+    snap.docs.forEach(doc=>{
+      const s = doc.data();
+      if(typeof addNotification === 'function'){
+        addNotification('market', '⚔️ Gear Sold!', `${escapeHtml(s.buyerName||'A player')} bought your ${escapeHtml(s.gearName||'item')} for ${s.price}g.`);
+      }
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }catch(e){
+    console.error('[Arcadia Gear Market] Failed to apply pending sale notices:', e.code || e.name, e.message);
+  }
+}
+
+/* ───────────────────────── Sell (listing side) ───────────────────────── */
+
+function openGearSellModal(gearId){
+  state.gearMarketSellItem = gearId;
+  renderBody();
+}
+function closeGearSellModal(){
+  state.gearMarketSellItem = null;
+  renderBody();
+}
+
+async function loadMyGearListings(){
+  if(!db || !UID) return;
+  const hadCache = state.myGearListingsCache.length > 0;
+  if(!hadCache){
+    state.myGearListingsLoading = true;
+    renderBody();
+  }
+  try{
+    const snap = await gearMarketCollection().where('sellerId', '==', UID).get();
+    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const changed = JSON.stringify(fresh) !== JSON.stringify(state.myGearListingsCache);
+    state.myGearListingsCache = fresh;
+    state.myGearListingsLoading = false;
+    if(!hadCache || changed) renderBody();
+    return;
+  }catch(e){
+    console.error('[Arcadia Gear Market] Failed to load my listings:', e);
+    pushLog(state, "Couldn't load your Gear Market listings right now.", 'lose');
+  }
+  state.myGearListingsLoading = false;
+  renderBody();
+}
+
+// Guards against a double-click posting the same item twice — same
+// reasoning as listingSubmitInFlight above, but gear can't be "topped
+// up" like a stackable listing since every piece is unique, so a repeat
+// click before Firestore answers must be dropped outright, not merged.
+let gearListingSubmitInFlight = false;
+
+async function listGearForSale(gearId, price){
+  if(gearListingSubmitInFlight) return;
+  if(!db || !UID){ pushLog(state, 'The Gear Market needs a cloud connection.', 'lose'); return; }
+  price = Math.round(Number(price));
+  if(!(price > 0)){ pushLog(state, 'Enter a price for this item.', 'lose'); return; }
+  const idx = state.gearBag.findIndex(g=>g.id===gearId);
+  if(idx < 0) return;
+  const gear = state.gearBag[idx];
+
+  gearListingSubmitInFlight = true;
+  // Take it out of the bag immediately, client-side, same as every other
+  // gear action in gear.js — it's the player's own bag and only their
+  // own client ever touches it, so there's no cross-player race here
+  // (unlike the gold payout on a sale, which is why that runs through a
+  // transaction in buyGearListing above).
+  state.gearBag.splice(idx, 1);
+  state.gearMarketSellItem = null;
+  bagSelected = null;
+  renderBody(); scheduleSave();
+
+  try{
+    await gearMarketCollection().add({
+      gear, slot: gear.slot, tier: gear.tier,
+      sellerId: UID, sellerName: state.username || 'Player',
+      price, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    pushLog(state, `Listed ${gear.name} on the Gear Market for ${price}g`, 'sell');
+  }catch(e){
+    console.error('[Arcadia Gear Market] Failed to create listing:', e);
+    state.gearBag.push(gear); // refund locally — the listing never made it to Firestore
+    pushLog(state, "Couldn't post that listing — item returned to your bag.", 'lose');
+  }
+  gearListingSubmitInFlight = false;
+  renderBody(); scheduleSave();
+  loadMyGearListings();
+}
+
+async function cancelGearListing(listingId){
+  if(!db || !UID) return;
+  const listingRef = gearMarketCollection().doc(listingId);
+  try{
+    const returned = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(listingRef);
+      if(!snap.exists) return null;
+      const listing = snap.data();
+      if(listing.sellerId !== UID) throw new Error('NOT_YOURS');
+      tx.delete(listingRef);
+      return listing.gear;
+    });
+    if(returned){
+      state.gearBag.push({ ...returned, id: Date.now()+Math.random() });
+      pushLog(state, `Cancelled listing — ${returned.name} returned to your bag`, 'gain');
+    }
+  }catch(e){
+    console.error('[Arcadia Gear Market] Cancel failed:', e);
+    pushLog(state, "Couldn't cancel that listing.", 'lose');
+  }
+  renderBody(); scheduleSave();
+  loadMyGearListings();
+}
+
+/* ───────────────────────── Misc / filters ───────────────────────── */
+
+// Called every PRICE_TICK_MS while the Gear tab is open (see main.js) so
+// an open Gear Market browse/mine view reflects other players' activity
+// without needing to be reopened.
+function refreshOpenGearMarketViews(){
+  if(state.marketCategory !== 'gear') return;
+  if(state.gearMarketView === 'mine') loadMyGearListings();
+  else loadGearMarketListings();
+}
+
+
+/* ───────────────────────── Sell (listing side) ───────────────────────── */
+
+function openSellModal(key){
+  state.marketSellItem = key;
+  renderBody();
+  loadMyListings();
+}
+function closeSellModal(){
+  state.marketSellItem = null;
+  renderBody();
+}
+
+async function loadMyListings(){
+  if(!db || !UID) return;
+  const hadCache = state.myListingsCache.length > 0;
+  if(!hadCache){
+    state.myListingsLoading = true;
+    renderBody();
+  }
+  try{
+    const snap = await marketCollection().where('sellerId', '==', UID).get();
+    const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const changed = JSON.stringify(fresh) !== JSON.stringify(state.myListingsCache);
+    state.myListingsCache = fresh;
+    state.myListingsLoading = false;
+    if(!hadCache || changed) renderBody();
+    return;
+  }catch(e){
+    console.error('[Arcadia Market] Failed to load my listings:', e);
+    pushLog(state, "Couldn't load your listings right now.", 'lose');
+  }
+  state.myListingsLoading = false;
+  renderBody();
+}
+
+// Guards against the same listing being posted twice if "List for sale"
+// gets clicked again before the first click's Firestore write has come
+// back (double-click, slow connection, etc). Without this, a repeated
+// click on submitSellForm() -> createListing() posts two separate
+// listings for the same item/price — which is what "Browse offers" was
+// showing (two identical "You" rows for the same item).
+let listingSubmitInFlight = false;
+
+async function createListing(key, qty, pricePerUnit){
+  if(listingSubmitInFlight){ return; }
+  if(!db || !UID){ pushLog(state, 'The player market needs a cloud connection.', 'lose'); return; }
+  qty = Math.floor(Number(qty));
+  pricePerUnit = Math.round(Number(pricePerUnit) * 10) / 10;
+  if(!(qty > 0)){ pushLog(state, 'Enter a quantity to list.', 'lose'); return; }
+  if(!(pricePerUnit > 0)){ pushLog(state, 'Enter a price per unit.', 'lose'); return; }
+  if((state.inv[key] || 0) < qty){ pushLog(state, "You don't have that many to list.", 'lose'); return; }
+
+  listingSubmitInFlight = true;
+
+  // Take the items out of the backpack immediately, client-side, exactly
+  // like every other inventory change in this game — this is the player's
+  // own item count and only their own client ever touches it, so there's
+  // no cross-player race to worry about here (unlike the gold credit on a
+  // sale, which is why that part runs through a transaction above).
+  state.inv[key] -= qty;
+  renderBody(); scheduleSave();
+
+  try{
+    // If this seller already has an open listing for this exact item at
+    // this exact price, top it up instead of posting a brand new doc —
+    // otherwise "Wood at 4g" ends up as two separate rows from the same
+    // seller in Browse offers, which just looks like a bug to a buyer
+    // even though technically each one is a valid listing. Only equality
+    // filters here, so this doesn't need a composite Firestore index.
+    const existing = await marketCollection()
+      .where('sellerId', '==', UID)
+      .where('itemKey', '==', key)
+      .where('pricePerUnit', '==', pricePerUnit)
+      .limit(1)
+      .get();
+
+    if(!existing.empty){
+      const ref = existing.docs[0].ref;
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if(!snap.exists){
+          // Listing got cancelled/sold out between the check above and
+          // now — just re-create it fresh instead of updating a ghost.
+          tx.set(ref, {
+            itemKey: key, sellerId: UID, sellerName: state.username || 'Player',
+            pricePerUnit, quantity: qty,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          tx.update(ref, { quantity: (snap.data().quantity || 0) + qty });
+        }
+      });
+      pushLog(state, `Added ${qty} to your existing ${MARKET_CATALOG[key].name} listing at ${pricePerUnit}g each`, 'sell');
+    } else {
+      await marketCollection().add({
+        itemKey: key,
+        sellerId: UID,
+        sellerName: state.username || 'Player',
+        pricePerUnit,
+        quantity: qty,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      pushLog(state, `Listed ${qty} ${MARKET_CATALOG[key].name} at ${pricePerUnit}g each`, 'sell');
+    }
+    updateMissionProgress('sold', qty);
+  }catch(e){
+    console.error('[Arcadia Market] Failed to create listing:', e);
+    state.inv[key] += qty; // refund locally — the listing never made it to Firestore
+    pushLog(state, "Couldn't post that listing — items returned to your backpack.", 'lose');
+  }
+  listingSubmitInFlight = false;
+  renderBody(); scheduleSave();
+  loadMyListings();
+}
+
+
+
+async function cancelListing(listingId){
+  if(!db || !UID) return;
+  const listingRef = marketCollection().doc(listingId);
+  try{
+    const returned = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(listingRef);
+      if(!snap.exists) return null;
+      const listing = snap.data();
+      if(listing.sellerId !== UID) throw new Error('NOT_YOURS');
+      tx.delete(listingRef);
+      return { itemKey: listing.itemKey, quantity: listing.quantity };
+    });
+    if(returned){
+      state.inv[returned.itemKey] = (state.inv[returned.itemKey] || 0) + returned.quantity;
+      pushLog(state, `Cancelled listing — ${returned.quantity} ${MARKET_CATALOG[returned.itemKey].name} returned to your backpack`, 'gain');
+    }
+  }catch(e){
+    console.error('[Arcadia Market] Cancel failed:', e);
+    pushLog(state, "Couldn't cancel that listing.", 'lose');
+  }
+  renderBody(); scheduleSave();
+  loadMyListings();
+}
+
+/* ───────────────────────── Misc / filters ───────────────────────── */
+
+function setMarketView(view){
+  state.marketView = view;
+  renderBody();
+  if(view === 'mine') loadMyListings();
+}
+
+// Switches between the two sections of the Player Market panel —
+// Resources (stackable goods, `marketListings`) and Gear (unique
+// crafted items, `gearListings`) — and loads whichever data that
+// section's current sub-view (browse/mine) needs.
+function setMarketCategory(category){
+  state.marketCategory = category;
+  if(category === 'resources' && state.marketTab === 'all'){
+    // Land on the actual Resources filter, not the mixed "All" view that
+    // also includes tradeable Weapon Goods — that mix is what made real
+    // swords/axes/bows show up under what's supposed to be the Resources
+    // section. "All" is still reachable via its own tab if wanted.
+    state.marketTab = 'resources';
+  }
+  renderBody();
+  if(category === 'gear'){
+    if(state.gearMarketView === 'mine') loadMyGearListings();
+    else loadGearMarketListings();
+  } else {
+    if(state.marketView === 'mine') loadMyListings();
+    else if(state.marketDetailItem) loadListingsFor(state.marketDetailItem);
+  }
+}
+
+// Called every PRICE_TICK_MS while the Market tab is open (see main.js) so
+// an open order book or "My Listings" reflects other players' activity
+// without needing to be reopened.
+function refreshOpenMarketViews(){
+  if(state.marketCategory === 'gear') return;
+  if(state.marketDetailItem) loadListingsFor(state.marketDetailItem);
+  else if(state.marketView === 'mine') loadMyListings();
+}
