@@ -72,7 +72,7 @@ let forgeSlot = null;
 let forgeTier = null;
 let forgeReqOpen = false;
 let forgeSearch = '';
-let forgeFilterSlot = 'all';
+let forgeRailTier = null;
 let customWeaponName = '';
 let bagSelected = null;
 
@@ -122,29 +122,40 @@ function renderGear(){
 
   let forgeModal = '';
   if(forgeOpen && forgeSlot === null){
-    // Grid of every craftable piece of gear, across all slots and tiers — filterable by category and name.
+    // Elevator tier rail: pick a tier on the left, see every slot's recipe for
+    // that tier on the right, each row showing craftability at a glance.
+    if(forgeRailTier === null){
+      let defaultIdx = 0;
+      GEAR_TIERS.forEach((t,i)=>{ if(state.level >= t.minLevel) defaultIdx = i; });
+      forgeRailTier = defaultIdx;
+    }
     const searchLower = forgeSearch.trim().toLowerCase();
-    const filterButtons = ['all', ...Object.keys(GEAR_SLOTS)].map(slot=>{
-      const active = forgeFilterSlot === slot;
-      const label = slot === 'all' ? 'All' : GEAR_SLOTS[slot].name;
-      const icon = slot === 'all' ? '🗂️' : GEAR_SLOTS[slot].icon;
-      return `<button class="mini-btn ${active?'buy':''}" onclick="setForgeFilterSlot('${slot}')">${icon} ${label}</button>`;
+    const railTier = GEAR_TIERS[forgeRailTier];
+
+    const railButtons = GEAR_TIERS.map((t, idx) => idx).reverse().map(idx=>{
+      const t = GEAR_TIERS[idx];
+      const active = idx === forgeRailTier;
+      return `<button class="forge-tier-rail-btn ${active?'active':''}" style="--tc:${t.color};" onclick="setForgeRailTier(${idx})" title="${t.name}">${t.symbol}</button>`;
     }).join('');
 
-    const allTiles = Object.keys(CRAFTABLE_GEAR).filter(slot=> forgeFilterSlot==='all' || forgeFilterSlot===slot).map(slot=>{
+    const tierRows = Object.keys(CRAFTABLE_GEAR).map(slot=>{
+      const r = CRAFTABLE_GEAR[slot][forgeRailTier];
+      if(!r || (searchLower && !r.name.toLowerCase().includes(searchLower))) return '';
       const info = GEAR_SLOTS[slot];
-      return CRAFTABLE_GEAR[slot].map((r, idx)=>{
-        if(searchLower && !r.name.toLowerCase().includes(searchLower)) return '';
-        const t = GEAR_TIERS[idx];
-        const locked = state.level < r.levelReq;
-        return `<div class="gear-inv-tile" style="--tc:${t.color};${locked?'opacity:0.45;':''}" onclick="selectForgeItem('${slot}',${idx})" title="${locked?'Requires level '+r.levelReq:r.name}">
-          <div class="it-icon">${forgeRecipeIcon(slot, r, 26)}</div>
-          <div class="it-name">${r.name}</div>
-          <div class="it-badge">${t.symbol} ${info.icon}${locked?' 🔒':''}</div>
-        </div>`;
-      }).join('');
+      const locked = state.level < r.levelReq;
+      const hasInputs = Object.keys(r.inputs).every(inp=> state.inv[inp] >= r.inputs[inp]);
+      const statusClass = locked ? 'locked' : (hasInputs ? 'ok' : 'missing');
+      const statusLabel = locked ? `🔒 Lv.${r.levelReq}` : (hasInputs ? 'craft ok' : 'missing');
+      return `<div class="forge-tier-row" onclick="selectForgeItem('${slot}',${forgeRailTier})">
+        <div class="ftr-icon">${forgeRecipeIcon(slot, r, 26)}</div>
+        <div class="ftr-info">
+          <div class="ftr-name">${r.name}</div>
+          <div class="ftr-slot">${info.icon} ${info.name}</div>
+        </div>
+        <div class="ftr-status ${statusClass}">${statusLabel}</div>
+      </div>`;
     }).join('');
-    const hasResults = allTiles.trim().length > 0;
+    const hasResults = tierRows.trim().length > 0;
 
     forgeModal = `
       <div class="modal-overlay" onclick="if(event.target===this)closeForge()">
@@ -154,10 +165,14 @@ function renderGear(){
             <button class="modal-close" onclick="closeForge()">✕</button>
           </div>
           <div class="modal-body">
-            <input type="text" class="market-search" placeholder="Search gear by name..." value="${forgeSearch}" oninput="setForgeSearch(this.value)" style="width:100%;margin-bottom:10px;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">${filterButtons}</div>
-            <div style="font-size:11px;color:var(--dim);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em;">Tap any piece of gear to craft it</div>
-            ${hasResults ? `<div class="gear-inv-grid-v2">${allTiles}</div>` : `<div style="text-align:center;color:var(--dim);padding:20px;">No gear matches your search.</div>`}
+            <input type="text" class="market-search" placeholder="Search gear by name..." value="${forgeSearch}" oninput="setForgeSearch(this.value)" style="width:100%;margin-bottom:12px;">
+            <div class="forge-tier-rail-wrap">
+              <div class="forge-tier-rail">${railButtons}</div>
+              <div class="forge-tier-panel">
+                <div class="forge-tier-panel-header" style="color:${railTier.color};">${railTier.symbol} ${railTier.name} tier — all slots</div>
+                ${hasResults ? tierRows : `<div style="text-align:center;color:var(--dim);padding:20px;">No gear matches your search.</div>`}
+              </div>
+            </div>
           </div>
         </div>
       </div>`;
@@ -379,12 +394,12 @@ function renderGear(){
 
 
 // ─── Gear Actions (forge, equip, upgrade, sell, destroy) ───
-function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeFilterSlot='all'; renderBody(); }
-function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeFilterSlot='all'; renderBody(); }
+function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
+function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
 function backToForgeGrid(){ forgeSlot=null; forgeTier=null; forgeReqOpen=false; customWeaponName=''; renderBody(); }
 function selectForgeItem(slot, idx){ forgeSlot=slot; forgeTier=idx; forgeReqOpen=false; customWeaponName=''; renderBody(); }
 function selectForgeTier(idx){ forgeTier=idx; forgeReqOpen=false; renderBody(); }
-function setForgeFilterSlot(slot){ forgeFilterSlot=slot; renderBody(); }
+function setForgeRailTier(idx){ forgeRailTier=idx; renderBody(); }
 function setForgeSearch(val){
   forgeSearch = val;
   const activeInput = document.querySelector('.modal-box.forge-modal .market-search');
