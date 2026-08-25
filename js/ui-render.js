@@ -776,7 +776,7 @@ function renderClass(){
 // ─── Skills, Missions, Leaderboard, Settings, Log ───
 const SKILL_COLORS = {
   health: '#d44c4c', damage: '#e8bd6e', defense: '#6fa285',
-  stamina: '#7ab8d4', storage: '#b8a0d4', profit: '#d4a24c',
+  stamina: '#7ab8d4', storage: '#b8a0d4', profit: '#d4a24c', adventurer: '#8fae5d',
 };
 
 function renderSkills(){
@@ -820,6 +820,9 @@ function renderSkills(){
     } else if(key === 'profit'){
       effects.push(`+${(lvl*sk.perLevel*100).toFixed(0)}% profit`);
       if(!maxed) effects.push(`next +${((lvl+1)*sk.perLevel*100).toFixed(0)}%`);
+    } else if(key === 'adventurer'){
+      effects.push(`+${lvl*sk.perLevel} resources/gather`);
+      if(!maxed) effects.push(`next +${(lvl+1)*sk.perLevel}`);
     }
     const effectsHtml = effects.map(e=>`<span class="sk-effect-tag">${e}</span>`).join('');
 
