@@ -148,6 +148,7 @@ const SKILLS = {
   stamina: { name:'Stamina', icon:`<img class="ui-icon" src="${ICONS.energy}" alt="🔋">`, perLevel:5,   max:20, desc:'Increases max energy and reduces costs' },
   storage: { name:'Storage', icon:`<img class="ui-icon" src="${ICONS.bag_full}" alt="📦">`, perLevel:50,  max:20, desc:'Increases storage capacity' },
   profit:  { name:'Profit',  icon:'💰', perLevel:0.02,max:20, desc:'Increases sell price multiplier' },
+  adventurer: { name:'Adventurer', icon:'🎒', perLevel:1, max:20, desc:'Increases resources gathered per collection' },
 };
 
 /* ===== GEAR TIER SYSTEM ===== */
