@@ -398,7 +398,7 @@ function collect(key){
   const cap = getStorageCap(state);
   const used = getTotalStorageUsed(state);
   if(used >= cap){ pushLog(state, 'Storage full!', 'lose'); return; }
-  let amount = Math.min(cap - used, 5 + state.prestige.gatherBonus + Math.floor(state.level/3));
+  let amount = Math.min(cap - used, 5 + state.prestige.gatherBonus + Math.floor(state.level/3) + state.skills.adventurer * SKILLS.adventurer.perLevel);
   let taxPaid = 0;
   if(typeof applyZoneTax === 'function' && state.zoneView){
     const taxed = applyZoneTax(state.zoneView, key, amount);
