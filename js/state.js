@@ -140,7 +140,8 @@ function migrateState(s){
     if(!s.prestige) s.prestige = { points: 0, gatherBonus: 0, sellBonus: 0, energyBonus: 0, storageBonus: 0 };
     if(typeof s.totalGoldEarned !== 'number') s.totalGoldEarned = s.gold;
     if(typeof s.totalAllianceDonated !== 'number') s.totalAllianceDonated = 0;
-    if(!s.skills) s.skills = { health: 0, damage: 0, defense: 0, stamina: 0, storage: 0, profit: 0 };
+    if(!s.skills) s.skills = { health: 0, damage: 0, defense: 0, stamina: 0, storage: 0, profit: 0, adventurer: 0 };
+    if(typeof s.skills.adventurer !== 'number') s.skills.adventurer = 0;
     if(typeof s.skillPoints !== 'number') s.skillPoints = 0;
     if(typeof s.health !== 'number') s.health = 100;
     if(!s.lastHealthRegenTs) s.lastHealthRegenTs = Date.now();
