@@ -142,6 +142,16 @@ async function buyFromListing(listingId, amount){
     return;
   }
 
+  if(state.gold < result.cost){
+    // Same rare drift as buyGearListing() below: local gold looked high
+    // enough when the button was enabled, but landed lower by the time
+    // the transaction came back (another tab spent it, etc). The seller
+    // is already paid server-side, so still deliver the goods rather
+    // than leave the buyer having paid nothing — just flag it instead
+    // of silently going negative.
+    pushLog(state, `Bought ${result.qty} ${MARKET_CATALOG[result.itemKey].name} — your gold balance looked lower than the price, double check your total.`, 'lose');
+  }
+
   const cap = getStorageCap(state);
   const used = getTotalStorageUsed(state);
   const roomLeft = Math.max(0, cap - used);
