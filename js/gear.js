@@ -352,7 +352,7 @@ function renderGear(){
     <div class="paperdoll">
       <div class="pd-col left">${leftHtml}</div>
       <div class="pd-center">
-        <div class="pd-ring-wrap"><div class="pd-char">${cls ? cls.icon : '🧙'}</div></div>
+        <div class="pd-ring-wrap"><div class="pd-char">${escapeHtml(state.avatar || '🧙')}</div></div>
         <div class="pd-name">${window.__playerUsername || 'Player'}</div>
         <div class="pd-sub">Lv.${state.level} ${cls ? '· '+cls.nameAr : ''} · Power: <b>${fmtG(powerScore)}</b></div>
       </div>
