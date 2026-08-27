@@ -468,6 +468,10 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 .logo-word{font-family:var(--font-display);font-weight:800;font-size:28px;letter-spacing:.06em;color:var(--brass-bright);text-shadow:0 2px 14px rgba(154,167,181,0.3);}
 .logo-sub{font-family:var(--font-mono);font-size:10px;letter-spacing:.35em;color:var(--dim);margin-top:2px;}
 .subtitle{font-size:14px;color:var(--dim);margin-bottom:36px;}
+
+.connlost-icon{font-size:40px;margin-bottom:12px;opacity:0.8;}
+.connlost-title{font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--brass-bright);margin-bottom:10px;}
+.connlost-desc{font-size:13px;line-height:1.6;color:var(--dim);margin-bottom:24px;}
 .google-btn{
   display:inline-flex;align-items:center;gap:12px;width:100%;justify-content:center;
   background:#f4f7f9;border:1px solid rgba(0,0,0,0.06);border-radius:12px;padding:14px 28px;
