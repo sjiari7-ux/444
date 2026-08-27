@@ -81,14 +81,12 @@ async function continueAsGuest(){
   console.log('[Arcadia Auth] Guest button clicked');
 
   if (typeof firebase === 'undefined') {
-    console.log('[Arcadia Auth] Firebase not loaded, entering offline demo mode');
-    showView('setup');
+    showError('⚠️ لم يتم تحميل مكتبة Firebase. تأكد أن متصفحك أو أي أداة حجب إعلانات (مثل Brave Shields أو AdBlock) لا تمنع gstatic.com');
     return;
   }
-  
+
   if (!auth) {
-    console.log('[Arcadia Auth] Auth not configured, entering offline demo mode');
-    showView('setup');
+    showError('Firebase not configured. Please set up Firebase credentials in the code.');
     return;
   }
   
