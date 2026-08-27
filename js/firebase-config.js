@@ -52,13 +52,24 @@ function showView(name){
   toggleViewElement('view-login', name === 'login');
   toggleViewElement('view-setup', name === 'setup');
   toggleViewElement('view-game', name === 'game');
+  toggleViewElement('view-connlost', name === 'connlost');
 }
 
 async function enterGame(){
-  showView('game');
+  // Arcadia is online-only (shared gold/PvP/market economy) — don't reveal
+  // the game view until startGame() has actually confirmed it loaded real
+  // cloud data. Showing 'game' first and only then finding out loadState()
+  // failed is exactly what left players stuck on a frozen loading screen.
   if (typeof startGame === 'function') {
-    try { await startGame(); } catch(e){ console.error('startGame failed:', e); }
+    try {
+      await startGame();
+    } catch(e){
+      console.error('[Arcadia] startGame failed, showing connection-problem screen:', e);
+      showView('connlost');
+      return;
+    }
   }
+  showView('game');
   if (typeof loadUsername === 'function') {
     try { loadUsername(); } catch(e){ console.error('loadUsername failed:', e); }
   }
@@ -83,23 +94,35 @@ if (auth) {
     UID = user.uid;
     EMAIL = user.email;
     try{
-      const playerDoc = await db.collection('players').doc(UID).get();
+      // withTimeout (js/sync.js) caps this so a blocked/unreachable
+      // Firestore connection can't leave the player stuck on the loading
+      // screen forever — see the "Opening the ledger..." freeze this fixes.
+      const playerDoc = await withTimeout(db.collection('players').doc(UID).get(), 8000);
       if(playerDoc.exists){
         await enterGame();
       } else {
         showView('setup');
       }
     } catch(e){
-      console.error(e);
+      // Arcadia is online-only — a player we can't confirm one way or the
+      // other (most likely a blocked/offline connection, per the console
+      // errors this fixes) gets a clear retry screen, never a silent
+      // offline continue that risks desyncing their shared economy data.
+      console.error('[Arcadia Auth] Could not verify player doc (connection problem):', e);
+      showView('connlost');
     }
   });
 } else {
-  // Offline demo mode: show login but warn user
+  // Firebase couldn't initialize at all (SDK didn't load / not configured).
+  // Arcadia is online-only — signInWithGoogle()/continueAsGuest() (js/auth.js)
+  // both already refuse to proceed and show an error when this happens, so
+  // this just surfaces that same explanation on first load too instead of
+  // silently sitting on an unusable login screen.
   showView('login');
   document.addEventListener('DOMContentLoaded', () => {
     const errorBox = document.getElementById('errorBox');
     if (errorBox) {
-      errorBox.textContent = '🔌 OFFLINE MODE: No Firebase config detected. Guest play works locally, but progress will not sync to cloud. Set up Firebase credentials to enable cloud save.';
+      errorBox.textContent = '🔌 Could not reach Firebase. Arcadia MMO needs a live connection to play — check your internet connection or disable any ad blocker / privacy extension blocking Google/Firebase, then reload.';
       errorBox.style.display = 'block';
     }
   });
