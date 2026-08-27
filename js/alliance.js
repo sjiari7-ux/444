@@ -590,7 +590,7 @@ function renderAllianceLanding(){
   return `
     <div class="alliance-hero">
       <div class="alliance-hero-top">
-        <div class="alliance-hero-emblem">🌍</div>
+        <div class="alliance-hero-emblem"><img class="ui-icon-lg" src="${ICONS.globe}" alt="🌍" onerror="this.replaceWith(document.createTextNode('🌍'))"></div>
         <div style="flex:1;min-width:0;">
           <div class="alliance-hero-name">Choose Your Kingdom</div>
           <div class="alliance-hero-meta">Six kingdoms, six continents. Pledge allegiance and fight for territory and resources.</div>
