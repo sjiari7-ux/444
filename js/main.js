@@ -283,15 +283,16 @@ function saveState(){
   syncToFirestore();
 }
 async function loadState(){
-  // Try Firestore first
+  // Arcadia is an online-only game — gold, PvP results and market trades
+  // are shared with other players through Firestore, so starting a
+  // session on stale local data (or a blank default state) risks
+  // desyncing progress rather than just looking a little behind. A failed
+  // cloud load is therefore a hard stop: startGame()/enterGame() catch
+  // this and show the "Connection Problem" retry screen instead of
+  // silently continuing offline.
   const cloudLoaded = await loadFromFirestore();
   if(cloudLoaded) return;
-  // Fallback to localStorage
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){ state = migrateState(JSON.parse(raw)); return; }
-  }catch(e){}
-  state = defaultState();
+  throw new Error('Could not load player data from the cloud.');
 }
 /* ===== NOTIFICATIONS (bell icon) ===== */
 function addNotification(type, title, body){
