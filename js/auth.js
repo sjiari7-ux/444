@@ -38,13 +38,32 @@ async function signInWithGoogle(){
 
   setLoading(true);
 
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope('email');
+
   try{
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('email');
     await auth.signInWithPopup(provider);
-    console.log('[Arcadia Auth] Sign-in succeeded');
+    console.log('[Arcadia Auth] Sign-in succeeded (popup)');
   } catch(err){
-    console.error('[Arcadia Auth] Sign-in failed:', err.code, err.message);
+    console.error('[Arcadia Auth] Popup sign-in failed:', err.code, err.message);
+    // Popups are unreliable on mobile browsers and in-app webviews (they're
+    // often blocked outright, or the environment doesn't support them at
+    // all). Fall back to a full-page redirect for those specific failure
+    // modes only — NOT when the user deliberately closed the popup, since
+    // silently redirecting them away after a cancel would be surprising.
+    // The redirect result is picked up by getRedirectResult() in
+    // firebase-config.js on the next page load.
+    const redirectableCodes = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
+    if(redirectableCodes.includes(err.code)){
+      try{
+        console.log('[Arcadia Auth] Falling back to redirect sign-in...');
+        await auth.signInWithRedirect(provider);
+        return; // page will navigate away
+      } catch(redirectErr){
+        console.error('[Arcadia Auth] Redirect sign-in failed:', redirectErr.code, redirectErr.message);
+        err = redirectErr;
+      }
+    }
     let friendly = err.message || 'Unknown error';
     if(err.code === 'auth/popup-blocked'){
       friendly = 'المتصفح منع النافذة المنبثقة (popup). فعّل popups لهذا الموقع وحاول من جديد.';
