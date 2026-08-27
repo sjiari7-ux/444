@@ -65,6 +65,15 @@ async function enterGame(){
 }
 
 if (auth) {
+  // Pick up the result of a signInWithRedirect() fallback (see auth.js).
+  // Errors here are swallowed on purpose: if there was no redirect in
+  // flight, getRedirectResult() just resolves with a null user — this only
+  // matters right after the browser navigates back from the Google sign-in
+  // page.
+  auth.getRedirectResult().catch(err => {
+    console.error('[Arcadia Auth] Redirect sign-in result failed:', err.code, err.message);
+  });
+
   auth.onAuthStateChanged(async user => {
     if(!user){
       UID = null; EMAIL = null;
