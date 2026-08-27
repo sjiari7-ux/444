@@ -453,6 +453,20 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
   width:70%;height:3px;background:var(--gold-gradient);border-radius:0 0 3px 3px;}
 .logo img{box-shadow:0 8px 26px rgba(154,167,181,0.3),0 0 0 3px var(--brass-dim);}
 .logo{font-family:var(--font-display);font-weight:700;font-size:30px;letter-spacing:.02em;color:var(--brass-bright);margin-bottom:8px;text-shadow:0 2px 14px rgba(154,167,181,0.3);}
+
+/* Text-only wordmark used on the login screen — no image request, so
+   there's nothing to 404 if an asset is ever missing. */
+.logo-mark{display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:14px;}
+.logo-crest{
+  width:56px;height:56px;display:flex;align-items:center;justify-content:center;
+  font-size:26px;color:var(--brass-bright);
+  background:linear-gradient(165deg,var(--panel-light),var(--panel-inset));
+  border:1.5px solid var(--brass-dim);border-radius:14px;
+  box-shadow:0 8px 22px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.05);
+  margin-bottom:8px;
+}
+.logo-word{font-family:var(--font-display);font-weight:800;font-size:28px;letter-spacing:.06em;color:var(--brass-bright);text-shadow:0 2px 14px rgba(154,167,181,0.3);}
+.logo-sub{font-family:var(--font-mono);font-size:10px;letter-spacing:.35em;color:var(--dim);margin-top:2px;}
 .subtitle{font-size:14px;color:var(--dim);margin-bottom:36px;}
 .google-btn{
   display:inline-flex;align-items:center;gap:12px;width:100%;justify-content:center;
@@ -865,7 +879,8 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
   .login-card{padding:36px 20px 28px;border-radius:16px;}
   .setup-card{padding:24px 16px;border-radius:16px;}
   .step-title{font-size:19px;}
-  .logo img{width:140px !important;}
+  .logo-crest{width:46px;height:46px;font-size:21px;}
+  .logo-word{font-size:22px;}
   .class-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
   .class-card{padding:14px 8px 12px;}
   .class-card .icon{width:42px;height:42px;font-size:20px;}
