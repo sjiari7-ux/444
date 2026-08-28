@@ -135,7 +135,7 @@ function markAllianceKnown(allianceId){
 async function initAllianceOnStart(){
   if(!db || !UID) return;
   try{
-    const pdoc = await db.collection('players').doc(UID).get();
+    const pdoc = await withTimeout(db.collection('players').doc(UID).get(), 8000);
     const pdata = pdoc.exists ? pdoc.data() : {};
     if(pdata.allianceId){
       state.allianceId = pdata.allianceId;
@@ -148,14 +148,14 @@ async function initAllianceOnStart(){
     }
     state.allianceJoinCooldownUntil = pdata.allianceJoinCooldownUntil || 0;
     if(state.allianceId) startAllianceChatListener();
-  }catch(e){ console.error('Kingdom init failed', e); }
+  }catch(e){ console.error('Kingdom init failed (continuing without kingdom data):', e); }
 }
 
 async function loadMyAlliance(){
   if(!db || !state.allianceId) return;
   allianceLoading = true;
   try{
-    const aDoc = await db.collection('alliances').doc(state.allianceId).get();
+    const aDoc = await withTimeout(db.collection('alliances').doc(state.allianceId).get(), 8000);
     if(!aDoc.exists){
       state.allianceId = null; state.allianceRole = null;
       allianceData = null; scheduleSave();
