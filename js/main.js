@@ -137,33 +137,45 @@ function goToMissionTarget(track){
 
 
 /* ===== CORE LOOP & RENDER ===== */
-async function startGame(){
-  if(window.__gameStarted) return; window.__gameStarted = true;
-  await loadState();
-  // Apply saved appearance settings now that state (and the DOM) are ready.
-  if(typeof applyTheme === 'function') applyTheme(state.theme);
-  if(typeof applyFontSize === 'function') applyFontSize(state.fontSize);
-  if(typeof applyAccentColor === 'function') applyAccentColor(state.accentColor);
-  initMissions();
-  await initAllianceOnStart();
-  if(typeof initPvpOnStart === 'function') initPvpOnStart();
-  if(typeof initMarketNoticesOnStart === 'function') initMarketNoticesOnStart();
-  // Kingdom Map / Territory Wars — disabled for now, re-add when ready:
-  // if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
-  render();
-  setInterval(tick, TICK_MS);
-  // Refresh whatever market listings are currently on screen (browse list,
-  // an open item's order book, or "My Listings") so prices/quantities from
-  // other players show up without the player needing to reopen the tab.
-  setInterval(()=>{
-    if(activeTab === 'market' && typeof refreshOpenMarketViews === 'function') refreshOpenMarketViews();
-    if(activeTab === 'market' && typeof refreshOpenGearMarketViews === 'function') refreshOpenGearMarketViews();
-  }, PRICE_TICK_MS);
-  setInterval(syncToFirestore, SYNC_INTERVAL);
-  if(typeof flushZoneTax === 'function') setInterval(flushZoneTax, SYNC_INTERVAL);
-  loadUsername();
-  renderGlobalChatFab();
-  startGlobalChatListener();
+// onAuthStateChanged can fire more than once for the same signed-in user
+// (once from cached/local persistence, again once Firebase confirms the
+// session with its servers) — each firing calls enterGame() -> startGame().
+// A plain "already started" boolean would let the 2nd call return instantly
+// while the 1st is still mid-await, so the caller shows the game view
+// before anything has actually rendered (stuck on "Opening the ledger...").
+// Storing the in-flight promise instead means every caller awaits the same
+// real completion.
+let gameStartPromise = null;
+function startGame(){
+  if(gameStartPromise) return gameStartPromise;
+  gameStartPromise = (async () => {
+    await loadState();
+    // Apply saved appearance settings now that state (and the DOM) are ready.
+    if(typeof applyTheme === 'function') applyTheme(state.theme);
+    if(typeof applyFontSize === 'function') applyFontSize(state.fontSize);
+    if(typeof applyAccentColor === 'function') applyAccentColor(state.accentColor);
+    initMissions();
+    await initAllianceOnStart();
+    if(typeof initPvpOnStart === 'function') initPvpOnStart();
+    if(typeof initMarketNoticesOnStart === 'function') initMarketNoticesOnStart();
+    // Kingdom Map / Territory Wars — disabled for now, re-add when ready:
+    // if(typeof initTerritoryOnStart === 'function') initTerritoryOnStart();
+    render();
+    setInterval(tick, TICK_MS);
+    // Refresh whatever market listings are currently on screen (browse list,
+    // an open item's order book, or "My Listings") so prices/quantities from
+    // other players show up without the player needing to reopen the tab.
+    setInterval(()=>{
+      if(activeTab === 'market' && typeof refreshOpenMarketViews === 'function') refreshOpenMarketViews();
+      if(activeTab === 'market' && typeof refreshOpenGearMarketViews === 'function') refreshOpenGearMarketViews();
+    }, PRICE_TICK_MS);
+    setInterval(syncToFirestore, SYNC_INTERVAL);
+    if(typeof flushZoneTax === 'function') setInterval(flushZoneTax, SYNC_INTERVAL);
+    loadUsername();
+    renderGlobalChatFab();
+    startGlobalChatListener();
+  })();
+  return gameStartPromise;
 }
 function render(){
   renderHeader();
