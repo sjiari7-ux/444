@@ -608,7 +608,7 @@ function renderPvpBattle(){
       <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;max-width:420px;position:relative;z-index:2;">
         <!-- Player -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-          <div id="battle-player-sprite" style="font-size:52px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">${cls?cls.icon:'🧙'}</div>
+          <div id="battle-player-sprite" style="font-size:52px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">${escapeHtml(state.avatar || '🧙')}</div>
           <div style="width:90px;height:10px;background:#3a1a1a;border-radius:5px;overflow:hidden;border:1px solid #5a2a2a;position:relative;">
             <div style="width:${pPct}%;height:100%;background:linear-gradient(90deg,#c44c4c,#e06060);transition:width 0.4s ease-out;"></div>
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.8);font-weight:700;">${Math.floor(pHp)}</div>
@@ -628,7 +628,7 @@ function renderPvpBattle(){
 
         <!-- Opponent -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-          <div id="battle-monster-sprite" style="font-size:52px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">${oCls?oCls.icon:o.avatar}</div>
+          <div id="battle-monster-sprite" style="font-size:52px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">${escapeHtml(o.avatar || '🧙')}</div>
           <div style="width:90px;height:10px;background:#3a1a1a;border-radius:5px;overflow:hidden;border:1px solid #5a2a2a;position:relative;">
             <div style="width:${oPct}%;height:100%;background:linear-gradient(90deg,#c44c4c,#e06060);transition:width 0.4s ease-out;"></div>
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.8);font-weight:700;">${Math.floor(oHp)}</div>
