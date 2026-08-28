@@ -49,10 +49,23 @@ function toggleViewElement(id, visible) {
 }
 
 function showView(name){
+  toggleViewElement('view-boot', name === 'boot');
   toggleViewElement('view-login', name === 'login');
   toggleViewElement('view-setup', name === 'setup');
   toggleViewElement('view-game', name === 'game');
   toggleViewElement('view-connlost', name === 'connlost');
+}
+
+// Updates the boot screen's progress bar + status line (see view-boot in
+// index.html). Safe to call even when the boot screen isn't the visible
+// view — it just writes to hidden elements.
+function setBootProgress(pct, text){
+  const fill = document.getElementById('bootProgressFill');
+  const pctEl = document.getElementById('bootProgressPct');
+  const statusEl = document.getElementById('bootStatus');
+  if(fill) fill.style.width = pct + '%';
+  if(pctEl) pctEl.textContent = pct + '%';
+  if(statusEl && text) statusEl.textContent = text;
 }
 
 async function enterGame(){
@@ -62,7 +75,9 @@ async function enterGame(){
   // failed is exactly what left players stuck on a frozen loading screen.
   if (typeof startGame === 'function') {
     try {
+      setBootProgress(85, 'Loading market, gear, player…');
       await startGame();
+      setBootProgress(100, 'Ready!');
     } catch(e){
       console.error('[Arcadia] startGame failed, showing connection-problem screen:', e);
       showView('connlost');
@@ -76,6 +91,12 @@ async function enterGame(){
 }
 
 if (auth) {
+  // Boot screen (view-boot in index.html) is what's visible by default on
+  // first paint — this avoids flashing the login form at a returning
+  // player who's actually about to land straight in the game once
+  // onAuthStateChanged below resolves their existing session.
+  setBootProgress(20, 'Connecting to Arcadia…');
+
   // Pick up the result of a signInWithRedirect() fallback (see auth.js).
   // Errors here are swallowed on purpose: if there was no redirect in
   // flight, getRedirectResult() just resolves with a null user — this only
@@ -93,12 +114,14 @@ if (auth) {
     }
     UID = user.uid;
     EMAIL = user.email;
+    setBootProgress(50, 'Verifying your session…');
     try{
       // withTimeout (js/sync.js) caps this so a blocked/unreachable
       // Firestore connection can't leave the player stuck on the loading
       // screen forever — see the "Opening the ledger..." freeze this fixes.
       const playerDoc = await withTimeout(db.collection('players').doc(UID).get(), 8000);
       if(playerDoc.exists){
+        setBootProgress(70, 'Loading your kingdom…');
         await enterGame();
       } else {
         showView('setup');
