@@ -17,6 +17,16 @@ let isSyncing = false;
 const SYNC_INTERVAL = 10000;
 let lastSyncTime = 0;
 
+// Wraps a Firestore promise so a blocked/unreachable connection rejects
+// after `ms` instead of hanging forever (used by firebase-config.js and
+// alliance.js to avoid stranding the player on a frozen loading screen).
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for Firestore')), ms))
+  ]);
+}
+
 // ─── Gold sync: increment-based, not overwrite-based ───
 // Every other field here is safe to overwrite wholesale on each periodic
 // sync because only THIS player's own client ever changes it. Gold is
