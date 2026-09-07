@@ -788,6 +788,17 @@ header.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:tran
 .forge-preview-v2 .fp-actions{display:flex;gap:8px;margin-top:10px;}
 .forge-preview-v2 .fp-actions .mini-btn{flex:1;}
 
+/* --- forge recipe screen (single item craft view) --- */
+.forge-recipe-card{position:relative;text-align:center;background:linear-gradient(165deg,var(--forge-iron-light),var(--forge-coal));border:1px solid var(--tc,#2c3947);border-radius:16px;padding:18px 16px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 10px 24px rgba(0,0,0,0.4);transition:opacity .15s;}
+.forge-recipe-card.blocked-mats,.forge-recipe-card.blocked-space{opacity:.8;}
+.forge-recipe-card .frc-ribbon{display:inline-block;font-family:var(--font-mono);font-size:10px;color:var(--tc,var(--copper));background:rgba(0,0,0,0.3);border:1px solid var(--tc,#2c3947);padding:3px 12px;border-radius:20px;letter-spacing:.02em;margin-bottom:14px;}
+.forge-recipe-card .frc-icon{width:64px;height:64px;margin:0 auto 12px;border-radius:16px;background:radial-gradient(circle at 35% 28%,var(--forge-iron-light),var(--forge-coal));border:2px solid var(--tc,#2c3947);box-shadow:0 0 0 3px var(--forge-coal),0 0 18px -4px var(--tc,var(--forge-glow)),inset 0 -4px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:28px;}
+.forge-recipe-card .frc-name{font-family:var(--font-head);font-weight:700;font-size:16.5px;color:var(--tc,var(--text));}
+.forge-recipe-card .frc-sub{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);margin-top:4px;margin-bottom:16px;}
+.forge-recipe-card .frc-stats{display:flex;justify-content:center;gap:22px;margin-bottom:16px;}
+.forge-recipe-card .frc-stat-val{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;}
+.forge-recipe-card .frc-stat-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.03em;margin-top:3px;}
+
 /* --- upgrade table, forge-flavored --- */
 .upgrade-table{background:rgba(0,0,0,0.15);border-radius:12px;}
 .upgrade-table th{color:var(--forge-ember-hot);}
