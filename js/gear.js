@@ -72,7 +72,6 @@ let forgeSlot = null;
 let forgeTier = null;
 let forgeSearch = '';
 let forgeRailTier = null;
-let customWeaponName = '';
 let bagSelected = null;
 
 function selectBagItem(id){
@@ -186,22 +185,15 @@ function renderGear(){
     const hasEnergy = state.energy >= cost;
     const bagFull = getTotalStorageUsed(state) >= getStorageCap(state);
 
-    const tierButtons = CRAFTABLE_GEAR[forgeSlot].map((r, idx)=>{
-      const t = GEAR_TIERS[idx];
-      const active = idx === forgeTier;
-      const tierLocked = state.level < r.levelReq;
-      return `<button class="mini-btn ${active?'buy':''}" style="${active?'background:rgba(255,195,92,0.14);':''}color:${t.color};border-color:${t.color};${tierLocked?'opacity:0.4;':''}" onclick="selectForgeTier(${idx})" ${tierLocked?'disabled':''} title="Lv.${r.levelReq}">[${t.symbol}]</button>`;
-    }).join('');
-
     const canCraft = !locked && hasInputs && hasEnergy && !bagFull;
     const stateClass = canCraft ? 'ready' : (!hasEnergy ? 'blocked-energy' : (bagFull ? 'blocked-space' : 'blocked-mats'));
-    const energyChip = `<span class="resource-chip" style="border-color:${hasEnergy?'var(--brass-bright)':'var(--red)'};color:${hasEnergy?'var(--brass-bright)':'var(--red)'};"><img class="ui-icon" src="${ICONS.energy}" alt="⚡">${cost}</span>`;
-    const inputsHtml = Object.keys(recipe.inputs).map(inp=>{
+    const energyStat = `<div class="frc-stat"><div class="frc-stat-val" style="color:${hasEnergy?'var(--green)':'var(--red)'};">${cost}</div><div class="frc-stat-lbl"><img class="ui-icon" src="${ICONS.energy}" alt="⚡"> Energy</div></div>`;
+    const inputStats = Object.keys(recipe.inputs).map(inp=>{
       const have = state.inv[inp] || 0;
       const need = recipe.inputs[inp];
       const enough = have >= need;
-      return `<span class="resource-chip" style="border-color:${enough?'var(--green)':'var(--red)'};color:${enough?'var(--green)':'var(--red)'};">${ITEMS[inp].icon} ${fmtG(have)}/${fmtG(need)}</span>`;
-    }).join(' ');
+      return `<div class="frc-stat"><div class="frc-stat-val" style="color:${enough?'var(--green)':'var(--red)'};">${fmtG(have)}/${fmtG(need)}</div><div class="frc-stat-lbl">${ITEMS[inp].icon} ${ITEMS[inp].name}</div></div>`;
+    }).join('');
 
     forgeModal = `
       <div class="modal-overlay" onclick="if(event.target===this)closeForge()">
@@ -214,34 +206,19 @@ function renderGear(){
             </div>
           </div>
           <div class="modal-body">
-            <div style="margin-bottom:14px;">
-              <div class="req-label">Select Tier</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">${tierButtons}</div>
-            </div>
-
-            <div class="card recipe-card ${stateClass}" style="--tc:${tier.color};">
-              <div class="xp-badge">+${recipe.xp}XP</div>
-              <div class="card-top">
-                <div class="card-icon-box">${forgeRecipeIcon(forgeSlot, recipe, 30)}</div>
-                <div>
-                  <div class="card-name" style="color:${tier.color};">[${tier.symbol}] ${customWeaponName.trim() || recipe.name}</div>
-                  <div class="card-sub">Lv.${recipe.levelReq} required</div>
-                </div>
-              </div>
-              <div class="req-label">Requires</div>
-              <div style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:5px;">${energyChip}${inputsHtml}</div>
+            <div class="forge-recipe-card ${stateClass}" style="--tc:${tier.color};">
+              <div class="frc-ribbon">[${tier.symbol}] Tier · Lv.${recipe.levelReq} · +${recipe.xp}XP</div>
+              <div class="frc-icon">${forgeRecipeIcon(forgeSlot, recipe, 30)}</div>
+              <div class="frc-name" style="color:${tier.color};">${recipe.name}</div>
+              <div class="frc-sub">Requires the below to forge</div>
+              <div class="frc-stats">${energyStat}${inputStats}</div>
               ${locked ? `<div class="locked-tag" style="text-align:center;padding:10px;"><img class="ui-icon" src="${ICONS.lock}" alt="🔒"> Requires player level ${recipe.levelReq}</div>` :
                 `<button class="act-btn ${canCraft?'buy':''}" style="width:100%;" ${!canCraft?'disabled':''} onclick="craftGear('${forgeSlot}',${forgeTier})">
-                  ${bagFull ? `<img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Bag Full` : (!hasInputs ? '❌ Missing Materials' : (!hasEnergy ? `<img class="ui-icon" src="${ICONS.energy}" alt="⚡"> Not Enough Energy` : `🔨 Forge ${customWeaponName.trim() || recipe.name}`))}
+                  ${bagFull ? `<img class="ui-icon" src="${ICONS.bag_full}" alt="🎒"> Bag Full` : (!hasInputs ? '❌ Missing Materials' : (!hasEnergy ? `<img class="ui-icon" src="${ICONS.energy}" alt="⚡"> Not Enough Energy` : `🔨 Forge ${recipe.name}`))}
                 </button>`}
             </div>
 
-            <div style="margin:12px 0;">
-              <div class="req-label">Name your item</div>
-              <input type="text" class="market-search" maxlength="24" placeholder="${recipe.name}" value="${customWeaponName}" oninput="setCustomWeaponName(this.value)" style="width:100%;">
-            </div>
-
-            <div style="font-size:11px;color:var(--dim);text-align:center;">Backpack: <b>${getTotalStorageUsed(state)}</b> / ${getStorageCap(state)}</div>
+            <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:12px;">Backpack: <b>${getTotalStorageUsed(state)}</b> / ${getStorageCap(state)}</div>
           </div>
         </div>
       </div>`;
@@ -387,10 +364,10 @@ function renderGear(){
 
 
 // ─── Gear Actions (forge, equip, upgrade, sell, destroy) ───
-function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
-function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; customWeaponName=''; forgeSearch=''; forgeRailTier=null; renderBody(); }
-function backToForgeGrid(){ forgeSlot=null; forgeTier=null; customWeaponName=''; renderBody(); }
-function selectForgeItem(slot, idx){ forgeSlot=slot; forgeTier=idx; customWeaponName=''; renderBody(); }
+function openForge(){ forgeOpen=true; forgeSlot=null; forgeTier=null; forgeSearch=''; forgeRailTier=null; renderBody(); }
+function closeForge(){ forgeOpen=false; forgeSlot=null; forgeTier=null; forgeSearch=''; forgeRailTier=null; renderBody(); }
+function backToForgeGrid(){ forgeSlot=null; forgeTier=null; renderBody(); }
+function selectForgeItem(slot, idx){ forgeSlot=slot; forgeTier=idx; renderBody(); }
 function selectForgeTier(idx){ forgeTier=idx; renderBody(); }
 function setForgeRailTier(idx){ forgeRailTier=idx; renderBody(); }
 function setForgeSearch(val){
@@ -407,7 +384,6 @@ function setForgeSearch(val){
     }
   }
 }
-function setCustomWeaponName(val){ customWeaponName = val; }
 function craftGear(slot, tier){
   const recipe = CRAFTABLE_GEAR[slot][tier];
   if(state.level < recipe.levelReq) return;
@@ -417,8 +393,7 @@ function craftGear(slot, tier){
   for(const inp in recipe.inputs){ if(state.inv[inp] < recipe.inputs[inp]){ pushLog(state, `Missing ${ITEMS[inp].name}!`, 'lose'); return; } }
   for(const inp in recipe.inputs){ state.inv[inp] -= recipe.inputs[inp]; }
   state.energy -= cost;
-  const finalName = customWeaponName.trim() || recipe.name;
-  const gear = { ...recipe, name: finalName, id: Date.now()+Math.random(), slot, tier, upgradeLevel: 0, stats: {} };
+  const gear = { ...recipe, id: Date.now()+Math.random(), slot, tier, upgradeLevel: 0, stats: {} };
   // Generate stats based on tier
   const t = GEAR_TIERS[tier];
   const chosen = [...STAT_POOL].sort(()=>Math.random()-0.5).slice(0, t.numStats);
@@ -430,9 +405,8 @@ function craftGear(slot, tier){
   state.gearBag.push(gear);
   const leveled = grantXp(state, recipe.xp);
   updateMissionProgress('gear_crafted', 1);
-  pushLog(state, `Forged [${t.symbol}] ${finalName}!`, 'gear');
+  pushLog(state, `Forged [${t.symbol}] ${recipe.name}!`, 'gear');
   if(leveled){ pushLog(state, `Level up! You are now level ${state.level}`, 'levelup'); showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `Level ${state.level}`, 'levelup'); }
-  customWeaponName = '';
   renderBody(); scheduleSave();
 }
 function equipGear(id){
