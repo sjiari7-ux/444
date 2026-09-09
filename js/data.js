@@ -240,6 +240,7 @@ const UPGRADE_TABLE = [
   { level:7, shards:100,gold:8000, gems:15, chance:0.40 },
 ];
 
+const CLASS_AVATAR_EMOJI = { warrior:'⚔️', archer:'🏹', mage:'🔮', support:'💚', merchant:'💰' };
 const CLASS_DATA = {
   warrior: {
     name: 'Warrior', nameAr: 'Warrior', icon: `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔">`, color: '#e2554a',
@@ -376,5 +377,3 @@ const MONTHLY_MISSIONS = [
   { id:'monthly_pvp_wins',   title:'Win {n} Arena duels',                    baseTarget:40,   reward:{xp:420, gold:320}, icon:`<img class="ui-icon" src="${ICONS.medal}" alt="🎖">`, track:'pvp_wins' },
   { id:'monthly_pvp_gold',   title:'Steal {n} gold in the Arena',            baseTarget:3000, reward:{xp:260, gold:240}, icon:`<img class="ui-icon" src="${ICONS.business}" alt="💰">`, track:'pvp_gold_stolen' },
 ];
-
-
