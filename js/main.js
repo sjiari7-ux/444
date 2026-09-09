@@ -573,6 +573,8 @@ function selectClass(key){
   state.classSkillPoints = 0;
   state.classResets = 0;
   state.lastClassReset = 0;
+  // Avatar follows the chosen class automatically
+  state.avatar = CLASS_AVATAR_EMOJI[key] || state.avatar;
   // Give starter gear
   Object.values(cls.starterGear).forEach(g=>{
     if(getTotalStorageUsed(state) < getStorageCap(state)){
@@ -612,6 +614,7 @@ function resetClass(newClass){
   state.classSkills = {};
   state.playerClass = newClass;
   const cls = CLASS_DATA[newClass];
+  state.avatar = CLASS_AVATAR_EMOJI[newClass] || state.avatar;
   pushLog(state, `Reset to ${cls.nameAr}!`, 'prestige');
   showToast('Class Reset', cls.nameAr, 'prestige');
   renderBody(); scheduleSave();
