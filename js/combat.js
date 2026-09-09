@@ -50,7 +50,7 @@ function playBattleEffects(bs){
   });
 }
 
-function startBattle(zoneId){
+function startBattle(zoneId, monsterName){
   const zone = ZONES.find(z=>z.id===zoneId);
   if(!zone) return;
   const cost = getEnergyCost(state, zone.energyCost);
@@ -64,7 +64,9 @@ function startBattle(zoneId){
   }
   state.energy -= cost;
   const monsters = ZONE_MONSTERS[zoneId];
-  const monsterTemplate = monsters[Math.floor(Math.random()*monsters.length)];
+  const monsterTemplate = monsterName
+    ? (monsters.find(mm=>mm.name===monsterName) || monsters[Math.floor(Math.random()*monsters.length)])
+    : monsters[Math.floor(Math.random()*monsters.length)];
   const levelDiff = Math.max(0, state.level - monsterTemplate.level);
   const scale = 1 + levelDiff * 0.02;
   const monster = {
