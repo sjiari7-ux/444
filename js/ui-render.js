@@ -1632,7 +1632,7 @@ function renderZoneView(){
             <span class="stat-pill">${m.xp} XP</span>
             <span class="stat-pill">${m.g}g</span>
           </div>
-          <button class="act-btn red" onclick="startBattle('${z.id}')" ${canFight?'':'disabled'}>
+          <button class="act-btn red" onclick="startBattle('${z.id}','${m.name.replace(/'/g,"\\'")}')" ${canFight?'':'disabled'}>
             ${canFight?'Fight (-'+z.energyCost+`<img class="ui-icon" src="${ICONS.energy}" alt="⚡">)`:`Need <img class="ui-icon" src="${ICONS.energy}" alt="⚡">/HP`}
           </button>
         </div>`;
