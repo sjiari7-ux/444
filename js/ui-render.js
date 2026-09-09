@@ -1550,6 +1550,7 @@ function renderZonesTab(){
   return state.zoneView ? renderZoneView() : renderZones();
 }
 
+const ZONE_FALLBACK_EMOJI = { plains:'🏞', forest:'🌳', mountain:'🏔', cave:'🕯', swamp:'🌿', dark:'🌑' };
 function renderZones(){
   return `<div class="wrap animate-fade">
     <div class="section-title"><h2><img class="ui-icon" src="${ICONS.zones_map}" alt="🗺"> Realm Explorer</h2><span class="rule"></span><div class="sub">Select a zone to enter</div></div>
@@ -1557,12 +1558,13 @@ function renderZones(){
       ${ZONES.map(z=>{
         const locked = state.level < z.levelMin;
         const monsterCount = (ZONE_MONSTERS[z.id]||[]).length;
+        const fallbackEmoji = ZONE_FALLBACK_EMOJI[z.id] || '🗺';
         return `<div onclick="${locked?'':'enterZoneView(\''+z.id+'\')'}" 
           style="background:var(--panel-light);border:1px solid var(--border);border-radius:10px;cursor:${locked?'not-allowed':'pointer'};opacity:${locked?0.5:1};transition:all 0.2s;position:relative;overflow:hidden;"
           onmouseover="if(!${locked}){this.style.borderColor='var(--brass)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.25)'}"
           onmouseout="if(!${locked}){this.style.borderColor='var(--border)';this.style.transform='translateY(0)';this.style.boxShadow='none'}">
           <div style="width:100%;aspect-ratio:16/10;background:linear-gradient(135deg,${z.color}55,${z.color}15);display:flex;align-items:center;justify-content:center;overflow:hidden;">
-            <img class="zone-banner-img" src="${ICONS['zone_'+z.id]||''}" alt="${z.icon}" style="width:100%;height:100%;object-fit:cover;" onerror="this.replaceWith(Object.assign(document.createElement('div'),{style:'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:44px;',textContent:'${z.icon}'}))">
+            <img class="zone-banner-img" src="${ICONS['zone_'+z.id]||''}" alt="${z.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.replaceWith(Object.assign(document.createElement('div'),{style:'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:44px;',textContent:'${fallbackEmoji}'}))">
           </div>
           <div style="padding:14px;">
             <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;color:var(--brass-bright);margin-bottom:8px;">${z.name}</div>
