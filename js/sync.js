@@ -212,6 +212,7 @@ const LEADERBOARD_SIZE = 20;
 let leaderboardByGold = null;   // [{uid,name,avatar,level,gold}] or null = not loaded yet
 let leaderboardByLevel = null;
 let leaderboardByPvpWins = null;
+let leaderboardByPvpRating = null;
 let leaderboardLoading = false;
 let leaderboardError = '';
 let lastLeaderboardFetch = 0;
@@ -226,6 +227,7 @@ function playerDocToLbRow(doc){
     level: d.level || 1,
     gold: d.gold || 0,
     pvpWins: (d.pvp && d.pvp.wins) || 0,
+    pvpRating: (d.pvp && typeof d.pvp.rating === 'number') ? d.pvp.rating : PVP_RATING_DEFAULT,
     me: doc.id === UID,
   };
 }
@@ -237,14 +239,16 @@ async function loadRealLeaderboard(force){
   leaderboardLoading = true;
   leaderboardError = '';
   try{
-    const [goldSnap, levelSnap, pvpSnap] = await Promise.all([
+    const [goldSnap, levelSnap, pvpSnap, ratingSnap] = await Promise.all([
       db.collection('players').orderBy('gold', 'desc').limit(LEADERBOARD_SIZE).get(),
       db.collection('players').orderBy('level', 'desc').limit(LEADERBOARD_SIZE).get(),
       db.collection('players').orderBy('pvp.wins', 'desc').limit(LEADERBOARD_SIZE).get(),
+      db.collection('players').orderBy('pvp.rating', 'desc').limit(LEADERBOARD_SIZE).get(),
     ]);
     leaderboardByGold = goldSnap.docs.map(playerDocToLbRow);
     leaderboardByLevel = levelSnap.docs.map(playerDocToLbRow);
     leaderboardByPvpWins = pvpSnap.docs.map(playerDocToLbRow);
+    leaderboardByPvpRating = ratingSnap.docs.map(playerDocToLbRow);
     lastLeaderboardFetch = Date.now();
   }catch(e){
     console.error('[Arcadia Leaderboard] Load failed:', e.code || e.name, e.message);
