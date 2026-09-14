@@ -777,7 +777,17 @@ async function loadWorldGeometry(){
     // light enough that the app's periodic full re-renders (price ticker, etc.)
     // don't cause a visible flash when this view is on screen.
     if(typeof topojson.presimplify === 'function' && typeof topojson.simplify === 'function'){
-      try{ topo = topojson.simplify(topojson.presimplify(topo), 0.35); }
+      try{
+        // simplify() needs an absolute weight threshold, not a bare fraction —
+        // passing 0.35 directly was orders of magnitude too high (real point
+        // weights on a sphere are tiny), so it stripped nearly every point
+        // from nearly every country, leaving just one or two landmasses
+        // visible on the map. quantile() converts "keep the top 35% of
+        // points" into the actual weight simplify() expects.
+        const presimplified = topojson.presimplify(topo);
+        const weight = typeof topojson.quantile === 'function' ? topojson.quantile(presimplified, 0.35) : 0;
+        topo = topojson.simplify(presimplified, weight);
+      }
       catch(simplifyErr){ console.warn('[Arcadia Territory] Simplify skipped:', simplifyErr.message); }
     }
     const collection = topojson.feature(topo, topo.objects.countries);
