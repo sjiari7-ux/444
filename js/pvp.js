@@ -42,6 +42,43 @@ const PVP_MAX_ROUNDS = 25;               // simulation safety cap
 const PVP_OPPONENT_LIMIT = 12;           // how many cards to show per refresh
 const PVP_OPPONENTS_REFRESH_MS = 30000;  // don't hammer Firestore on every tab open
 
+/* ===== RANK / RATING (ELO) ===== */
+const PVP_RATING_DEFAULT = 1000;
+const PVP_RATING_FLOOR = 100;            // rating can never drop below this
+const PVP_RATING_K = 32;                 // standard ELO K-factor
+const PVP_TIERS = [ // ordered low -> high; used to label a rating
+  { min: 0,    name: 'Bronze',   color: '#a5691f' },
+  { min: 900,  name: 'Silver',   color: '#9aa5ad' },
+  { min: 1100, name: 'Gold',     color: '#d4a843' },
+  { min: 1300, name: 'Platinum', color: '#5fc4c9' },
+  { min: 1500, name: 'Diamond',  color: '#7f8ff4' },
+  { min: 1800, name: 'Legend',   color: '#e0623a' },
+];
+function pvpTierFor(rating){
+  const r = typeof rating === 'number' ? rating : PVP_RATING_DEFAULT;
+  let t = PVP_TIERS[0];
+  for(const tier of PVP_TIERS){ if(r >= tier.min) t = tier; }
+  return t;
+}
+// Standard ELO expected-score formula: how likely `a` is to beat `b`.
+function pvpEloExpected(ratingA, ratingB){
+  return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+}
+// Returns { a, b } — the (whole-number) rating delta for each side of a
+// single match. They're always exact opposites (b === -a) since both
+// sides share the same K-factor and expected(a)+expected(b) === 1.
+function pvpEloDeltas(ratingA, ratingB, aWon){
+  const expectedA = pvpEloExpected(ratingA, ratingB);
+  const actualA = aWon ? 1 : 0;
+  const deltaA = Math.round(PVP_RATING_K * (actualA - expectedA));
+  return { a: deltaA, b: -deltaA };
+}
+function pvpApplyRatingDelta(pvpObj, delta){
+  const current = (pvpObj && typeof pvpObj.rating === 'number') ? pvpObj.rating : PVP_RATING_DEFAULT;
+  pvpObj.rating = Math.max(PVP_RATING_FLOOR, current + delta);
+  return pvpObj.rating;
+}
+
 let pvpOpponents = null;         // [{uid,username,avatar,level,playerClass,protectedUntil}] or null = not loaded
 let pvpOpponentsLoading = false;
 let pvpOpponentsError = '';
@@ -81,6 +118,7 @@ function pvpOpponentListRowFromDoc(doc){
     level: d.level || 1,
     playerClass: d.playerClass || null,
     protectedUntil: (d.pvp && d.pvp.protectedUntil) || 0,
+    rating: (d.pvp && typeof d.pvp.rating === 'number') ? d.pvp.rating : PVP_RATING_DEFAULT,
   };
 }
 
@@ -98,7 +136,7 @@ function pvpSnapshotFromDoc(doc){
     prestige: d.prestige || { points:0, gatherBonus:0, sellBonus:0, energyBonus:0, storageBonus:0 },
     equipped: d.gear || { weapon:null, armor:null, helmet:null, boots:null, accessory:null, gloves:null },
     combat: d.combat || { wins:0, losses:0 },
-    pvp: d.pvp || { wins:0, losses:0, protectedUntil:0 },
+    pvp: { wins:0, losses:0, protectedUntil:0, rating: PVP_RATING_DEFAULT, ...(d.pvp || {}) },
   };
 }
 
@@ -345,13 +383,15 @@ function pvpAwardBattleRewards(){
   let goldChange = Math.round(d.gold * stealPct) + ((bs.rewards && bs.rewards.stolenGold) || 0);
   goldChange = Math.min(d.gold, goldChange);
   const xpChange = Math.round(8 + d.level * 1.5);
-  if(!state.pvp) state.pvp = { wins:0, losses:0, protectedUntil:0 };
+  if(!state.pvp) state.pvp = { wins:0, losses:0, protectedUntil:0, rating: PVP_RATING_DEFAULT };
   state.gold += goldChange;
   state.combat.wins += 1;
   state.pvp.wins += 1;
+  const deltas = pvpEloDeltas(state.pvp.rating, d.pvp.rating, true);
+  const newRating = pvpApplyRatingDelta(state.pvp, deltas.a);
   const leveled = grantXp(state, xpChange);
-  bs.rewards = { ...(bs.rewards||{}), goldChange, xpChange };
-  pushLog(state, `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Defeated ${d.username} in the Arena! +${goldChange}g, +${xpChange}xp`, 'win');
+  bs.rewards = { ...(bs.rewards||{}), goldChange, xpChange, ratingChange: deltas.a, newRating };
+  pushLog(state, `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Defeated ${d.username} in the Arena! +${goldChange}g, +${xpChange}xp, ${deltas.a >= 0 ? '+' : ''}${deltas.a} rating`, 'win');
   if(leveled){
     pushLog(state, `Reached level ${state.level}! (+1 skill point)`, 'levelup');
     showToast(`<img class="ui-icon" src="${ICONS.levelup_badge}" alt="🆙"> Level Up!`, `You reached level ${state.level}. +1 Skill Point`, 'levelup');
@@ -359,32 +399,34 @@ function pvpAwardBattleRewards(){
   updateMissionProgress('pvp_wins', 1);
   if(goldChange > 0) updateMissionProgress('pvp_gold_stolen', goldChange);
   pvpOpponents = (pvpOpponents || []).filter(op => op.uid !== d.uid);
-  pvpDeliverReport(d.uid, true, goldChange);
+  pvpDeliverReport(d.uid, true, goldChange, deltas.b);
   renderHeader(); scheduleSave();
 }
 
 function pvpApplyLoss(){
   const bs = pvpBattleState; const d = bs.defenderSnap;
   const xpChange = Math.round(3 + d.level * 0.5);
-  if(!state.pvp) state.pvp = { wins:0, losses:0, protectedUntil:0 };
+  if(!state.pvp) state.pvp = { wins:0, losses:0, protectedUntil:0, rating: PVP_RATING_DEFAULT };
   state.combat.losses += 1;
   state.pvp.losses += 1;
+  const deltas = pvpEloDeltas(state.pvp.rating, d.pvp.rating, false);
+  const newRating = pvpApplyRatingDelta(state.pvp, deltas.a);
   grantXp(state, xpChange);
-  bs.rewards = { ...(bs.rewards||{}), goldChange: 0, xpChange };
-  pushLog(state, `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Lost to ${d.username} in the Arena. +${xpChange}xp for the attempt.`, 'lose');
+  bs.rewards = { ...(bs.rewards||{}), goldChange: 0, xpChange, ratingChange: deltas.a, newRating };
+  pushLog(state, `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Lost to ${d.username} in the Arena. +${xpChange}xp for the attempt, ${deltas.a} rating`, 'lose');
   pvpOpponents = (pvpOpponents || []).filter(op => op.uid !== d.uid);
-  pvpDeliverReport(d.uid, false, 0);
+  pvpDeliverReport(d.uid, false, 0, deltas.b);
   renderHeader(); scheduleSave();
 }
 
 // Deliver the outcome to the defender (create-only — see the rule note
 // at the top of this file). If rules aren't set up yet this just logs
 // a warning; your own side of the fight still went through.
-async function pvpDeliverReport(uid, won, goldLost){
+async function pvpDeliverReport(uid, won, goldLost, ratingDelta){
   try{
     await db.collection('players').doc(uid).collection('pvpReports').add({
       attackerUid: UID, attackerName: state.username || 'A rival',
-      won, goldLost: won ? goldLost : 0,
+      won, goldLost: won ? goldLost : 0, ratingDelta: ratingDelta || 0,
       ts: firebase.firestore.FieldValue.serverTimestamp(),
     });
   }catch(e){
@@ -456,23 +498,30 @@ async function applyPendingPvpReports(){
     const snap = await db.collection('players').doc(UID).collection('pvpReports').limit(20).get();
     if(snap.empty) return;
     let goldLostTotal = 0;
+    let ratingTotal = 0;
     const batch = db.batch();
     snap.docs.forEach(doc=>{
       const r = doc.data();
+      if(!state.pvp) state.pvp = { wins:0, losses:0, protectedUntil:0, rating: PVP_RATING_DEFAULT };
       if(r.won){
         const lost = Math.min(state.gold, r.goldLost || 0);
         state.gold -= lost;
         goldLostTotal += lost;
-        if(!state.pvp) state.pvp = { wins:0, losses:0, protectedUntil:0 };
         state.pvp.losses += 1;
         state.pvp.protectedUntil = Date.now() + PVP_PROTECTION_MS;
         state.combat.losses += 1;
+      }
+      if(typeof r.ratingDelta === 'number' && r.ratingDelta !== 0){
+        pvpApplyRatingDelta(state.pvp, r.ratingDelta);
+        ratingTotal += r.ratingDelta;
       }
       batch.delete(doc.ref);
     });
     await batch.commit();
     if(goldLostTotal > 0 && typeof addNotification === 'function'){
-      addNotification('pvp', `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> You were attacked!`, `Rivals raided your gold while you were away. -${goldLostTotal}g total. You have a ${Math.round(PVP_PROTECTION_MS/60000)}-minute shield now.`);
+      addNotification('pvp', `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> You were attacked!`, `Rivals raided your gold while you were away. -${goldLostTotal}g total, ${ratingTotal >= 0 ? '+' : ''}${ratingTotal} rating. You have a ${Math.round(PVP_PROTECTION_MS/60000)}-minute shield now.`);
+    } else if(ratingTotal > 0 && typeof addNotification === 'function'){
+      addNotification('pvp', `<img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Arena update`, `You successfully defended against a challenger. +${ratingTotal} rating.`);
     }
     renderHeader(); scheduleSave();
   }catch(e){
@@ -523,6 +572,7 @@ function renderPvpBattle(){
       <div style="display:flex;flex-direction:column;gap:8px;min-width:220px;">
         <div style="display:flex;justify-content:space-between;background:var(--panel-light);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;"><span><img class="ui-icon" src="${ICONS.gold_coin}" alt="🪙"> Gold</span><b style="color:var(--brass-bright);">${bs.rewards.goldChange}</b></div>
         <div style="display:flex;justify-content:space-between;background:var(--panel-light);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;"><span><img class="ui-icon" src="${ICONS.sparkle}" alt="✨"> XP</span><b style="color:var(--prestige);">${bs.rewards.xpChange}</b></div>
+        <div style="display:flex;justify-content:space-between;background:var(--panel-light);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;"><span><img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Rating</span><b style="color:var(--green);">+${bs.rewards.ratingChange} (${bs.rewards.newRating})</b></div>
       </div>
       <button class="act-btn buy" style="width:auto;padding:12px 36px;font-size:14px;margin-top:6px;" onclick="pvpCloseBattle()">Continue</button>
     </div>`
@@ -531,6 +581,7 @@ function renderPvpBattle(){
       <div style="font-size:56px;"><img class="ui-icon" src="${ICONS.skull}" alt="💀"></div>
       <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:24px;color:var(--red);">Defeat</div>
       <div style="font-size:13px;color:var(--dim);">${escapeHtml(o.username)} defeated you. +${bs.rewards.xpChange}xp for the attempt.</div>
+      <div style="font-size:13px;color:var(--red);font-weight:700;">${bs.rewards.ratingChange} rating (${bs.rewards.newRating})</div>
       <button class="act-btn red" style="width:auto;padding:12px 36px;font-size:14px;margin-top:6px;" onclick="pvpCloseBattle()">Continue</button>
     </div>`
     : bs.fled ? `
@@ -730,12 +781,19 @@ function renderPvpTab(){
     return `<div class="wrap animate-fade"><div class="lb-note"><img class="ui-icon" src="${ICONS.offline}" alt="🔌"> The Arena needs a cloud connection. Sign in with Google to fight real players.</div></div>`;
   }
   const myShield = state.pvp && state.pvp.protectedUntil > Date.now();
+  const myRating = (state.pvp && typeof state.pvp.rating === 'number') ? state.pvp.rating : PVP_RATING_DEFAULT;
+  const myTier = pvpTierFor(myRating);
   const header = `
     <div class="wrap animate-fade" style="padding-bottom:0;">
       <header class="hero" style="margin-bottom:14px;">
         <h1 style="font-size:22px;"><img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Arena</h1>
         <p style="color:var(--dim);font-size:12px;">Attack other players for gold and XP. Losing costs you nothing but pride.</p>
       </header>
+      <div class="panel" style="padding:12px;text-align:center;margin-bottom:8px;">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:0.08em;">RANK</div>
+        <div style="font-family:'Cairo',sans-serif;font-weight:800;font-size:18px;color:${myTier.color};">${myTier.name}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--dim);">${myRating} rating</div>
+      </div>
       <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
         <div class="panel" style="padding:8px;text-align:center;"><div style="font-size:10px;color:var(--dim);">Wins</div><div style="font-family:'JetBrains Mono',monospace;font-size:15px;">${(state.pvp && state.pvp.wins) || 0}</div></div>
         <div class="panel" style="padding:8px;text-align:center;"><div style="font-size:10px;color:var(--dim);">Losses</div><div style="font-family:'JetBrains Mono',monospace;font-size:15px;">${(state.pvp && state.pvp.losses) || 0}</div></div>
@@ -755,13 +813,14 @@ function renderPvpTab(){
     body = `<div class="wrap" style="padding-top:0;">
       <div class="lb-note" style="margin-bottom:10px;">Level range ${range.min}–${range.max} · <span style="cursor:pointer;color:var(--brass-bright);" onclick="refreshPvpOpponents()"><img class="ui-icon" src="${ICONS.reload}" alt="↻"> Refresh</span></div>
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">
-        ${pvpOpponents.map(o => `
+        ${pvpOpponents.map(o => { const tier = pvpTierFor(o.rating); return `
           <div class="card" style="padding:14px;text-align:center;">
             <div style="font-size:30px;margin-bottom:4px;">${o.avatar}</div>
             <div style="font-weight:700;font-size:13px;color:var(--brass-bright);">${escapeHtml(o.username)}</div>
-            <div style="font-size:11px;color:var(--dim);margin-bottom:8px;">Lv.${o.level}${o.playerClass ? ' · ' + o.playerClass : ''}</div>
+            <div style="font-size:11px;color:var(--dim);margin-bottom:2px;">Lv.${o.level}${o.playerClass ? ' · ' + o.playerClass : ''}</div>
+            <div style="font-size:10px;font-weight:700;color:${tier.color};margin-bottom:8px;">${tier.name} · ${o.rating}</div>
             <button class="act-btn buy" style="width:100%;" ${pvpBattleBusy ? 'disabled' : ''} onclick="openPvpBattle('${o.uid}')"><img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Attack</button>
-          </div>`).join('')}
+          </div>`; }).join('')}
       </div>
     </div>`;
   }
