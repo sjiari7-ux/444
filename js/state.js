@@ -113,7 +113,7 @@ accentColor: '#e0623a', // Hex color code
         allianceJoinCooldownUntil: 0,
         allianceDisbandCooldownUntil: 0,
         // ===== ARENA / PVP (NEW) =====
-        pvp: { wins: 0, losses: 0, protectedUntil: 0 },
+        pvp: { wins: 0, losses: 0, protectedUntil: 0, rating: PVP_RATING_DEFAULT },
     };
 }
 
@@ -165,10 +165,11 @@ if (typeof s.accentColor !== 'string') s.accentColor = '#e0623a';
     if (typeof s.allianceDisbandCooldownUntil !== 'number') s.allianceDisbandCooldownUntil = 0;
 
     // ===== ARENA / PVP MIGRATION =====
-    if (!s.pvp || typeof s.pvp !== 'object') s.pvp = { wins: 0, losses: 0, protectedUntil: 0 };
+    if (!s.pvp || typeof s.pvp !== 'object') s.pvp = { wins: 0, losses: 0, protectedUntil: 0, rating: PVP_RATING_DEFAULT };
     if (typeof s.pvp.wins !== 'number') s.pvp.wins = 0;
     if (typeof s.pvp.losses !== 'number') s.pvp.losses = 0;
     if (typeof s.pvp.protectedUntil !== 'number') s.pvp.protectedUntil = 0;
+    if (typeof s.pvp.rating !== 'number') s.pvp.rating = PVP_RATING_DEFAULT; // players from before rating existed start at the default
     
     // Resources migration
     if(typeof s.inv['magic_stones'] !== 'number') s.inv['magic_stones'] = 0;
