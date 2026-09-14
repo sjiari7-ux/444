@@ -970,8 +970,11 @@ function renderLeaderboard(){
   }
   const tbl = (list, valueKey)=> `
     <table class="lb-table">
-      <tr><th>#</th><th>Player</th><th>${valueKey==='gold'?'Gold':valueKey==='level'?'Level':'Wins'}</th></tr>
-      ${list.map((r,i)=>`<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="viewChatProfile('${r.uid}')">${escapeHtml(r.me?'You':r.name)}</span></td><td>${valueKey==='gold'?fmtG(r.gold)+'g':valueKey==='level'?r.level:r.pvpWins}</td></tr>`).join('')}
+      <tr><th>#</th><th>Player</th><th>${valueKey==='gold'?'Gold':valueKey==='level'?'Level':valueKey==='pvpRating'?'Rating':'Wins'}</th></tr>
+      ${list.map((r,i)=>{
+        const val = valueKey==='gold' ? fmtG(r.gold)+'g' : valueKey==='level' ? r.level : valueKey==='pvpRating' ? `${pvpTierFor(r.pvpRating).name} · ${r.pvpRating}` : r.pvpWins;
+        return `<tr class="${r.me?'me':''}"><td class="lb-rank">${i+1}</td><td><span style="cursor:pointer;color:var(--brass-bright);" onclick="viewChatProfile('${r.uid}')">${escapeHtml(r.me?'You':r.name)}</span></td><td>${val}</td></tr>`;
+      }).join('')}
     </table>`;
   return `
     <div class="lb-note"><img class="ui-icon" src="${ICONS.globe}" alt="🌐"> Live server-wide leaderboard, top ${LEADERBOARD_SIZE} players.
@@ -981,6 +984,7 @@ function renderLeaderboard(){
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
       <div class="panel"><div class="section-title" style="margin-top:0;"><h2><img class="ui-icon" src="${ICONS.medal_gold}" alt="🥇"> Richest</h2></div>${tbl(leaderboardByGold||[],'gold')}</div>
       <div class="panel"><div class="section-title" style="margin-top:0;"><h2><img class="ui-icon" src="${ICONS.medal_silver}" alt="🥈"> Highest Level</h2></div>${tbl(leaderboardByLevel||[],'level')}</div>
+      <div class="panel"><div class="section-title" style="margin-top:0;"><h2><img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Top PvP Rating</h2></div>${tbl(leaderboardByPvpRating||[],'pvpRating')}</div>
       <div class="panel"><div class="section-title" style="margin-top:0;"><h2><img class="ui-icon" src="${ICONS.damage_ui}" alt="⚔"> Most PvP Wins</h2></div>${tbl(leaderboardByPvpWins||[],'pvpWins')}</div>
     </div>`;
 }
