@@ -255,3 +255,18 @@ const ICONS = {
   monster_lich: "icons/monster_lich.png",
   monster_bone_sorcerer: "icons/monster_bone_sorcerer.png",
 };
+
+// Global icon fallback: most <img class="ui-icon"> tags across the app just
+// point at an ICONS.* path with the emoji in `alt` — only a handful of
+// emblem/banner spots (alliance.js, ui-render.js zone banners) wire up their
+// own onerror. If an icons/*.png is missing or 404s (e.g. the icons/ folder
+// isn't deployed), every other ui-icon was showing the browser's broken-image
+// glyph instead of degrading to its alt emoji. img "error" events don't
+// bubble, so this listens in the capture phase on document to catch all of
+// them from one place instead of touching every call site.
+document.addEventListener('error', e => {
+  const el = e.target;
+  if(el.tagName === 'IMG' && /\bui-icon(-lg|-xl)?\b/.test(el.className) && el.alt){
+    el.replaceWith(document.createTextNode(el.alt));
+  }
+}, true);
