@@ -1040,9 +1040,11 @@ function renderWarListCard(t, myKingdom){
     </div>
   </div>`;
 }
+function goToKingdomMap(){ activeTab = 'zones'; zoneSubTab = 'territory'; territoryZoneView = null; if(!territoryLoaded) loadTerritories(); if(!worldGeometryLoaded) loadWorldGeometry(); renderBody(); }
 function renderActiveWarsList(){
   if(!db) return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);"><img class="ui-icon" src="${ICONS.offline}" alt="🔌"> Kingdom warfare requires cloud save (Firebase) to be configured.</div>`;
   if(!territoryLoaded){ loadTerritories(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);">Loading active wars…</div>`; }
+  if(!worldGeometryLoaded){ loadWorldGeometry(); return `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);"><img class="ui-icon" src="${ICONS.globe}" alt="🌍"> Loading world borders…</div>`; }
   const myKingdom = state.allianceId;
   const all = allActiveWars();
   const tabs = [
@@ -1054,10 +1056,18 @@ function renderActiveWarsList(){
   const tabsHtml = `<div class="wars-filter-tabs">${tabs.map(tb =>
     `<button class="wars-filter-btn ${warsFilter === tb.id ? 'active' : ''}" onclick="setWarsFilter('${tb.id}')">${tb.label}<span class="wars-filter-count">${tb.wars.length}</span></button>`
   ).join('')}</div>`;
+  // The world map is shown here too (not just inside Kingdom Map), so this
+  // view is never just an empty list when there are no active sieges —
+  // worldGeometryError isn't fatal for this view (the list still works),
+  // so the map is only skipped, not the whole tab.
+  const mapHtml = !worldGeometryError
+    ? renderKingdomMapSVG(myKingdom)
+    : `<div class="panel" style="padding:16px;text-align:center;color:var(--dim);font-size:12px;margin-bottom:12px;"><img class="ui-icon" src="${ICONS.warning}" alt="⚠"> Couldn't load world borders for the map (list below still works). <button class="mini-btn" onclick="retryLoadWorldGeometry()">Retry</button></div>`;
   const body = active.wars.length
     ? `<div class="wars-grid">${active.wars.map(t => renderWarListCard(t, myKingdom)).join('')}</div>`
     : `<div class="panel" style="padding:30px;text-align:center;color:var(--dim);"><img class="ui-icon" src="${ICONS.dove}" alt="🕊"> No active sieges in this view right now.</div>`;
-  return `<div class="wrap animate-fade">${tabsHtml}${body}</div>`;
+  setTimeout(()=>{bindArcadiaMapInteractions(); renderArcadiaMapTransform(); renderArcadiaMapSelection();},0);
+  return `<div class="wrap animate-fade">${mapHtml}${tabsHtml}${body}</div>`;
 }
 
 /* ===== WAR DETAIL MODAL ===== */
