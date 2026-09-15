@@ -504,7 +504,15 @@ async function applyPendingPvpReports(){
       const r = doc.data();
       if(!state.pvp) state.pvp = { wins:0, losses:0, protectedUntil:0, rating: PVP_RATING_DEFAULT };
       if(r.won){
-        const lost = Math.min(state.gold, r.goldLost || 0);
+        // r.goldLost is written by the ATTACKER's own client, so it can't
+        // be trusted at face value (nothing stops someone from creating a
+        // report claiming they stole your whole balance without ever
+        // fighting). Clamp it to the same steal-percentage range the real
+        // battle code uses, applied against our own known-good gold —
+        // this bounds the damage a forged report can do instead of
+        // trusting an arbitrary number from another player.
+        const maxSteal = Math.floor(state.gold * PVP_STEAL_MAX_PCT);
+        const lost = Math.max(0, Math.min(state.gold, maxSteal, r.goldLost || 0));
         state.gold -= lost;
         goldLostTotal += lost;
         state.pvp.losses += 1;
@@ -512,8 +520,12 @@ async function applyPendingPvpReports(){
         state.combat.losses += 1;
       }
       if(typeof r.ratingDelta === 'number' && r.ratingDelta !== 0){
-        pvpApplyRatingDelta(state.pvp, r.ratingDelta);
-        ratingTotal += r.ratingDelta;
+        // Same reasoning as goldLost above — clamp to the largest swing a
+        // single real match can produce (±K) instead of trusting whatever
+        // the attacker's report claims.
+        const clampedDelta = Math.max(-PVP_RATING_K, Math.min(PVP_RATING_K, r.ratingDelta));
+        pvpApplyRatingDelta(state.pvp, clampedDelta);
+        ratingTotal += clampedDelta;
       }
       batch.delete(doc.ref);
     });
