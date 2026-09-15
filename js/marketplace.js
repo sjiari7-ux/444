@@ -105,6 +105,7 @@ async function buyFromListing(listingId, amount){
   if(!(amount > 0)) return;
 
   const listingRef = marketCollection().doc(listingId);
+  const buyerRef = db.collection('players').doc(UID);
   let result;
   try{
     result = await db.runTransaction(async (tx) => {
@@ -116,15 +117,27 @@ async function buyFromListing(listingId, amount){
       if(buyQty <= 0) throw new Error('SOLD_OUT');
       const cost = Math.ceil(buyQty * listing.pricePerUnit);
 
+      // Authoritative affordability check: the buyer's own server-side
+      // gold, not whatever the local client claims to have. The "disabled"
+      // state on the Buy button is only a UI hint — this is what actually
+      // stops someone from calling buyFromListing() directly with gold
+      // they don't have.
+      const buyerSnap = await tx.get(buyerRef);
+      const buyerGold = (buyerSnap.exists && typeof buyerSnap.data().gold === 'number') ? buyerSnap.data().gold : 0;
+      if(buyerGold < cost) throw new Error('INSUFFICIENT_GOLD');
+
       if(buyQty >= listing.quantity){
         tx.delete(listingRef);
       } else {
         tx.update(listingRef, { quantity: listing.quantity - buyQty });
       }
-      // Pay the seller directly in the same atomic transaction — no
-      // window where the listing is gone but the seller wasn't paid.
+      // Pay the seller and charge the buyer in the same atomic transaction —
+      // no window where the listing is gone but the seller wasn't paid, and
+      // no way to receive goods without the cost actually leaving your
+      // own server-side balance.
       const sellerRef = db.collection('players').doc(listing.sellerId);
       tx.update(sellerRef, { gold: firebase.firestore.FieldValue.increment(cost) });
+      tx.update(buyerRef, { gold: firebase.firestore.FieldValue.increment(-cost) });
 
       return { itemKey: listing.itemKey, qty: buyQty, cost, pricePerUnit: listing.pricePerUnit, sellerName: listing.sellerName, sellerId: listing.sellerId };
     });
@@ -133,6 +146,8 @@ async function buyFromListing(listingId, amount){
       pushLog(state, "That's your own listing — cancel it from My Listings instead.", 'lose');
     } else if(e.message === 'SOLD_OUT'){
       pushLog(state, 'That listing is gone — someone beat you to it.', 'lose');
+    } else if(e.message === 'INSUFFICIENT_GOLD'){
+      pushLog(state, "You don't have enough gold for that.", 'lose');
     } else {
       console.error('[Arcadia Market] Buy failed:', e);
       pushLog(state, "Couldn't complete that purchase.", 'lose');
@@ -142,15 +157,11 @@ async function buyFromListing(listingId, amount){
     return;
   }
 
-  if(state.gold < result.cost){
-    // Same rare drift as buyGearListing() below: local gold looked high
-    // enough when the button was enabled, but landed lower by the time
-    // the transaction came back (another tab spent it, etc). The seller
-    // is already paid server-side, so still deliver the goods rather
-    // than leave the buyer having paid nothing — just flag it instead
-    // of silently going negative.
-    pushLog(state, `Bought ${result.qty} ${MARKET_CATALOG[result.itemKey].name} — your gold balance looked lower than the price, double check your total.`, 'lose');
-  }
+  // Gold was already deducted server-side inside the transaction above —
+  // mirror that locally and tell the periodic delta-sync not to charge it
+  // again (see lastSyncedGold in sync.js).
+  state.gold -= result.cost;
+  if(lastSyncedGold !== null) lastSyncedGold -= result.cost;
 
   const cap = getStorageCap(state);
   const used = getTotalStorageUsed(state);
@@ -164,7 +175,6 @@ async function buyFromListing(listingId, amount){
     state.gold += refund; // refund is purely local bookkeeping against what we already sent
     pushLog(state, `Storage was full — bought ${fitQty}/${result.qty} ${MARKET_CATALOG[result.itemKey].name}, refunded ${refund}g.`, 'lose');
   } else {
-    state.gold -= result.cost;
     state.inv[result.itemKey] += result.qty;
     updateMissionProgress('bought', result.qty);
     pushLog(state, `Bought ${result.qty} ${MARKET_CATALOG[result.itemKey].name} from ${escapeHtml(result.sellerName||'a player')} for ${result.cost}g`, 'gain');
@@ -312,6 +322,7 @@ async function buyGearListing(listingId){
   if(!db || !UID){ pushLog(state, 'The Gear Market needs a cloud connection.', 'lose'); return; }
 
   const listingRef = gearMarketCollection().doc(listingId);
+  const buyerRef = db.collection('players').doc(UID);
   let result;
   try{
     result = await db.runTransaction(async (tx) => {
@@ -319,9 +330,18 @@ async function buyGearListing(listingId){
       if(!snap.exists) throw new Error('SOLD_OUT');
       const listing = snap.data();
       if(listing.sellerId === UID) throw new Error('OWN_LISTING');
+
+      // Authoritative affordability check against the buyer's own
+      // server-side gold — see buyFromListing() above for why this can't
+      // just trust the local client's state.gold.
+      const buyerSnap = await tx.get(buyerRef);
+      const buyerGold = (buyerSnap.exists && typeof buyerSnap.data().gold === 'number') ? buyerSnap.data().gold : 0;
+      if(buyerGold < listing.price) throw new Error('INSUFFICIENT_GOLD');
+
       tx.delete(listingRef);
       const sellerRef = db.collection('players').doc(listing.sellerId);
       tx.update(sellerRef, { gold: firebase.firestore.FieldValue.increment(listing.price) });
+      tx.update(buyerRef, { gold: firebase.firestore.FieldValue.increment(-listing.price) });
       return { gear: listing.gear, price: listing.price, sellerName: listing.sellerName, sellerId: listing.sellerId };
     });
   }catch(e){
@@ -329,6 +349,8 @@ async function buyGearListing(listingId){
       pushLog(state, "That's your own listing — cancel it from My Listings instead.", 'lose');
     } else if(e.message === 'SOLD_OUT'){
       pushLog(state, 'That listing is gone — someone beat you to it.', 'lose');
+    } else if(e.message === 'INSUFFICIENT_GOLD'){
+      pushLog(state, "You don't have enough gold for that.", 'lose');
     } else {
       console.error('[Arcadia Gear Market] Buy failed:', e);
       pushLog(state, "Couldn't complete that purchase.", 'lose');
@@ -338,16 +360,11 @@ async function buyGearListing(listingId){
     return;
   }
 
-  if(state.gold < result.price){
-    // Extremely rare: local gold drifted (e.g. another tab spent it)
-    // between opening the listing and this transaction landing. The
-    // trade already went through server-side and the seller is already
-    // paid, so we still deliver the gear rather than leave the buyer
-    // having paid nothing for a purchase the seller fulfilled — just
-    // note the shortfall instead of silently going negative.
-    pushLog(state, `Bought ${result.gear.name} — your gold balance looked lower than the price, double check your total.`, 'lose');
-  }
+  // Gold was already deducted server-side inside the transaction above —
+  // mirror that locally and tell the periodic delta-sync not to charge it
+  // again (see lastSyncedGold in sync.js).
   state.gold -= result.price;
+  if(lastSyncedGold !== null) lastSyncedGold -= result.price;
   // New id so it can never collide with anything already in this
   // player's own gearBag/equipped — the item is changing hands, so it
   // gets a fresh one on principle rather than trusting the old owner's.
