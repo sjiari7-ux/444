@@ -283,10 +283,25 @@ async function donateToAlliance(resourceKey, amount){
   if(have < amount){ showToast(`<img class="ui-icon" src="${ICONS.cancel}" alt="❌">`,'Not enough resources.','error'); return; }
   const allianceRef = db.collection('alliances').doc(state.allianceId);
   const memberRef = allianceRef.collection('members').doc(UID);
+  const playerRef = db.collection('players').doc(UID);
   try{
     await db.runTransaction(async (tx) => {
       const aDoc = await tx.get(allianceRef);
       if(!aDoc.exists) throw new Error('GONE');
+      // For gold specifically, check the authoritative server-side balance
+      // in the SAME transaction and charge it here — same reasoning as
+      // buyFromListing()/buyGearListing() in marketplace.js: the local
+      // `have < amount` check above is only a client-side hint and can't
+      // be trusted to actually prevent donating gold you don't have.
+      // Inventory resources still rely on the client's own save (like
+      // every other inventory change in the game), since there's no
+      // separate server-side inventory ledger to check against here.
+      if(resourceKey === 'gold'){
+        const pDoc = await tx.get(playerRef);
+        const serverGold = (pDoc.exists && typeof pDoc.data().gold === 'number') ? pDoc.data().gold : 0;
+        if(serverGold < amount) throw new Error('INSUFFICIENT_GOLD');
+        tx.update(playerRef, { gold: firebase.firestore.FieldValue.increment(-amount) });
+      }
       tx.update(allianceRef, {
         [`treasury.${resourceKey}`]: firebase.firestore.FieldValue.increment(amount),
         points: firebase.firestore.FieldValue.increment(amount),
@@ -297,14 +312,19 @@ async function donateToAlliance(resourceKey, amount){
         lastActiveTs: Date.now(),
       });
     });
-    if(resourceKey === 'gold') state.gold -= amount; else state.inv[resourceKey] -= amount;
+    if(resourceKey === 'gold'){ state.gold -= amount; if(lastSyncedGold !== null) lastSyncedGold -= amount; }
+    else state.inv[resourceKey] -= amount;
     state.totalAllianceDonated = (state.totalAllianceDonated || 0) + amount;
     updateMissionProgress('alliance_donated', amount);
     scheduleSave();
     await loadMyAlliance();
     await checkAllianceLevelUp();
     showToast(`<img class="ui-icon" src="${ICONS.business}" alt="💰"> Donated`, `+${fmtG(amount)} to the treasury`, 'success');
-  }catch(e){ console.error(e); showToast(`<img class="ui-icon" src="${ICONS.cancel}" alt="❌">`,'Donation failed.','error'); }
+  }catch(e){
+    console.error(e);
+    const msg = e.message === 'INSUFFICIENT_GOLD' ? "You don't have enough gold for that." : 'Donation failed.';
+    showToast(`<img class="ui-icon" src="${ICONS.cancel}" alt="❌">`, msg, 'error');
+  }
   renderBody();
 }
 
