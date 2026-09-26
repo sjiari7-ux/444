@@ -11,6 +11,7 @@ const S = {
   road: null, // {zoneId, log:[], gained:{xp,gold,resources:{}}}
   kingdomView: null,
   generalChat: null,
+  chatWidgetOpen: false, // WarEra-style docked chat, persistent across screens (separate from the full 'chat' nav screen)
   marketListings: null,
   marketTab: 'browse',
   marketFilter: 'all',
@@ -605,6 +606,38 @@ function renderChat(){
   </div>`;
 }
 
+// ---------------- Docked World Chat widget (WarEra-style) ----------------
+// Same data/source as renderChat() (S.generalChat, meta/rc_generalChat) — this
+// is just a second, persistent presentation of it that floats over every
+// screen instead of living behind its own nav tab. Reuses _chatFetchInFlight
+// so opening the widget and visiting the full Chat screen never double-fetch.
+function renderChatWidget(){
+  if(!S.chatWidgetOpen){
+    return `<button class="chat-widget-toggle" data-action="chat-widget-toggle" title="World Chat">${icon('chat')}</button>`;
+  }
+  if(S.generalChat===null && !_chatFetchInFlight){
+    _chatFetchInFlight = true;
+    loadGeneralChat().finally(()=>{ _chatFetchInFlight = false; });
+  }
+  const lines = S.generalChatUnavailable
+    ? `<div class="faint" style="padding:8px;">Chat unavailable.</div>`
+    : S.generalChat===null
+      ? `<div class="faint" style="padding:8px;">Loading chat...</div>`
+      : (S.generalChat.slice().reverse().map(m=>`<div class="log-line"><b>${esc(m.senderName)}:</b> ${esc(m.text)}</div>`).join('') || '<div class="faint" style="padding:8px;">No messages yet. Say hello.</div>');
+  return `
+  <div class="chat-widget-panel">
+    <div class="chat-widget-head">
+      <span>World Chat</span>
+      <button class="chat-widget-close" data-action="chat-widget-toggle">&times;</button>
+    </div>
+    <div class="log" id="world-chat-log">${lines}</div>
+    <div class="chat-widget-input-row">
+      <input type="text" id="world-chat-input" maxlength="200" placeholder="Say something...">
+      <button class="btn btn-primary" data-action="chat-widget-send">Send</button>
+    </div>
+  </div>`;
+}
+
 let _marketFetchInFlight = false;
 function renderMarket(){
   const c = S.char;
@@ -846,6 +879,7 @@ function render(){
     </div>
   </div>
   <div class="tabbar">${renderTabbar(navActive)}</div>
+  ${S.char ? renderChatWidget() : ''}
   ${S.toast ? `<div class="toast">${esc(S.toast)}</div>` : ''}
   `;
   if(S.screen==='kingdom'){
@@ -860,5 +894,10 @@ function render(){
       input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendGeneralChat(input.value); } });
     }
   }
+  if(S.chatWidgetOpen){
+    const input = document.getElementById('world-chat-input');
+    if(input){
+      input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendGeneralChat(input.value); } });
+    }
+  }
 }
-
