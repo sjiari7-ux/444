@@ -1,4 +1,4 @@
-  :root{
+:root{
     color-scheme: dark;
     --bg:#150f0a;
     --bg-grad:#26190f;
@@ -251,6 +251,35 @@
     box-shadow:0 8px 24px rgba(0,0,0,.6); max-width:90vw; text-align:center;
   }
   @media (max-width:720px){ .toast{ bottom:calc(74px + var(--safe-b)); } }
+
+  /* docked world chat (WarEra-style), floats over every screen once a character exists */
+  .chat-widget-toggle{
+    position:fixed; right:20px; bottom:calc(20px + var(--safe-b)); z-index:90;
+    width:48px; height:48px; border-radius:50%; padding:0;
+    background:var(--panel-2); border:1px solid var(--brass); color:var(--brass-bright);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 8px 24px rgba(0,0,0,.6);
+  }
+  .chat-widget-toggle svg{width:22px; height:22px; stroke:currentColor;}
+  .chat-widget-panel{
+    position:fixed; right:20px; bottom:calc(20px + var(--safe-b)); z-index:90;
+    width:300px; max-width:calc(100vw - 24px); max-height:min(60vh,420px);
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.6);
+  }
+  .chat-widget-head{
+    display:flex; justify-content:space-between; align-items:center; padding:9px 12px;
+    border-bottom:1px solid var(--border-soft); font-family:var(--font-display);
+    font-size:13px; font-weight:700; color:var(--brass-bright); letter-spacing:.03em;
+  }
+  .chat-widget-close{background:none; border:none; color:var(--text-dim); font-size:18px; line-height:1; cursor:pointer;}
+  .chat-widget-panel .log{flex:1; height:auto; border-radius:0; border:none; margin:0;}
+  .chat-widget-input-row{display:flex; gap:6px; padding:8px; border-top:1px solid var(--border-soft);}
+  .chat-widget-input-row input{flex:1;}
+  @media(max-width:720px){
+    .chat-widget-toggle{ bottom:calc(84px + var(--safe-b)); }
+    .chat-widget-panel{ bottom:calc(84px + var(--safe-b)); }
+  }
 
   .empty{text-align:center; padding:40px 20px; color:var(--text-dim);}
   .empty h3{color:var(--parchment); margin-bottom:8px;}
