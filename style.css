@@ -286,6 +286,7 @@
 
   /* bottom nav mobile */
   .tabbar{display:none;}
+  .quick-actions{display:none;}
   @media(max-width:720px){
     .sidebar{display:none;}
     .tabbar{
@@ -299,6 +300,19 @@
     .tabbtn span{font-size:9.5px; font-weight:600;}
     .tabbtn.active{color:var(--brass-bright);}
     .view{padding-bottom:80px;}
+
+    /* WarEra-style quick-action grid, home screen only — the sidebar nav this
+       duplicates is hidden on mobile, so it's the fast path into the four
+       most-used screens without opening the tabbar overflow. */
+    .quick-actions{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:16px;}
+    .qa-btn{
+      display:flex; flex-direction:column; align-items:center; gap:6px; padding:16px 8px;
+      background:var(--panel); border:1px solid var(--border-soft); border-radius:8px;
+      color:var(--parchment);
+    }
+    .qa-btn:hover{border-color:var(--brass);}
+    .qa-btn svg{width:22px; height:22px; stroke:var(--brass-bright);}
+    .qa-btn span{font-size:12px; font-weight:600;}
   }
 
   .loader-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px;}
