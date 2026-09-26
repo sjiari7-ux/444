@@ -146,6 +146,12 @@ function renderHome(){
   const need = xpNeeded(c.level);
   return `
   <div class="view-header"><h2>Welcome back, ${esc(c.username)}</h2><p>${CLASSES[c.class].name} &middot; Level ${c.level} &middot; ${resourceTotal(c)} resources carried</p></div>
+  <div class="quick-actions">
+    <button class="qa-btn" data-action="nav" data-screen="adventure">${icon('sword')}<span>Adventure</span></button>
+    <button class="qa-btn" data-action="nav" data-screen="pvp">${icon('target')}<span>PvP arena</span></button>
+    <button class="qa-btn" data-action="nav" data-screen="kingdom">${icon('crown')}<span>Kingdom</span></button>
+    <button class="qa-btn" data-action="nav" data-screen="market">${icon('scroll')}<span>Market</span></button>
+  </div>
   <div class="grid grid-2" style="margin-bottom:16px;">
     <div class="panel">
       <div class="panel-title">Character</div>
