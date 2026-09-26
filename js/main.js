@@ -78,6 +78,17 @@ document.addEventListener('click', async (e)=>{
     await sendGeneralChat(input ? input.value : '');
     return;
   }
+  if(action==='chat-widget-toggle'){
+    S.chatWidgetOpen = !S.chatWidgetOpen;
+    if(S.chatWidgetOpen && S.generalChat===null) loadGeneralChat();
+    render();
+    return;
+  }
+  if(action==='chat-widget-send'){
+    const input = document.getElementById('world-chat-input');
+    await sendGeneralChat(input ? input.value : '');
+    return;
+  }
 
   if(action==='market-tab'){ S.marketTab = el.dataset.tab; render(); return; }
   if(action==='market-filter'){ S.marketFilter = el.dataset.filter; render(); return; }
