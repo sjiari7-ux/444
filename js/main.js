@@ -24,7 +24,14 @@ document.addEventListener('click', async (e)=>{
     if(await isUsernameTaken(uname)){ showToast('That username is already taken — pick another.'); return; }
     S.char = newCharacter(MY_ID, uname, st.classId); // no onboarding step — player lands straight on Home
     setScreen('home');
-    saveCharacter(S.char); // fire-and-forget: don't hold up entering the game on the network write
+    // Awaited (unlike other saveCharacter calls) because this is the doc that
+    // makes the character exist at all — if the cloud write fails here and
+    // nobody notices, the player only has this character on THIS device/
+    // browser until something else happens to trigger a retry, and re-opening
+    // the game anywhere else drops them back into character creation.
+    saveCharacter(S.char).then(cloudOk=>{
+      if(HAS_DB && !cloudOk) showToast('Saved on this device, but the cloud save failed — reopening on another device may ask you to create a character again. Will keep retrying.');
+    });
     return;
   }
   if(action==='google-signin'){ await linkGoogleAccount(); return; }
@@ -686,4 +693,3 @@ boot();
 // (e.g. a capability promise that neither resolves, rejects, nor respects our
 // timeout), never leave the player staring at the loading screen forever.
 setTimeout(()=>{ if(S.screen==='loading') setScreen(S.char ? 'home' : 'create'); }, 9000);
-
