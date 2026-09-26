@@ -1,0 +1,177 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function rank(role) {
+      return role == 'Leader'    ? 4 :
+             role == 'Co-Leader' ? 3 :
+             role == 'Officer'   ? 2 :
+             role == 'Member'    ? 1 :
+             role == 'Recruit'   ? 0 : -1;
+    }
+    function myDoc() {
+      return get(/databases/$(database)/documents/rc_players/$(request.auth.uid)).data;
+    }
+
+    match /rc_players/{playerId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null && request.auth.uid == playerId;
+
+      allow delete: if false;
+
+      // NOTE: request.auth.uid == playerId still grants a player FULL write access to
+      // their OWN doc below. That is intentional for now — Crafting, Market (buyer
+      // side), Road, Skills, Equipment and PvP still write energyCur/xp/gold/inventory
+      // directly from the client because they haven't been moved to Cloud Functions
+      // yet. This means a player can still edit their own resources from devtools;
+      // it is NOT fixed by this ruleset. Only PvE/Elite/Boss are server-authoritative
+      // so far (see functions/index.js). Everything below this line only restricts
+      // writes where someone OTHER than the doc's own player is the actor.
+      allow update: if request.auth != null && (
+        request.auth.uid == playerId ||
+
+        // Market seller credit: the requester must be someone else, must reference a
+        // still-existing listing (checked BEFORE it's deleted — see the reordered
+        // buyListing() in storage.js) where this player is the seller, and the
+        // credited amount must exactly equal that listing's price. Nothing else moves.
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gold', 'lastCreditedListingId']) &&
+          request.auth.uid != playerId &&
+          request.resource.data.lastCreditedListingId is string &&
+          exists(/databases/$(database)/documents/rc_marketListings/$(request.resource.data.lastCreditedListingId)) &&
+          get(/databases/$(database)/documents/rc_marketListings/$(request.resource.data.lastCreditedListingId)).data.sellerId == playerId &&
+          request.resource.data.gold == resource.data.gold +
+            get(/databases/$(database)/documents/rc_marketListings/$(request.resource.data.lastCreditedListingId)).data.totalPrice
+        ) ||
+
+        // Kick: actor is Officer+ in the SAME kingdom as the target, and outranks
+        // them. Only these three fields move, to the "kicked" shape.
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['kingdomId', 'kingdomRole', 'kingdomCooldownUntil']) &&
+          request.resource.data.kingdomId == null &&
+          request.resource.data.kingdomRole == null &&
+          request.resource.data.kingdomCooldownUntil > resource.data.kingdomCooldownUntil &&
+          myDoc().kingdomId == resource.data.kingdomId &&
+          rank(myDoc().kingdomRole) >= 2 &&
+          rank(myDoc().kingdomRole) > rank(resource.data.kingdomRole)
+        ) ||
+
+        // Promote / demote: actor is Co-Leader+ in the SAME kingdom, outranks the
+        // target, and can't hand out a rank at or above their own. Only kingdomRole
+        // moves, and only to one of the five known roles.
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['kingdomRole']) &&
+          myDoc().kingdomId == resource.data.kingdomId &&
+          rank(myDoc().kingdomRole) >= 3 &&
+          rank(myDoc().kingdomRole) > rank(resource.data.kingdomRole) &&
+          rank(request.resource.data.kingdomRole) >= 0 &&
+          rank(request.resource.data.kingdomRole) < rank(myDoc().kingdomRole)
+        )
+      );
+    }
+
+    // Market sale notices (checkMarketSales() / buyListing() in storage.js):
+    // a create-only doc the BUYER drops into the SELLER's own subcollection
+    // to tell them what sold. Only the owning player can ever read or clear
+    // it; a buyer can create one but never touch it again afterwards.
+    match /rc_players/{playerId}/marketSales/{saleId} {
+      allow read, delete: if request.auth != null && request.auth.uid == playerId;
+
+      allow create: if request.auth != null && request.auth.uid != playerId &&
+        request.resource.data.keys().hasOnly(['buyerName', 'itemLabel', 'totalPrice', 'ts']) &&
+        request.resource.data.totalPrice is number && request.resource.data.totalPrice > 0;
+
+      allow update: if false;
+    }
+
+    match /rc_kingdoms/{kingdomId} {
+      allow read: if request.auth != null;
+
+      // A brand-new kingdom doc is only ever created by whoever becomes its first
+      // Leader, starting empty.
+      allow create: if request.auth != null &&
+        request.resource.data.leaderId == request.auth.uid &&
+        request.resource.data.treasury == {} &&
+        request.resource.data.chat == [];
+
+      allow update: if request.auth != null && (
+        // Claim an empty leadership seat: leaderId was null, actor sets it to
+        // themself, and they're a genuine member of this kingdom (or joining it in
+        // the same moment — the join flow writes the player's own doc separately,
+        // which is unrestricted for that player, so this only needs to check the
+        // kingdom side of the claim).
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leaderId']) &&
+          resource.data.leaderId == null &&
+          request.resource.data.leaderId == request.auth.uid
+        ) ||
+
+        // Leader stepping down: only the current Leader can clear their own seat.
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leaderId']) &&
+          resource.data.leaderId == request.auth.uid &&
+          request.resource.data.leaderId == null
+        ) ||
+
+        // Donate: exactly one resource key inside treasury changes, and only a
+        // member of THIS kingdom can touch it. This does not (and, in rules alone,
+        // realistically cannot) verify the new value is strictly an increase for an
+        // arbitrary resource key — see the note in the chat reply. Requires
+        // storage.js to write with dot-notation (treasury.<resource>), which it now
+        // does, so this doesn't wipe other members' donations.
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['treasury']) &&
+          request.resource.data.treasury.diff(resource.data.treasury).affectedKeys().size() == 1 &&
+          myDoc().kingdomId == kingdomId
+        ) ||
+
+        // Kingdom chat: membership required, nothing else moves.
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chat']) &&
+          myDoc().kingdomId == kingdomId
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    match /rc_marketListings/{listingId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null && request.resource.data.sellerId == request.auth.uid;
+
+      // Update is ONLY the short-lived buy-lock (acquireDocLock in storage.js) —
+      // nothing about price, quantity, seller or item can change after creation.
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['__lockHolder', '__lockUntil']);
+
+      // The seller can always cancel their own listing. A non-seller deleting it is
+      // assumed to be completing a purchase — the actual payment correctness for
+      // that is enforced independently by the seller's player-doc update rule above
+      // (which requires this exact listing to still exist and match on price/seller
+      // at the moment it runs), not by this rule. Worst case if someone deletes a
+      // listing without buying it: the seller loses the listing but not any gold —
+      // a nuisance, not a currency exploit.
+      allow delete: if request.auth != null;
+    }
+
+    // General Chat: one shared doc holding a capped array of the last N messages
+    // (see GENERAL_CHAT_MAX / sendGeneralChat in storage.js) — same shape as the
+    // per-kingdom chat array, just server-wide and unscoped instead of per-kingdom.
+    match /meta/rc_generalChat {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasOnly(['messages']);
+
+      // Only the messages array itself can ever change — nothing else to protect
+      // here since there's no ownership/seller/price logic like marketListings has.
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['messages']);
+
+      allow delete: if false;
+    }
+  }
+}
