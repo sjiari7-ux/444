@@ -124,7 +124,7 @@ async function initCapabilities(){
       FB_AUTH.onAuthStateChanged(u=>{
         FB_USER_EMAIL = u ? (u.email || null) : null;
         if(u) MY_ID = u.uid;
-        if(S.screen==='settings') render();
+        if(S.screen==='profile' && S.profileTab==='settings') render();
       });
     }
   }catch(e){ console.warn('Firebase init failed — falling back to local-only storage:', e); DB = null; FB_AUTH = null; }
