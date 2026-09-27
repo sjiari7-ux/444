@@ -75,7 +75,7 @@ function renderCreate(){
   const cards = Object.values(CLASSES).map(cls=>{
     const sel = state.classId===cls.id;
     return `<div class="class-card ${sel?'selected':''}" data-action="pick-class" data-class="${cls.id}">
-      <h3>${cls.name}</h3>
+      <h3>${itemIcon(cls.icon,20,'margin-right:6px;')}${cls.name}</h3>
       <div class="res">Resource: ${cls.resource}</div>
       <div class="faint">${cls.tagline}</div>
       <ul>${cls.skills.map(s=>`<li>${s.name}</li>`).join('')}</ul>
@@ -206,8 +206,9 @@ function renderAdventure(){
   const now = Date.now();
   const tiles = ZONES.map(z=>{
     const locked = c.level < z.min - 5;
+    const banner = z.icon ? `url('icons/${z.icon}') center/cover` : (ZONE_BANNERS[z.id]||'var(--panel-2)');
     return `<div class="zone-tile ${locked?'locked':''}">
-      <div class="zone-banner" style="background:${ZONE_BANNERS[z.id]||'var(--panel-2)'};"></div>
+      <div class="zone-banner" style="background:${banner};"></div>
       <div class="zone-tile-body">
         <h4>${z.name}</h4>
         <div class="zone-tile-meta">
@@ -234,10 +235,12 @@ function renderZoneDetail(){
   const eliteLocked = locked || c.level < z.min;
   const bossCd = (c.bossCooldowns[z.id]||0) - now;
   const bossLocked = eliteLocked || bossCd > 0;
+  const banner = z.icon ? `url('icons/${z.icon}') center/cover` : (ZONE_BANNERS[z.id]||'var(--panel-2)');
+  const resChips = z.resources.map(r=>`${resourceIcon(r,14)} ${RESOURCE_NAMES[r]}`).join(', ');
   return `
   <button class="btn btn-sm" data-action="nav" data-screen="adventure" style="margin-bottom:14px;">&larr; Realm Explorer</button>
-  <div class="zone-banner" style="background:${ZONE_BANNERS[z.id]||'var(--panel-2)'}; height:140px; border-radius:12px; margin-bottom:16px;"></div>
-  <div class="view-header"><h2>${z.name}</h2><p>Level ${z.min}&ndash;${z.uncapped?z.min+'+':z.max} &middot; Resources: ${z.resources.map(r=>RESOURCE_NAMES[r]).join(', ')}</p></div>
+  <div class="zone-banner" style="background:${banner}; height:140px; border-radius:12px; margin-bottom:16px;"></div>
+  <div class="view-header"><h2>${z.name}</h2><p>Level ${z.min}&ndash;${z.uncapped?z.min+'+':z.max} &middot; Resources: ${resChips}</p></div>
   <div class="panel" style="margin-bottom:16px;">
     <div class="panel-title">Zone Boss</div>
     <div class="row"><span>${z.boss}</span><span class="faint">${bossCd>0?`Ready in ${fmtMs(bossCd)}`:'Ready'}</span></div>
@@ -255,7 +258,7 @@ function renderRoad(){
   const road = S.road;
   const zone = ZONES.find(z=>z.id===road.zoneId);
   const g = road.gained;
-  const resSummary = Object.entries(g.resources).map(([k,v])=>`+${v} ${RESOURCE_NAMES[k]}`).join(', ');
+  const resSummary = Object.entries(g.resources).map(([k,v])=>`+${v} ${resourceIcon(k,14)} ${RESOURCE_NAMES[k]}`).join(', ');
   return `
   <div class="view-header"><h2>The Road &mdash; ${zone.name}</h2><p>Take a step at a time. Each step costs ${STEP_ENERGY_COST} Energy. Most steps are quiet, some pay off, and every so often something finds you.</p></div>
   <div class="panel" style="margin-bottom:14px;">
@@ -284,14 +287,14 @@ function renderCraft(){
       const have = c.resourceBag[k]||0;
       const need = v*qty;
       const short = have < need;
-      return `<span class="req-chip ${short?'short':''}">${(RESOURCE_NAMES[k]||k)[0]} ${have}/${need}</span>`;
+      return `<span class="req-chip ${short?'short':''}">${resourceIcon(k,12)} ${have}/${need}</span>`;
     }).join('');
     const energyShort = r.energy && c.energyCur < r.energy*qty;
     const energyChip = r.energy ? `<span class="req-chip ${energyShort?'short':''}">&#9889; ${Math.round(c.energyCur)}/${r.energy*qty}</span>` : '';
     const iconColor = r.out.kind==='consumable' ? 'var(--emerald)' : 'var(--brass)';
     return `<div class="craft-card">
       <div class="row" style="align-items:flex-start;">
-        <div class="craft-icon" style="background:${iconColor}22; color:${iconColor}; border-color:${iconColor}55;">${esc(r.name[0])}</div>
+        <div class="craft-icon" style="background:${iconColor}22; color:${iconColor}; border-color:${iconColor}55;">${r.out.icon ? itemIcon(r.out.icon,36) : esc(r.name[0])}</div>
         ${r.xp?`<span class="tag" style="border-color:var(--emerald); color:var(--emerald-bright);">+${r.xp*qty}XP</span>`:''}
       </div>
       <div style="margin-top:8px; font-weight:700; color:var(--parchment); font-size:14px;">${esc(r.name)}</div>
@@ -419,7 +422,7 @@ function renderProfile(){
     </div>`;
   }).join('');
   return `
-  <div class="view-header"><h2>Profile</h2><p>${esc(c.username)} &middot; ${cls.name} &middot; Level ${c.level}</p></div>
+  <div class="view-header"><h2>Profile</h2><p>${esc(c.username)} &middot; ${itemIcon(cls.icon,16,'margin-right:2px;')}${cls.name} &middot; Level ${c.level}</p></div>
   <div class="grid grid-2" style="margin-bottom:16px;">
     <div class="panel">
       <div class="panel-title">Combat stats</div>
@@ -551,8 +554,8 @@ function renderKingdom(){
     const cards = kv.kingdoms.map(k=>`
       <div class="zone-card">
         <div>
-          <h4>${k.name}</h4>
-          <div class="lvl">Resources: ${k.resources.map(r=>RESOURCE_NAMES[r]||titleCase(r)).join(', ')} &middot; Tax ${k.tax}%</div>
+          <h4>${itemIcon(KINGDOMS.find(x=>x.id===k.id)?.icon,20,'margin-right:6px;')}${k.name}</h4>
+          <div class="lvl">Resources: ${k.resources.map(r=>`${resourceIcon(r,14)} ${RESOURCE_NAMES[r]||titleCase(r)}`).join(', ')} &middot; Tax ${k.tax}%</div>
           <div class="faint" style="margin-top:2px;">${k.memberCount} member${k.memberCount===1?'':'s'} &middot; Treasury: ${fmtNum(k.treasury.gold||0)}g</div>
         </div>
         <button class="btn btn-primary btn-sm" data-action="join-kingdom" data-kingdom="${k.id}">Join</button>
@@ -592,12 +595,12 @@ function renderKingdom(){
       <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">${actions}</div>
     </div>`;
   }).join('');
-  const treasuryRows = KINGDOM_TREASURY_RESOURCES.map(r=>`<div><span>${r==='gold'?'Gold':RESOURCE_NAMES[r]||r}</span><b>${fmtNum(treasury[r]||0)}</b></div>`).join('');
+  const treasuryRows = KINGDOM_TREASURY_RESOURCES.map(r=>`<div><span>${resourceIcon(r,14)} ${r==='gold'?'Gold':RESOURCE_NAMES[r]||r}</span><b>${fmtNum(treasury[r]||0)}</b></div>`).join('');
   const chat = Array.isArray(k.chat) ? k.chat : [];
   const chatLines = chat.slice().reverse().map(m=>`<div class="log-line"><b>${esc(m.senderName)}:</b> ${esc(m.text)}</div>`).join('') || '<div class="faint" style="padding:8px;">No messages yet. Say hello.</div>';
 
   return `
-  <div class="view-header"><h2>${kdef.name}</h2><p>You are a ${c.kingdomRole} &middot; Tax ${kdef.tax}% &middot; Resources: ${kdef.resources.map(r=>RESOURCE_NAMES[r]||r).join(', ')}</p></div>
+  <div class="view-header"><h2>${itemIcon(kdef.icon,22,'margin-right:6px;')}${kdef.name}</h2><p>You are a ${c.kingdomRole} &middot; Tax ${kdef.tax}% &middot; Resources: ${kdef.resources.map(r=>`${resourceIcon(r,14)} ${RESOURCE_NAMES[r]||r}`).join(', ')}</p></div>
   ${leaderMissing ? `<div class="panel" style="margin-bottom:14px; border-color:var(--brass);">
     <div class="panel-title">This kingdom has no Leader</div>
     ${myRank>=2 ? `<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>` : `<p class="faint">An Officer or above can claim leadership.</p>`}
@@ -819,7 +822,7 @@ function renderCombat(){
     const buffs = f.buffs.map(b=>`<span class="buff-chip">${b.tag} ${b.amount>0?'+':''}${b.amount} ${b.stat}</span>`).join('');
     return `<div class="fighter ${side}">
       <h4>${esc(f.label)}</h4>
-      <div class="cls">${f.class?CLASSES[f.class].name+' &middot; Lv.'+f.level:'Lv.'+f.level+' Monster'}</div>
+      <div class="cls">${f.class?itemIcon(CLASSES[f.class].icon,14,'margin-right:3px;')+CLASSES[f.class].name+' &middot; Lv.'+f.level:'Lv.'+f.level+' Monster'}</div>
       <div class="sb-bar-label"><span>HP</span><span>${Math.max(0,Math.round(f.hp))}/${f.maxHp}</span></div>
       <div class="bar-track" style="margin-bottom:8px;"><div class="bar-fill bar-hp" style="width:${clamp(f.hp/f.maxHp*100,0,100)}%"></div></div>
       ${f.resourceMax>0?`<div class="sb-bar-label"><span>${f.resourceName}</span><span>${Math.round(f.resource)}/${f.resourceMax}</span></div>
