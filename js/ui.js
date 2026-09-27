@@ -22,6 +22,7 @@ const S = {
   toastTimer: null,
   craftFilter: null,
   kingdomTab: 'overview',
+  profileTab: 'stats', // 'stats' | 'settings' — Profile and Settings share one nav slot
 };
 
 function showToast(msg){
@@ -112,8 +113,7 @@ const NAV = [
   {id:'market', label:'Market', icon:'scroll'},
   {id:'craft', label:'Craft', icon:'flask'},
   {id:'inventory', label:'Inventory', icon:'bag'},
-  {id:'profile', label:'Profile', icon:'user'},
-  {id:'settings', label:'Settings', icon:'gear'},
+  {id:'profile', label:'Profile', icon:'user'}, // hosts both character stats and settings, as tabs
 ];
 
 function renderStatusBar(){
@@ -392,8 +392,16 @@ function sellPrice(it){
   return 3;
 }
 
-/* ---------------- Profile ---------------- */
+/* ---------------- Profile (Stats + Settings tabs) ---------------- */
 function renderProfile(){
+  const activeTab = S.profileTab==='settings' ? 'settings' : 'stats';
+  const tabRow = `<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+    <button class="btn btn-sm ${activeTab==='stats'?'btn-primary':''}" data-action="profile-tab" data-tab="stats">${icon('user','style="width:12px;height:12px;vertical-align:-1px"')} Stats</button>
+    <button class="btn btn-sm ${activeTab==='settings'?'btn-primary':''}" data-action="profile-tab" data-tab="settings">${icon('gear','style="width:12px;height:12px;vertical-align:-1px"')} Settings</button>
+  </div>`;
+  return tabRow + (activeTab==='settings' ? renderSettings() : renderProfileStats());
+}
+function renderProfileStats(){
   const c = S.char, eff = effectiveStats(c);
   const cls = CLASSES[c.class];
   const genRows = GENERAL_SKILLS.map(gs=>{
@@ -974,9 +982,9 @@ function render(){
   else if(S.screen==='craft') body = renderCraft();
   else if(S.screen==='inventory') body = renderInventory();
   else if(S.screen==='profile') body = renderProfile();
-  else if(S.screen==='settings') body = renderSettings();
 
   const navActive = S.screen==='combat' ? (S.combat && S.combat.mode==='pvp' ? 'pvp':'adventure') : ((S.screen==='road'||S.screen==='zone-detail') ? 'adventure' : S.screen);
+  // 'settings' no longer has its own nav slot — it lives under Profile's Settings tab.
 
   app.innerHTML = `
   <div class="app-shell">
@@ -1015,7 +1023,7 @@ function render(){
       input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendGeneralChat(input.value); } });
     }
   }
-  if(S.screen==='settings'){
+  if(S.screen==='profile' && S.profileTab==='settings'){
     bindSettingsEvents();
   }
 }
