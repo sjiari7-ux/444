@@ -91,6 +91,7 @@ document.addEventListener('click', async (e)=>{
   }
 
   if(action==='market-tab'){ S.marketTab = el.dataset.tab; render(); return; }
+  if(action==='profile-tab'){ S.profileTab = el.dataset.tab; render(); return; }
   if(action==='market-filter'){ S.marketFilter = el.dataset.filter; render(); return; }
   if(action==='market-sell-kind'){ S.marketSellKind = el.dataset.kind; render(); return; }
   if(action==='market-create-listing'){
