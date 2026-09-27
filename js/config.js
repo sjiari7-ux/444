@@ -23,6 +23,20 @@ const ICONS = {
 function icon(name, extra){ return '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" '+(extra||'')+'>'+(ICONS[name]||'')+'</svg>'; }
 
 /* ============================================================
+   ART ICONS (PNG/JPG art in the icons/ folder, alongside index.html —
+   distinct from the inline-SVG nav ICONS above). Used for resources,
+   materials, classes, kingdoms and zone banners.
+   ============================================================ */
+function itemIcon(file, size, extra){ return file ? `<img src="icons/${file}" alt="" class="item-icon" style="width:${size||16}px;height:${size||16}px;${extra||''}">` : ''; }
+const RESOURCE_ICONS = {
+  wood:'resource_wood.png', stone:'resource_stone.png', food:'resource_food.png', coal:'resource_coal.png',
+  iron:'resource_iron.png', ore:'resource_gold.png', herbs:'resource_herbs.png', leather:'resource_leather.png',
+  frost:'shard.png', voidessence:'resource_magic_stones.png', cotton:'resource_cotton.png', silver:'resource_silver.png',
+  gold:'gold_coin.png',
+};
+function resourceIcon(key, size){ return itemIcon(RESOURCE_ICONS[key], size); }
+
+/* ============================================================
    GAME CONFIG
    ============================================================ */
 const XP_FOR_LEVEL = (lvl)=> Math.round(35 * Math.pow(lvl, 1.4));
@@ -45,7 +59,7 @@ const MANA_REGEN_MS = 10 * 1000, MANA_REGEN_AMT = 1;
 
 const CLASSES = {
   warrior:{
-    id:'warrior', name:'Warrior', tagline:'Balanced frontline fighter.',
+    id:'warrior', name:'Warrior', icon:'class_warrior.png', tagline:'Balanced frontline fighter.',
     resource:'Rage',
     base:{hp:130, atk:13, def:12, spd:7, crit:4, eva:3},
     growth:{hp:15, atk:2.1, def:2.0, spd:0.35, crit:0.12, eva:0.10},
@@ -57,7 +71,7 @@ const CLASSES = {
     ],
   },
   archer:{
-    id:'archer', name:'Archer', tagline:'Fast offensive fighter.',
+    id:'archer', name:'Archer', icon:'class_archer.png', tagline:'Fast offensive fighter.',
     resource:'Precision',
     base:{hp:95, atk:15, def:6, spd:13, crit:14, eva:12},
     growth:{hp:9, atk:2.3, def:1.0, spd:0.55, crit:0.35, eva:0.30},
@@ -69,7 +83,7 @@ const CLASSES = {
     ],
   },
   mage:{
-    id:'mage', name:'Mage', tagline:'High-damage magical fighter.',
+    id:'mage', name:'Mage', icon:'class_mage.png', tagline:'High-damage magical fighter.',
     resource:'Mana',
     base:{hp:78, atk:19, def:4, spd:9, crit:8, eva:5},
     growth:{hp:7, atk:2.9, def:0.7, spd:0.30, crit:0.20, eva:0.15},
@@ -81,7 +95,7 @@ const CLASSES = {
     ],
   },
   commander:{
-    id:'commander', name:'Commander', tagline:'Combat and defensive specialist.',
+    id:'commander', name:'Commander', icon:'class_support.png', tagline:'Combat and defensive specialist.',
     resource:'Command Points',
     base:{hp:135, atk:12, def:14, spd:7, crit:5, eva:4},
     growth:{hp:16, atk:1.9, def:2.3, spd:0.30, crit:0.15, eva:0.12},
@@ -93,7 +107,7 @@ const CLASSES = {
     ],
   },
   merchant:{
-    id:'merchant', name:'Merchant', tagline:'Economic-oriented combat class.',
+    id:'merchant', name:'Merchant', icon:'class_merchant.png', tagline:'Economic-oriented combat class.',
     resource:'Fortune',
     base:{hp:100, atk:12, def:9, spd:9, crit:8, eva:7},
     growth:{hp:11, atk:2.0, def:1.4, spd:0.35, crit:0.22, eva:0.18},
@@ -118,22 +132,22 @@ const GENERAL_SKILL_UPGRADE_COST = [1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10]; 
 function generalSkillCost(currentLevel){ return GENERAL_SKILL_UPGRADE_COST[currentLevel]; }
 
 const ZONES = [
-  {id:'plains', name:'Plains', min:1, max:10, monsters:['Wild Boar','Field Rat','Bandit Scout'], resources:['wood','food'],
+  {id:'plains', name:'Plains', icon:'zone_plains.jpg', min:1, max:10, monsters:['Wild Boar','Field Rat','Bandit Scout'], resources:['wood','food'],
     boss:'Grukk the Boarking',
     dropTable:[{t:'common',w:75},{t:'uncommon',w:23},{t:'rare',w:2}]},
-  {id:'forest', name:'Forest', min:10, max:25, monsters:['Dire Wolf','Forest Troll','Rogue Archer'], resources:['wood','herbs'],
+  {id:'forest', name:'Forest', icon:'zone_forest.jpg', min:10, max:25, monsters:['Dire Wolf','Forest Troll','Rogue Archer'], resources:['wood','herbs'],
     boss:'Malrend, Heart of the Wood',
     dropTable:[{t:'common',w:60},{t:'uncommon',w:32},{t:'rare',w:8}]},
-  {id:'mountain', name:'Mountain', min:25, max:40, monsters:['Rock Golem','Mountain Harpy','Iron Bandit'], resources:['stone','iron'],
+  {id:'mountain', name:'Mountain', icon:'zone_mountain.jpg', min:25, max:40, monsters:['Rock Golem','Mountain Harpy','Iron Bandit'], resources:['stone','iron'],
     boss:'Thorrgun, the Cliff Titan',
     dropTable:[{t:'common',w:45},{t:'uncommon',w:35},{t:'rare',w:18},{t:'epic',w:2}]},
-  {id:'cave', name:'Cave', min:40, max:55, monsters:['Cave Spider','Bat Swarm','Gloom Wraith'], resources:['coal','iron'],
+  {id:'cave', name:'Cave', icon:'zone_cave.jpg', min:40, max:55, monsters:['Cave Spider','Bat Swarm','Gloom Wraith'], resources:['coal','iron'],
     boss:'Skarn, Lord of the Deep',
     dropTable:[{t:'common',w:35},{t:'uncommon',w:35},{t:'rare',w:25},{t:'epic',w:5}]},
-  {id:'swamp', name:'Swamp', min:55, max:70, monsters:['Bog Serpent','Swamp Witch','Rot Beast'], resources:['herbs','leather'],
+  {id:'swamp', name:'Swamp', icon:'zone_swamp.jpg', min:55, max:70, monsters:['Bog Serpent','Swamp Witch','Rot Beast'], resources:['herbs','leather'],
     boss:'Vessyr the Rotmother',
     dropTable:[{t:'common',w:20},{t:'uncommon',w:35},{t:'rare',w:32},{t:'epic',w:12},{t:'legendary',w:1}]},
-  {id:'darkzone', name:'Dark Zone', min:70, max:100, monsters:['Shadow Knight','Void Reaver','Nightmare Construct'], resources:['iron','ore'],
+  {id:'darkzone', name:'Dark Zone', icon:'zone_dark.jpg', min:70, max:100, monsters:['Shadow Knight','Void Reaver','Nightmare Construct'], resources:['iron','ore'],
     boss:'Kaelthorn, the Hollow King',
     dropTable:[{t:'common',w:10},{t:'uncommon',w:25},{t:'rare',w:35},{t:'epic',w:25},{t:'legendary',w:5}]},
   {id:'frozen', name:'Frozen Wastes', min:100, max:150, monsters:['Frost Wraith','Ice Golem','Winter Stalker'], resources:['frost','iron'],
@@ -146,12 +160,12 @@ const ZONES = [
 const RESOURCE_NAMES = {wood:'Wood', stone:'Stone', food:'Food', coal:'Coal', iron:'Iron', ore:'Gold Ore', herbs:'Herbs', leather:'Leather', frost:'Frost Shard', voidessence:'Void Essence'};
 
 const KINGDOMS = [
-  {id:'europe', name:'Europe', resources:['cotton','food'], tax:5},
-  {id:'asia', name:'Asia', resources:['wood','herbs'], tax:8},
-  {id:'africa', name:'Africa', resources:['stone','iron'], tax:10},
-  {id:'north_america', name:'North America', resources:['stone','silver'], tax:13},
-  {id:'arab_world', name:'Arab World', resources:['herbs','leather'], tax:16},
-  {id:'south_america', name:'South America', resources:['voidessence','ore'], tax:20},
+  {id:'europe', name:'Europe', icon:'kingdom_europe.png', resources:['cotton','food'], tax:5},
+  {id:'asia', name:'Asia', icon:'kingdom_asia.png', resources:['wood','herbs'], tax:8},
+  {id:'africa', name:'Africa', icon:'kingdom_africa.png', resources:['stone','iron'], tax:10},
+  {id:'north_america', name:'North America', icon:'kingdom_north_america.png', resources:['stone','silver'], tax:13},
+  {id:'arab_world', name:'Arab World', icon:'kingdom_arab_world.png', resources:['herbs','leather'], tax:16},
+  {id:'south_america', name:'South America', icon:'kingdom_south_america.png', resources:['voidessence','ore'], tax:20},
 ];
 const KINGDOM_ROLES = ['Recruit','Member','Officer','Co-Leader','Leader'];
 const KINGDOM_JOIN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -199,15 +213,17 @@ const FLAVOR_TEXTS = [
 // Energy costs follow the spec baseline: 5 for a basic single-resource recipe,
 // 10 for an intermediate multi-input recipe (materials/consumables built from a base material).
 const RECIPES = [
-  {id:'plank', name:'Wood Planks', inputs:{wood:5}, energy:5, xp:5, out:{kind:'material', id:'plank', name:'Plank'}},
-  {id:'brick', name:'Bricks', inputs:{stone:5}, energy:5, xp:5, out:{kind:'material', id:'brick', name:'Brick'}},
-  {id:'bread', name:'Bread', inputs:{food:4}, energy:5, xp:5, out:{kind:'material', id:'bread', name:'Bread'}},
-  {id:'steel', name:'Steel', inputs:{iron:4, coal:2}, energy:10, xp:10, out:{kind:'material', id:'steel', name:'Steel'}},
-  {id:'tanned_leather', name:'Tanned Leather', inputs:{leather:4}, energy:5, xp:6, out:{kind:'material', id:'tanned_leather', name:'Tanned Leather'}},
-  {id:'potion', name:'Potion Base', inputs:{herbs:5}, energy:5, xp:5, out:{kind:'material', id:'potion', name:'Potion'}},
-  {id:'health_potion', name:'Health Potion', inputs:{herbs:3, potion:1}, energy:10, xp:8, out:{kind:'consumable', id:'health_potion', name:'Health Potion', effect:{heal:0.35}}},
-  {id:'energy_potion', name:'Energy Potion', inputs:{food:3, potion:1}, energy:10, xp:8, out:{kind:'consumable', id:'energy_potion', name:'Energy Potion', effect:{energy:30}}},
+  {id:'plank', name:'Wood Planks', inputs:{wood:5}, energy:5, xp:5, out:{kind:'material', id:'plank', name:'Plank', icon:'resource_wood.png'}},
+  {id:'brick', name:'Bricks', inputs:{stone:5}, energy:5, xp:5, out:{kind:'material', id:'brick', name:'Brick', icon:'resource_brick.png'}},
+  {id:'bread', name:'Bread', inputs:{food:4}, energy:5, xp:5, out:{kind:'material', id:'bread', name:'Bread', icon:'resource_bread.png'}},
+  {id:'steel', name:'Steel', inputs:{iron:4, coal:2}, energy:10, xp:10, out:{kind:'material', id:'steel', name:'Steel', icon:'resource_steel.png'}},
+  {id:'tanned_leather', name:'Tanned Leather', inputs:{leather:4}, energy:5, xp:6, out:{kind:'material', id:'tanned_leather', name:'Tanned Leather', icon:'resource_leather.png'}},
+  {id:'potion', name:'Potion Base', inputs:{herbs:5}, energy:5, xp:5, out:{kind:'material', id:'potion', name:'Potion', icon:'resource_health_potion.png'}},
+  {id:'health_potion', name:'Health Potion', inputs:{herbs:3, potion:1}, energy:10, xp:8, out:{kind:'consumable', id:'health_potion', name:'Health Potion', icon:'resource_health_potion.png', effect:{heal:0.35}}},
+  {id:'energy_potion', name:'Energy Potion', inputs:{food:3, potion:1}, energy:10, xp:8, out:{kind:'consumable', id:'energy_potion', name:'Energy Potion', icon:'resource_energy_potion.png', effect:{energy:30}}},
 ];
+// id (material/consumable) -> icon file, derived from RECIPES so both stay in sync.
+const MATERIAL_ICONS = Object.fromEntries(RECIPES.map(r=>[r.out.id, r.out.icon]));
 
 const EQUIP_SLOTS = ['weapon','armor','helmet','boots','gloves','accessory'];
 const SLOT_NOUN = {weapon:'Blade', armor:'Plate', helmet:'Helm', boots:'Boots', gloves:'Gauntlets', accessory:'Charm'};
@@ -285,4 +301,3 @@ const COLOR_SCHEMES = [
 function getColorScheme(id){
   return COLOR_SCHEMES.find(s=>s.id===id) || COLOR_SCHEMES[0];
 }
-
