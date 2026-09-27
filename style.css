@@ -187,7 +187,7 @@
 
   input[type=text]{
     background:#120d08; border:1px solid var(--border); color:var(--text);
-    padding:11px 13px; border-radius:4px; font-size:14px; width:100%;
+    padding:11px 13px; border-radius:4px; font-size:16px; width:100%;
     font-family:var(--font-body);
   }
   input[type=text]:focus{outline:none; border-color:var(--brass);}
@@ -299,7 +299,22 @@
     .tabbtn svg{width:19px; height:19px; stroke:currentColor;}
     .tabbtn span{font-size:9.5px; font-weight:600;}
     .tabbtn.active{color:var(--brass-bright);}
-    .view{padding-bottom:80px;}
+    .view{padding:14px 12px 84px;}
+    .view-header{margin-bottom:14px;}
+    .view-header h2{font-size:18px;}
+    .view-header p{font-size:12.5px;}
+
+    /* status bar: tighter and wraps to two rows instead of scrolling off-screen */
+    .statusbar{padding:8px 12px; gap:10px; flex-wrap:wrap;}
+    .sb-id{gap:8px;}
+    .sb-avatar{width:30px; height:30px; font-size:11px;}
+    .sb-bars{gap:8px; min-width:0; order:3; flex-basis:100%;}
+    .sb-bar{min-width:0;}
+    .sb-stat, .sb-rating{font-size:11px; padding:5px 9px;}
+
+    .panel{padding:12px;}
+    .grid{gap:10px;}
+    .stat-list{grid-template-columns:1fr; gap:6px;}
 
     /* WarEra-style quick-action grid, home screen only — the sidebar nav this
        duplicates is hidden on mobile, so it's the fast path into the four
@@ -313,6 +328,15 @@
     .qa-btn:hover{border-color:var(--brass);}
     .qa-btn svg{width:22px; height:22px; stroke:var(--brass-bright);}
     .qa-btn span{font-size:12px; font-weight:600;}
+  }
+  @media(max-width:480px){
+    .view{padding:12px 10px 84px;}
+    .eq-slots{grid-template-columns:repeat(2,1fr); gap:8px;}
+    .craft-grid, .zone-grid{grid-template-columns:1fr;}
+    .inv-grid{grid-template-columns:repeat(2,1fr);}
+    .kd-stat-mini{min-width:0; flex:1 1 90px; padding:6px 8px;}
+    .gov-avatar{width:56px;}
+    .color-swatch-grid{grid-template-columns:repeat(3,1fr);}
   }
 
   .loader-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px;}
@@ -356,3 +380,22 @@
   .zone-tile-body{padding:12px;}
   .zone-tile h4{font-size:14.5px; margin-bottom:6px;}
   .zone-tile-meta{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+
+  /* kingdom dashboard */
+  .kd-banner{position:relative; height:150px; border-radius:10px; overflow:hidden; margin-bottom:14px; display:flex; align-items:flex-end; background-size:cover; background-position:center;}
+  .kd-banner::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,7,4,0) 35%, rgba(10,7,4,.92) 100%); pointer-events:none;}
+  .kd-banner-body{position:relative; z-index:1; width:100%; padding:14px 16px;}
+  .kd-banner-head{display:flex; align-items:center; gap:10px;}
+  .kd-banner-flag{width:40px; height:40px; border-radius:6px; border:2px solid var(--brass); overflow:hidden; flex-shrink:0; background:var(--panel-2);}
+  .kd-banner-flag img{width:100%; height:100%; object-fit:cover;}
+  .kd-banner-head h2{font-size:19px;}
+  .kd-stat-mini-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
+  .kd-stat-mini{background:rgba(23,16,8,.75); border:1px solid var(--border-soft); border-radius:6px; padding:6px 12px; min-width:96px;}
+  .kd-stat-mini .l{font-size:9.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;}
+  .kd-stat-mini .v{font-family:var(--font-display); font-size:15px; color:var(--brass-bright); font-weight:700;}
+  .gov-row{display:flex; gap:16px; flex-wrap:wrap;}
+  .gov-avatar{width:64px; text-align:center;}
+  .gov-avatar .circle{width:52px; height:52px; border-radius:50%; background:var(--panel-2); border:2px solid var(--brass); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; color:var(--brass-bright); font-size:15px; margin:0 auto 4px; position:relative;}
+  .gov-avatar .role-badge{position:absolute; bottom:-4px; right:-4px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center;}
+  .gov-avatar .role-badge svg{width:10px; height:10px; stroke:var(--brass-bright);}
+  .gov-avatar .name{font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
