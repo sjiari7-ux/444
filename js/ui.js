@@ -11,7 +11,7 @@ const S = {
   road: null, // {zoneId, log:[], gained:{xp,gold,resources:{}}}
   kingdomView: null,
   generalChat: null,
-  chatWidgetOpen: false, // WarEra-style docked chat, persistent across screens (separate from the full 'chat' nav screen)
+  chatWidgetOpen: false, // WarEra-style docked chat, floats over every screen — the only chat entry point now
   marketListings: null,
   marketTab: 'browse',
   marketFilter: 'all',
@@ -106,7 +106,6 @@ function renderCreate(){
 /* ---------------- Shell / nav ---------------- */
 const NAV = [
   {id:'home', label:'Home', icon:'home'},
-  {id:'chat', label:'Chat', icon:'chat'},
   {id:'adventure', label:'Adventure', icon:'sword'},
   {id:'pvp', label:'PvP', icon:'target'},
   {id:'kingdom', label:'Kingdom', icon:'crown'},
@@ -701,38 +700,10 @@ function renderKingdom(){
   <div style="margin-top:16px;"><button class="btn btn-danger" data-action="leave-kingdom">Leave Kingdom</button></div>`;
 }
 
-/* ---------------- General Chat ---------------- */
+/* ---------------- Docked World Chat widget (WarEra-style) ----------------
+// Persistent floating chat, present on every screen — this is now the
+// single access point for general chat (no separate 'chat' nav tab).
 let _chatFetchInFlight = false;
-function renderChat(){
-  if(S.generalChat===null){
-    if(!_chatFetchInFlight){ _chatFetchInFlight = true; loadGeneralChat().finally(()=>{ _chatFetchInFlight = false; }); }
-    return `<div class="view-header"><h2>Chat</h2></div><div class="empty"><h3>Loading chat...</h3></div>`;
-  }
-  if(S.generalChatUnavailable){
-    return `
-    <div class="view-header"><h2>Chat</h2></div>
-    <div class="empty">
-      <h3>Chat unavailable</h3>
-      <p class="faint">General chat needs real cross-player storage, which this view doesn't have access to.</p>
-    </div>`;
-  }
-  const chatLines = S.generalChat.slice().reverse().map(m=>`<div class="log-line"><b>${esc(m.senderName)}:</b> ${esc(m.text)}</div>`).join('') || '<div class="faint" style="padding:8px;">No messages yet. Say hello.</div>';
-  return `
-  <div class="view-header"><h2>Chat</h2><p>Talk with every player online. All messages here are real and shared.</p></div>
-  <div class="panel">
-    <div class="log" id="general-chat-log">${chatLines}</div>
-    <div style="display:flex; gap:8px; margin-top:10px;">
-      <input type="text" id="general-chat-input" maxlength="200" placeholder="Say something...">
-      <button class="btn btn-primary" data-action="chat-send">Send</button>
-    </div>
-  </div>`;
-}
-
-// ---------------- Docked World Chat widget (WarEra-style) ----------------
-// Same data/source as renderChat() (S.generalChat, meta/rc_generalChat) — this
-// is just a second, persistent presentation of it that floats over every
-// screen instead of living behind its own nav tab. Reuses _chatFetchInFlight
-// so opening the widget and visiting the full Chat screen never double-fetch.
 function renderChatWidget(){
   if(!S.chatWidgetOpen){
     return `<button class="chat-widget-toggle" data-action="chat-widget-toggle" title="World Chat">${icon('chat')}</button>`;
@@ -971,7 +942,6 @@ function render(){
   }
   let body = '';
   if(S.screen==='home') body = renderHome();
-  else if(S.screen==='chat') body = renderChat();
   else if(S.screen==='adventure') body = renderAdventure();
   else if(S.screen==='zone-detail') body = renderZoneDetail();
   else if(S.screen==='road') body = renderRoad();
@@ -1009,12 +979,6 @@ function render(){
     const input = document.getElementById('kingdom-chat-input');
     if(input){
       input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendKingdomChat(input.value); } });
-    }
-  }
-  if(S.screen==='chat'){
-    const input = document.getElementById('general-chat-input');
-    if(input){
-      input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendGeneralChat(input.value); } });
     }
   }
   if(S.chatWidgetOpen){
