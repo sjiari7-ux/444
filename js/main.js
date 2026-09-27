@@ -40,7 +40,6 @@ document.addEventListener('click', async (e)=>{
     S.pvpCandidates = null;
     if(el.dataset.screen==='kingdom'){ loadKingdomView(); }
     if(el.dataset.screen==='market'){ loadMarketListings(); checkMarketSales(); }
-    if(el.dataset.screen==='chat'){ loadGeneralChat(); }
     return;
   }
 
@@ -73,11 +72,6 @@ document.addEventListener('click', async (e)=>{
     return;
   }
   if(action==='kingdom-member'){ await kingdomManageMember(el.dataset.id, el.dataset.op); return; }
-  if(action==='chat-send'){
-    const input = document.getElementById('general-chat-input');
-    await sendGeneralChat(input ? input.value : '');
-    return;
-  }
   if(action==='chat-widget-toggle'){
     S.chatWidgetOpen = !S.chatWidgetOpen;
     if(S.chatWidgetOpen && S.generalChat===null) loadGeneralChat();
