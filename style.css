@@ -328,8 +328,10 @@
   /* crafting */
   .craft-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px;}
   .craft-card{background:var(--panel); border:1px solid var(--border-soft); border-radius:6px; padding:14px;}
-  .craft-icon{width:36px; height:36px; border-radius:5px; border:1px solid; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; font-family:var(--font-display);}
-  .req-chip{font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);}
+  .craft-icon{width:36px; height:36px; border-radius:5px; border:1px solid; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; font-family:var(--font-display); overflow:hidden;}
+  .craft-icon img{width:100%; height:100%; object-fit:contain;}
+  .item-icon{object-fit:contain; vertical-align:-3px; border-radius:3px;}
+  .req-chip{font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim); display:inline-flex; align-items:center; gap:4px;}
   .req-chip.short{border-color:var(--danger); color:var(--danger-bright);}
   .qty-stepper{display:flex; align-items:center; gap:6px; flex:0 0 auto;}
   .qty-stepper span{min-width:18px; text-align:center; font-weight:700; font-size:13px; color:var(--parchment);}
