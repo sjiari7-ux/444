@@ -461,7 +461,8 @@ async function checkMarketSales(){
 /* ---------------- Marketplace ---------------- */
 function marketItemLabel(l){
   if(l.kind==='equipment') return `${l.itemName} <span class="tag tag-${l.tier}">${l.tier}</span>`;
-  return `${l.itemName} x${l.qty}`;
+  const iconFile = l.kind==='resource' ? RESOURCE_ICONS[l.itemId] : MATERIAL_ICONS[l.itemId];
+  return `${itemIcon(iconFile,16,'margin-right:4px;')}${l.itemName} x${l.qty}`;
 }
 async function loadMarketListings(){
   if(!HAS_DB){ S.marketListings = []; S.marketUnavailable = true; render(); return; }
