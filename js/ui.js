@@ -21,6 +21,7 @@ const S = {
   toast: null,
   toastTimer: null,
   craftFilter: null,
+  kingdomTab: 'overview',
 };
 
 function showToast(msg){
@@ -599,13 +600,30 @@ function renderKingdom(){
   const chat = Array.isArray(k.chat) ? k.chat : [];
   const chatLines = chat.slice().reverse().map(m=>`<div class="log-line"><b>${esc(m.senderName)}:</b> ${esc(m.text)}</div>`).join('') || '<div class="faint" style="padding:8px;">No messages yet. Say hello.</div>';
 
-  return `
-  <div class="view-header"><h2>${itemIcon(kdef.icon,22,'margin-right:6px;')}${kdef.name}</h2><p>You are a ${c.kingdomRole} &middot; Tax ${kdef.tax}% &middot; Resources: ${kdef.resources.map(r=>`${resourceIcon(r,14)} ${RESOURCE_NAMES[r]||r}`).join(', ')}</p></div>
-  ${leaderMissing ? `<div class="panel" style="margin-bottom:14px; border-color:var(--brass);">
-    <div class="panel-title">This kingdom has no Leader</div>
-    ${myRank>=2 ? `<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>` : `<p class="faint">An Officer or above can claim leadership.</p>`}
-  </div>` : ''}
-  <div class="grid grid-2" style="margin-bottom:16px;">
+  const ROLE_ICON = {Leader:'crown', 'Co-Leader':'shield', Officer:'star'};
+  const govMembers = kv.members.filter(m=>kingdomRank(m.kingdomRole)>=2).sort((a,b)=>kingdomRank(b.kingdomRole)-kingdomRank(a.kingdomRole));
+  const govRow = govMembers.length ? govMembers.map(m=>{
+    const initials = (m.username||'?').slice(0,2).toUpperCase();
+    const ri = ROLE_ICON[m.kingdomRole];
+    return `<div class="gov-avatar">
+      <div class="circle">${initials}${ri?`<span class="role-badge">${icon(ri)}</span>`:''}</div>
+      <div class="name">${esc(m.username)}</div>
+      <div class="faint" style="font-size:10px;">${m.kingdomRole}</div>
+    </div>`;
+  }).join('') : '<p class="faint">No Officers or above yet.</p>';
+
+  const tabs = ['overview','government','treasury','chat'];
+  const tabLabel = {overview:'Overview', government:'Government', treasury:'Treasury', chat:'Chat'};
+  const activeTab = tabs.includes(S.kingdomTab) ? S.kingdomTab : 'overview';
+  const tabRow = `<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">${tabs.map(t=>`<button class="btn btn-sm ${activeTab===t?'btn-primary':''}" data-action="kingdom-tab" data-tab="${t}">${tabLabel[t]}</button>`).join('')}</div>`;
+
+  let tabBody = '';
+  if(activeTab==='overview'){
+    tabBody = `
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-title">Government</div>
+      <div class="gov-row">${govRow}</div>
+    </div>
     <div class="panel">
       <div class="panel-title">Treasury</div>
       <div class="stat-list">${treasuryRows}</div>
@@ -614,21 +632,65 @@ function renderKingdom(){
         <button class="btn btn-sm btn-accent" data-action="donate-kingdom" data-resource="gold" data-amount="50">Donate 50 Gold</button>
         <button class="btn btn-sm btn-accent" data-action="donate-kingdom" data-resource="gold" data-amount="200">Donate 200 Gold</button>
       </div>
+    </div>`;
+  } else if(activeTab==='government'){
+    tabBody = `
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-title">Government</div>
+      <div class="gov-row">${govRow}</div>
     </div>
     <div class="panel">
       <div class="panel-title">Members (${kv.members.length})</div>
-      <div style="max-height:220px; overflow-y:auto;">${memberRows}</div>
+      <div style="max-height:320px; overflow-y:auto;">${memberRows}</div>
+    </div>`;
+  } else if(activeTab==='treasury'){
+    tabBody = `
+    <div class="panel">
+      <div class="panel-title">Treasury</div>
+      <div class="stat-list">${treasuryRows}</div>
+      <div class="divider"></div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn btn-sm btn-accent" data-action="donate-kingdom" data-resource="gold" data-amount="50">Donate 50 Gold</button>
+        <button class="btn btn-sm btn-accent" data-action="donate-kingdom" data-resource="gold" data-amount="200">Donate 200 Gold</button>
+      </div>
+    </div>`;
+  } else {
+    tabBody = `
+    <div class="panel">
+      <div class="panel-title">Kingdom Chat</div>
+      <div class="log" id="kingdom-chat-log">${chatLines}</div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <input type="text" id="kingdom-chat-input" maxlength="200" placeholder="Say something to your kingdom...">
+        <button class="btn btn-primary" data-action="kingdom-chat-send">Send</button>
+      </div>
+    </div>`;
+  }
+
+  const banner = kdef.icon ? `url('icons/${kdef.icon}') center/cover` : 'var(--panel-2)';
+  return `
+  <div class="kd-banner" style="background:${banner};">
+    <div class="kd-banner-body">
+      <div class="kd-banner-head">
+        <div class="kd-banner-flag">${itemIcon(kdef.icon,40)}</div>
+        <div>
+          <h2>${kdef.name}</h2>
+          <div class="faint">You are a ${c.kingdomRole} &middot; Tax ${kdef.tax}%</div>
+        </div>
+      </div>
+      <div class="kd-stat-mini-row">
+        <div class="kd-stat-mini"><div class="l">Members</div><div class="v">${kv.members.length}</div></div>
+        <div class="kd-stat-mini"><div class="l">Treasury Gold</div><div class="v">${fmtNum(treasury.gold||0)}</div></div>
+        <div class="kd-stat-mini"><div class="l">Resources</div><div class="v">${kdef.resources.map(r=>resourceIcon(r,15)).join(' ')}</div></div>
+      </div>
     </div>
   </div>
-  <div class="panel" style="margin-bottom:16px;">
-    <div class="panel-title">Kingdom Chat</div>
-    <div class="log" id="kingdom-chat-log">${chatLines}</div>
-    <div style="display:flex; gap:8px; margin-top:10px;">
-      <input type="text" id="kingdom-chat-input" maxlength="200" placeholder="Say something to your kingdom...">
-      <button class="btn btn-primary" data-action="kingdom-chat-send">Send</button>
-    </div>
-  </div>
-  <button class="btn btn-danger" data-action="leave-kingdom">Leave Kingdom</button>`;
+  ${leaderMissing ? `<div class="panel" style="margin-bottom:14px; border-color:var(--brass);">
+    <div class="panel-title">This kingdom has no Leader</div>
+    ${myRank>=2 ? `<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>` : `<p class="faint">An Officer or above can claim leadership.</p>`}
+  </div>` : ''}
+  ${tabRow}
+  ${tabBody}
+  <div style="margin-top:16px;"><button class="btn btn-danger" data-action="leave-kingdom">Leave Kingdom</button></div>`;
 }
 
 /* ---------------- General Chat ---------------- */
