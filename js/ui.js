@@ -741,7 +741,7 @@ function renderRankings(c){
     </div>`;
 }
 
-/* ---------------- Docked World Chat widget (WarEra-style) ----------------
+/* ---------------- Docked World Chat widget (WarEra-style) ---------------- */
 // Persistent floating chat, present on every screen — this is now the
 // single access point for general chat (no separate 'chat' nav tab).
 let _chatFetchInFlight = false;
