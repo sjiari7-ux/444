@@ -730,7 +730,7 @@ async function findOpponents(myChar){
         if(!data.username || !data.class) return;
         if(Math.abs((data.level||1)-myLevel) > tolerance) return;
         if((data.pvp && data.pvp.protectedUntil||0) > now) return;
-        candidates.push(data);
+        candidates.push(Object.assign({id:d.id}, data));
       });
     }catch(e){ /* ignore, fall back to bots */ }
   }
