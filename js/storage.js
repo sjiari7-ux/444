@@ -784,9 +784,14 @@ async function claimWarRewards(){
       }
       done.push(w.id);
     }
-    c.claimedWars = done.slice(-30);
-    if(gold){ c.gold += gold; c.xp += xp; }
-    saveCharacter(c);
+    // S.char may have been replaced (fresh load after a fight) while we were awaiting reads above — write to the live one.
+    const cur = S.char || c;
+    cur.claimedWars = done.slice(-30);
+    if(gold){
+      cur.gold += gold; cur.xp += xp;
+      await checkLevelUps(cur, []); // war XP can level the player up — that must also grant skill points
+    }
+    saveCharacter(cur);
     if(gold) showToast('War victory! +'+fmtNum(gold)+' gold, +'+fmtNum(xp)+' XP for your fights.');
   }catch(e){ console.error('claimWarRewards', e); }
   _claimingWars = false;
