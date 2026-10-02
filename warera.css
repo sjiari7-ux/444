@@ -361,3 +361,10 @@ svg{stroke-width:1.8;}
 .we-gav[data-action],.member-avatar[data-action],.we-av[data-action],.we-avatar[data-action]{cursor:pointer;transition:transform .12s,box-shadow .12s;}
 .we-gav[data-action]:hover,.member-avatar[data-action]:hover,.we-av[data-action]:hover{transform:scale(1.08);box-shadow:0 0 0 3px rgba(59,130,246,.45);}
 .we-rank[data-action],.we-rrow[data-action],.we-mrow[data-action],.we-opp[data-action],.row[data-action]{cursor:pointer;}
+
+.we-search{width:100%;margin:6px 0 10px;padding:10px 12px;font-size:14px;}
+.we-country.mine{border-color:#3b82f6;background:rgba(59,130,246,.1);}
+.we-country em{font-style:normal;color:#60a5fa;font-weight:600;font-size:11px;}
+.we-shortcuts{display:flex;gap:8px;margin:10px 0 4px;flex-wrap:wrap;}
+.we-shortcuts .btn{display:inline-flex;align-items:center;gap:6px;}
+.we-shortcuts svg{width:14px;height:14px;}
