@@ -26,7 +26,7 @@ document.addEventListener('click', async (e)=>{
   if(action==='pick-country'){ S._create.countryId = el.dataset.country; render(); return; }
   if(action==='create-character'){
     const st = S._create;
-    const uname = (st.username||'').trim().slice(0,18);
+    const uname = (st.username||'').replace(/[<>&"'`\\]/g,'').trim().slice(0,18);
     if(!st.classId || !st.countryId) return;
     if(uname.length < 3){ showToast('Username must be at least 3 characters.'); return; }
     if(await isUsernameTaken(uname)){ showToast('That username is already taken — pick another.'); return; }
