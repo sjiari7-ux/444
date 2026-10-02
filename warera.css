@@ -368,3 +368,39 @@ svg{stroke-width:1.8;}
 .we-shortcuts{display:flex;gap:8px;margin:10px 0 4px;flex-wrap:wrap;}
 .we-shortcuts .btn{display:inline-flex;align-items:center;gap:6px;}
 .we-shortcuts svg{width:14px;height:14px;}
+
+/* Inventory v2 */
+.we-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.we-item{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:12px;background:#1f2428;border:1px solid var(--border);border-top:3px solid var(--rar,#475569);border-radius:10px;}
+.we-item:hover{border-color:var(--rar,#3b82f6);}
+.we-item.empty{border-style:dashed;border-top:1px dashed var(--border);opacity:.65;align-items:center;text-align:center;}
+.we-item.eq{background:linear-gradient(180deg,rgba(59,130,246,.06),#1f2428);}
+.we-slotname{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);font-weight:700;}
+.we-ibox{position:relative;width:54px;height:54px;border-radius:10px;background:#11151a;border:2px solid var(--rar,#333b42);display:flex;align-items:center;justify-content:center;color:var(--rar,#64748b);margin:2px 0;}
+.we-ibox svg{width:26px;height:26px;}
+.we-ibox .q{position:absolute;right:-6px;bottom:-6px;background:#272d32;border:1px solid var(--border);border-radius:99px;font-size:10.5px;padding:1px 6px;color:#fff;}
+.we-ibox .lv{position:absolute;top:-6px;left:-6px;background:#7c3aed;color:#fff;font-style:normal;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:99px;display:flex;align-items:center;justify-content:center;}
+.we-iname{font-weight:700;font-size:13px;color:var(--parchment);line-height:1.2;}
+.we-tier{align-self:flex-start;font-size:10.5px;font-weight:700;text-transform:capitalize;color:var(--rar);background:rgba(255,255,255,.04);border:1px solid var(--rar);border-radius:99px;padding:1px 8px;}
+.we-chips2{display:flex;flex-wrap:wrap;gap:4px;}
+.we-st{font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:6px;background:#11151a;border:1px solid var(--border);color:var(--text);}
+.we-st.s-atk{color:#f87171;border-color:#7f1d1d;}.we-st.s-def{color:#60a5fa;border-color:#1e40af;}.we-st.s-hp{color:#4ade80;border-color:#166534;}
+.we-st.s-spd{color:#22d3ee;border-color:#155e75;}.we-st.s-eva{color:#c084fc;border-color:#6b21a8;}.we-st.s-crit{color:#facc15;border-color:#854d0e;}
+.we-iact{display:grid;gap:6px;margin-top:auto;padding-top:4px;}
+.we-iact .btn{width:100%;justify-content:center;white-space:normal;line-height:1.15;}
+.we-bagbar{height:6px;border-radius:99px;background:#11151a;margin-top:6px;overflow:hidden;}.we-bagbar i{display:block;height:100%;background:#3b82f6;}
+
+/* War taxes on country Home */
+.we-tax{background:#1f2428;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+.we-tax.won{border-color:#166534;background:rgba(34,197,94,.07);}
+.we-tax.lost{border-color:#7f1d1d;background:rgba(239,68,68,.08);}
+.we-tax.pending{border-style:dashed;}
+.we-tax-h{display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--text-dim);margin-bottom:8px;}
+.we-tax.won .tt{color:#4ade80;}.we-tax.lost .tt{color:#f87171;}
+.we-tax-b{display:flex;align-items:center;gap:10px;cursor:pointer;}
+.we-tax-b b{display:block;color:var(--parchment);}.we-tax-b small{color:var(--text-dim);display:inline-flex;align-items:center;gap:4px;}
+.we-tax-f{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-dim);}
+.we-tax-f b{color:#fff;}
+
+.we-range{width:100%;accent-color:#3b82f6;margin-top:6px;}
+.we-range-lim{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);}
