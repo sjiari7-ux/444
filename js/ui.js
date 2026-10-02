@@ -195,7 +195,7 @@ function renderHome(){
   const warCards = wars.slice(0,3).map(w=>renderWorldWarCard(w)).join('') || `<div class="world-empty"><div class="world-empty-icon">${icon('shield')}</div><div><b>No active world wars</b><span>The realm is quiet for now.</span></div></div>`;
   const news = [...wars.map(w=>({type:'war', text:`${countryName(w.attackerCountryId)} entered a war against ${countryName(w.defenderCountryId)}`, at:w.startedAt||Date.now()})), ...recent.slice(0,4).map(w=>({type:'result', text:`${countryName(w.winnerCountryId)} defeated ${countryName(w.loserCountryId)}`, at:w.endedAt||Date.now()}))].sort((a,b)=>b.at-a.at).slice(0,5);
   return `
-  ${weHero('Welcome back, '+esc(c.username),CLASSES[c.class].name+' · Level '+c.level+' · '+countryName(c.kingdomId))}
+  ${weHero('Welcome back, '+esc(c.username),CLASSES[c.class].name+' · Level '+c.level+' · '+countryName(c.kingdomId),'home')}
   <div style="margin:10px 0"><button class="btn btn-primary" data-action="nav" data-screen="world">${icon('globe')} Enter the World</button></div>
   <div class="world-metrics">
     <div class="metric"><span>ACTIVE WARS</span><b>${wars.length}</b></div>
@@ -278,7 +278,7 @@ function renderCountryView(){
   const roleCard=(label,cls,list)=>`<div class="we-role ${cls}"><h4>${label}</h4>${list.length?list.map(m=>person(m)).join(''):'<p>No one nominated yet.</p>'}</div>`;
   const tabs=[['home','Home','castle'],['government','Government','crown'],['citizens','Citizens','users']];
   const tabRow=`<div class="country-module-nav we-ptabs">${tabs.map(x=>`<button class="country-module ${tab===x[0]?'active':''}" data-action="view-ctab" data-tab="${x[0]}">${icon(x[2])}<span>${x[1]}</span></button>`).join('')}</div>`;
-  const hero=`<div class="we-chero"><div class="we-banner"></div><div class="we-chead"><div class="we-flag">${kingdomFlag(id,64,'margin:0')}</div><div><small>⚑ Country ${viewOnlyChip()}</small><h2>${esc(kdef.name)}</h2><div class="we-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Online</small><b>${online}</b></span><span><small>Treasury</small><b>${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span></div></div></div></div>`;
+  const hero=`<div class="we-chero"><div class="we-banner country"></div><div class="we-chead"><div class="we-flag">${kingdomFlag(id,64,'margin:0')}</div><div><small>⚑ Country ${viewOnlyChip()}</small><h2>${esc(kdef.name)}</h2><div class="we-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Online</small><b>${online}</b></span><span><small>Treasury</small><b>${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span></div></div></div></div>`;
   let body='';
   if(tab==='home'){
     body=`<div class="we-sec">RANKINGS</div><div class="we-tiles">${weTile('Citizens',members.length,'green')}${weTile('Weekly damages',fmtDmg(wdmg))}${weTile('Treasury',fmtNum(treasury.gold||0),'gold')}${weTile('National tax',kdef.tax+'%')}</div>
@@ -485,7 +485,7 @@ function renderCraft(){
   }).join('');
   const resChips = Object.entries(c.resourceBag).filter(([,v])=>v>0).map(([k,v])=>`<span class="tag" style="margin:0 6px 6px 0;">${RESOURCE_NAMES[k]}: <b style="color:var(--parchment)">${v}</b></span>`).join('') || '<span class="faint">No resources yet &mdash; fight in Adventure zones to gather some.</span>';
   return `
-  ${weHero('Crafting','Turn raw resources and Energy into materials and potions','market')}
+  ${weHero('Crafting','Turn raw resources and Energy into materials and potions','craft')}
   <div class="we-tiles" style="margin-top:12px">${weTile('Backpack',bagCount(c)+'/'+BAG_CAPACITY)}${weTile('Energy',Math.floor(c.energyCur)+'/'+eff.maxEnergy,'green')}</div>
   <div class="we-sec">RESOURCES</div>
   <div style="margin-bottom:16px;">${resChips}</div>
@@ -522,7 +522,7 @@ function renderInventory(){
   const matCards = materials.map(it=>tile(it, sell(it), 'hammer')).join('') || '<p class="faint">No materials.</p>';
   const pct=Math.min(100,Math.round(bagCount(c)/BAG_CAPACITY*100));
   return `
-  ${weHero('Inventory','Equip your gear, use items and sell what you do not need','market')}
+  ${weHero('Inventory','Equip your gear, use items and sell what you do not need','inventory')}
   <div class="we-tiles" style="margin-top:12px">
     <div class="we-tile"><small>Bag</small><b>${bagCount(c)}/${BAG_CAPACITY}</b><div class="we-bagbar"><i style="width:${pct}%"></i></div></div>
     ${weTile('Gold',fmtNum(c.gold),'gold')}
@@ -808,7 +808,7 @@ function renderKingdom(){
 
   return `
     <div class="we-chero">
-      <div class="we-banner"></div>
+      <div class="we-banner country"></div>
       <div class="we-chead"><div class="we-flag">${flagIcon(kdef.flag,64)}</div><div><small>⚑ Country</small><h2>${esc(kdef.name)}</h2><div class="we-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Treasury</small><b>${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span><span><small>Status</small><b class="${readinessClass}">${readiness}</b></span></div></div></div>
     </div>
     ${leaderMissing ? `<div class="country-alert"><span>${icon('crown')}</span><div><b>Leadership is vacant</b><p>${govMembers.length?'An Officer or above can claim leadership.':'No Officer exists yet, so any citizen can claim leadership.'}</p></div>${(myRank>=2||!govMembers.length)?'<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>':''}</div>`:''}
@@ -975,7 +975,7 @@ function renderWar(c, kv){
 /* ---------------- Country rankings ---------------- */
 function renderGlobalRankings(){
   const rv=S.rankingsView, tab=S.rankTab==='countries'?'countries':'players', my=S.char;
-  const head=`${weHero('Rankings','Top players and countries')}
+  const head=`${weHero('Rankings','Top players and countries','rankings')}
     <div class="country-module-nav we-ptabs"><button class="country-module ${tab==='players'?'active':''}" data-action="rank-tab" data-tab="players">${icon('user')}<span>Players</span></button><button class="country-module ${tab==='countries'?'active':''}" data-action="rank-tab" data-tab="countries">${icon('globe')}<span>Countries</span></button></div>`;
   if(!rv || rv.loading) return head+`<div class="empty"><h3>Loading rankings…</h3></div>`;
   if(rv.unavailable) return head+`<div class="panel empty"><h3>Rankings unavailable</h3></div>`;
