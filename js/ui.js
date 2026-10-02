@@ -495,45 +495,43 @@ function renderCraft(){
 /* ---------------- Inventory ---------------- */
 function renderInventory(){
   const c = S.char;
+  const RAR={common:'#94a3b8',uncommon:'#4ade80',rare:'#60a5fa',epic:'#c084fc',legendary:'#facc15'};
+  const TIERN={common:0,uncommon:1,rare:2,epic:3,legendary:4};
+  const SLOT_ICO={weapon:'sword',armor:'shield',helmet:'crown',boots:'arrow',gloves:'hammer',accessory:'star'};
+  const statChips=st=>Object.entries(st||{}).map(([k,v])=>`<span class="we-st s-${k}">+${v} ${k.toUpperCase()}</span>`).join('');
+  const tile=(it,actions,ico)=>`<div class="we-item" style="--rar:${RAR[it.tier]||'#475569'}">
+      <div class="we-ibox">${icon(ico)}${it.qty>1?`<b class="q">x${it.qty}</b>`:''}${it.level?`<i class="lv">${it.level}</i>`:''}</div>
+      <div class="we-iname">${esc(it.name)}</div>
+      ${it.tier?`<span class="we-tier">${it.tier}</span>`:''}
+      ${it.stats?`<div class="we-chips2">${statChips(it.stats)}</div>`:''}
+      <div class="we-iact">${actions}</div></div>`;
   const slots = EQUIP_SLOTS.map(slot=>{
     const it = c.equipment[slot];
-    return `<div class="eq-slot">
-      <div class="slot-name">${slot}</div>
-      ${it ? `<div style="font-weight:700; color:var(--parchment);">${esc(it.name)} <span class="tag tag-${it.tier}">${it.tier}</span></div>
-        <div class="faint">${statsSummary(it.stats)}</div>
-        <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
-          <button class="btn btn-sm" data-action="unequip" data-slot="${slot}">Unequip</button>
-          ${upgradeButtonHtml(it, c)}
-        </div>`
-        : `<div class="faint">Empty</div>`}
-    </div>`;
+    return it
+      ? tile(it, `<button class="btn btn-sm" data-action="unequip" data-slot="${slot}">Unequip</button>${upgradeButtonHtml(it, c)}`, SLOT_ICO[slot]||'shield').replace('<div class="we-item"','<div class="we-item eq"')
+        .replace('<div class="we-ibox">',`<div class="we-slotname">${slot}</div><div class="we-ibox">`)
+      : `<div class="we-item empty"><div class="we-slotname">${slot}</div><div class="we-ibox">${icon(SLOT_ICO[slot]||'shield')}</div><div class="we-iname faint">Empty</div></div>`;
   }).join('');
-  const gear = c.inventory.filter(i=>i.kind==='equipment');
+  const sortFn=(x,y)=>(TIERN[y.tier]||0)-(TIERN[x.tier]||0)||(y.level||1)-(x.level||1);
+  const gear = c.inventory.filter(i=>i.kind==='equipment').sort(sortFn);
   const consumables = c.inventory.filter(i=>i.kind==='consumable');
   const materials = c.inventory.filter(i=>i.kind==='material');
-  function statsSummary(st){ if(!st) return ''; return Object.entries(st).map(([k,v])=>`+${v} ${k.toUpperCase()}`).join(', '); }
-  function itemCard(it, actions){
-    const tierTag = it.tier ? `<span class="tag tag-${it.tier}">${it.tier}</span>` : '';
-    return `<div class="item-card">
-      <h5>${esc(it.name)} ${tierTag}</h5>
-      ${it.stats ? `<div class="faint">${statsSummary(it.stats)}</div>` : ''}
-      ${it.qty>1?`<div class="faint">x${it.qty}</div>`:''}
-      <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">${actions}</div>
-    </div>`;
-  }
-  const gearCards = gear.map(it=>itemCard(it, `<button class="btn btn-sm btn-accent" data-action="equip" data-uid="${it.uid}">Equip</button><button class="btn btn-sm" data-action="sell" data-uid="${it.uid}">Sell (${sellPrice(it)}g)</button>${upgradeButtonHtml(it, c)}`)).join('') || '<p class="faint">No gear in your bag.</p>';
-  const consCards = consumables.map(it=>itemCard(it, `<button class="btn btn-sm btn-accent" data-action="use-item" data-uid="${it.uid}">Use</button>`)).join('') || '<p class="faint">No consumables.</p>';
-  const matCards = materials.map(it=>itemCard(it, `<button class="btn btn-sm" data-action="sell" data-uid="${it.uid}">Sell (${sellPrice(it)}g)</button>`)).join('') || '<p class="faint">No materials.</p>';
+  const sell=it=>`<button class="btn btn-sm" data-action="sell" data-uid="${it.uid}">Sell &middot; ${sellPrice(it)}g</button>`;
+  const gearCards = gear.map(it=>tile(it, `<button class="btn btn-sm btn-primary" data-action="equip" data-uid="${it.uid}">Equip</button>${sell(it)}${upgradeButtonHtml(it, c)}`, SLOT_ICO[it.slot]||'shield')).join('') || '<p class="faint">No gear in your bag.</p>';
+  const consCards = consumables.map(it=>tile(it, `<button class="btn btn-sm btn-primary" data-action="use-item" data-uid="${it.uid}">Use</button>`, 'bolt')).join('') || '<p class="faint">No consumables.</p>';
+  const matCards = materials.map(it=>tile(it, sell(it), 'hammer')).join('') || '<p class="faint">No materials.</p>';
+  const pct=Math.min(100,Math.round(bagCount(c)/BAG_CAPACITY*100));
   return `
-  ${weHero('Inventory','Bag: '+bagCount(c)+'/'+BAG_CAPACITY,'market')}
-  <div class="panel-title" style="margin-bottom:10px;">Equipped</div>
-  <div class="eq-slots">${slots}</div>
-  <div class="panel-title" style="margin-bottom:10px;">Gear</div>
-  <div class="inv-grid" style="margin-bottom:18px;">${gearCards}</div>
-  <div class="panel-title" style="margin-bottom:10px;">Consumables</div>
-  <div class="inv-grid" style="margin-bottom:18px;">${consCards}</div>
-  <div class="panel-title" style="margin-bottom:10px;">Materials</div>
-  <div class="inv-grid">${matCards}</div>`;
+  ${weHero('Inventory','Equip your gear, use items and sell what you do not need','market')}
+  <div class="we-tiles" style="margin-top:12px">
+    <div class="we-tile"><small>Bag</small><b>${bagCount(c)}/${BAG_CAPACITY}</b><div class="we-bagbar"><i style="width:${pct}%"></i></div></div>
+    ${weTile('Gold',fmtNum(c.gold),'gold')}
+    ${weTile('Gear',gear.length)}
+  </div>
+  <div class="we-sec">EQUIPMENT</div><div class="we-items">${slots}</div>
+  <div class="we-sec">GEAR — ${gear.length}</div><div class="we-items">${gearCards}</div>
+  <div class="we-sec">CONSUMABLES — ${consumables.length}</div><div class="we-items">${consCards}</div>
+  <div class="we-sec">MATERIALS — ${materials.length}</div><div class="we-items">${matCards}</div>`;
 }
 function upgradeButtonHtml(it, c){
   const cost = UPGRADE_COSTS[it.tier];
@@ -647,8 +645,6 @@ function renderSettings(){
       <span class="color-swatch-label">${esc(s.name)}</span>
     </button>`).join('');
   return `
-  ${weHero('Settings','Appearance and account')}
-
   <div class="panel" style="margin-bottom:16px;">
     <div class="panel-title">Your email</div>
     <div style="font-weight:700; color:var(--parchment); font-size:14px;">${HAS_DB && FB_USER_EMAIL ? esc(FB_USER_EMAIL) : 'Not linked'}</div>
@@ -768,6 +764,16 @@ function renderKingdom(){
   const avatarHtml=(m,cls)=>m?`<div class="we-gav ${cls||''}" data-action="view-player" data-id="${esc(m.id)}"><span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><i>${m.level||1}</i></div>`:'';
   const byRole=r=>members.filter(m=>m.kingdomRole===r);
   const roleCard=(label,cls,list)=>`<div class="we-role ${cls}"><h4>${label}</h4>${list.length?list.map(m=>`<div class="we-role-p">${avatarHtml(m)}<b>${esc(m.username)}</b></div>`).join(''):'<p>No one nominated yet.</p>'}</div>`;
+  const warTaxHtml = (()=>{
+    if(!st) return `<p class="faint">${S.countryState&&S.countryState.status==='unavailable'?'War taxes unavailable.':'Loading war taxes…'}</p>`;
+    const inn=(st.warTaxIn||[]).filter(t=>t.active!==false), out=(st.warTaxOut&&st.warTaxOut.active)?st.warTaxOut:null;
+    const card=(cls,title,cid,t,extra)=>`<div class="we-tax ${cls}"><div class="we-tax-h"><span class="tt">${title}</span><span class="tm">${countdown(t.expiresAt)}</span></div><div class="we-tax-b" data-action="view-country" data-id="${esc(cid)}">${kingdomFlag(cid,26,'margin:0')}<div><b>${esc(countryName(cid))}</b><small>${t.rate}% of newly gathered ${resourceIcon(t.resourceId,13)} ${esc(resName(t.resourceId))}</small></div></div>${extra||''}</div>`;
+    const won=inn.map(t=>card('won','WAR SPOILS — you collect',t.loserCountryId,t,`<div class="we-tax-f"><span>Collected so far</span><b>${fmtNum(t.collected||0)} ${esc(resName(t.resourceId))}</b></div>`));
+    const lost=out?[card('lost','WAR TAX — you pay',out.winnerCountryId,out,`<div class="we-tax-f"><span>Paid to</span><b>${esc(countryName(out.winnerCountryId))}</b></div>`)]:[];
+    const pend=st.pendingReward?`<div class="we-tax pending"><div class="we-tax-b">${kingdomFlag(st.pendingReward.winnerCountryId,26,'margin:0')}<div><b>${esc(countryName(st.pendingReward.winnerCountryId))}</b><small>Won the war. Waiting for them to choose a resource to tax.</small></div></div></div>`:'';
+    const all=won.concat(lost);
+    return (all.join('')+pend) || '<p class="faint">No war taxes right now.</p>';
+  })();
   const weHome=`
     <div class="we-sec">RANKINGS</div>
     <div class="we-tiles">
@@ -780,8 +786,11 @@ function renderKingdom(){
     <div class="we-gov-strip">${['Leader','Co-Leader','Officer'].map(r=>byRole(r).slice(0,4).map(m=>avatarHtml(m,r==='Leader'?'gold':r==='Co-Leader'?'blue':'red')).join('')).join('')||'<p class="faint">No government yet.</p>'}</div>
     <div class="we-sec">NATIONAL RESOURCES</div>
     <div class="we-res">${resourceTiles||'<span class="faint">None</span>'}</div>
+    <div class="we-sec">WAR TAXES</div>
+    ${warTaxHtml}
     <div class="we-sec">${icon('castle','style="width:12px;height:12px"')} YOUR POSITION</div>
-    <div class="we-tile"><small>Role</small><b>${c.kingdomRole||'Recruit'}</b></div>`;
+    <div class="we-tile"><small>Role</small><b>${c.kingdomRole||'Recruit'}</b></div>
+    <div class="country-footer-action"><button class="btn btn-danger" data-action="leave-kingdom">Leave Kingdom</button></div>`;
   const weGov=`<div class="we-gov-grid">
     <div class="we-role gold wide">${'<h4>★ Leader</h4>'}${byRole('Leader').map(m=>`<div class="we-role-p c">${avatarHtml(m,'gold')}<b>${esc(m.username)}</b></div>`).join('')||'<p>No one nominated yet.</p>'}</div>
     ${roleCard('Co-Leader','blue',byRole('Co-Leader'))}
@@ -804,8 +813,7 @@ function renderKingdom(){
     </div>
     ${leaderMissing ? `<div class="country-alert"><span>${icon('crown')}</span><div><b>Leadership is vacant</b><p>${govMembers.length?'An Officer or above can claim leadership.':'No Officer exists yet, so any citizen can claim leadership.'}</p></div>${(myRank>=2||!govMembers.length)?'<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>':''}</div>`:''}
     ${tabRow}
-    ${tabBody}
-    <div class="country-footer-action"><button class="btn btn-danger" data-action="leave-kingdom">Leave Kingdom</button></div>`;
+    ${tabBody}`;
 }
 
 /* ---------------- Country economy & war (all numbers come from the server) ---------------- */
@@ -889,11 +897,18 @@ function renderWar(c, kv){
   if(st.pendingReward){
     const pr = st.pendingReward;
     if(st.isLeader){
+      const lo=pr.rateMin||1, hi=pr.rateMax||25, rate=Math.min(hi,Math.max(lo,S._rewardRate||pr.defaultRate||10));
+      const spec=new Set(pr.loserResources||[]);
       html += `<div class="panel" style="margin-bottom:16px;">
         <div class="panel-title">&#127942; WAR VICTORY</div>
-        <p>You defeated ${kingdomFlag(pr.loserCountryId)}<b>${countryName(pr.loserCountryId)}</b>.<br>Choose ONE resource to tax for 14 days (10% of what their citizens gather from now on).</p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;">${pr.options.map(r=>`<button class="btn ${S._rewardPick===r?'btn-primary':''}" data-action="reward-pick" data-resource="${r}">${resourceIcon(r,14)} ${resName(r)}</button>`).join('')}</div>
-        <button class="btn btn-primary" data-action="reward-confirm" data-war="${pr.warId}" ${S._rewardPick?'':'disabled'}>Confirm</button>
+        <p>You defeated ${kingdomFlag(pr.loserCountryId)}<b>${countryName(pr.loserCountryId)}</b>.<br>Choose <b>any</b> resource to tax for 14 days and the tax rate (${lo}%–${hi}%) of what their citizens gather from now on.</p>
+        <div class="we-sec">1. RESOURCE</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 4px;">${pr.options.map(r=>`<button class="btn ${S._rewardPick===r?'btn-primary':''}" data-action="reward-pick" data-resource="${r}">${resourceIcon(r,14)} ${resName(r)}${spec.has(r)?' <span title="One of their specialities">&#9733;</span>':''}</button>`).join('')}</div>
+        <p class="faint">&#9733; = a speciality of ${countryName(pr.loserCountryId)}. You can still tax any other resource their citizens gather.</p>
+        <div class="we-sec">2. TAX RATE — <b id="reward-rate-val">${rate}%</b></div>
+        <input type="range" class="we-range" id="reward-rate" min="${lo}" max="${hi}" step="1" value="${rate}" oninput="S._rewardRate=Number(this.value);document.getElementById('reward-rate-val').textContent=this.value+'%'">
+        <div class="we-range-lim"><span>${lo}%</span><span>${hi}%</span></div>
+        <button class="btn btn-primary" style="margin-top:10px" data-action="reward-confirm" data-war="${pr.warId}" ${S._rewardPick?'':'disabled'}>Confirm</button>
         <p class="faint" style="margin-top:6px;">Choose before ${countdown(pr.claimExpiresAt)} runs out.</p>
       </div>`;
     } else {
