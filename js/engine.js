@@ -10,8 +10,20 @@ function pick(arr){ return arr[rndInt(0, arr.length-1)]; }
 function uid(){ return 'x'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtNum(n){ return Math.round(n).toLocaleString('en-US'); }
+function fmtDmg(n){ // compact: 950 / 12.3K / 3.85M / 1.2B (like WarEra damage numbers)
+  n = Math.round(Number(n)||0); const a = Math.abs(n);
+  if(a >= 1e9) return (n/1e9).toFixed(2).replace(/\.?0+$/,'')+'B';
+  if(a >= 1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';
+  if(a >= 1e4) return (n/1e3).toFixed(1).replace(/\.0$/,'')+'K';
+  return n.toLocaleString('en-US');
+}
+function plural(n, one, many){ return n+' '+(n===1?one:(many||one+'s')); }
 function fmtMs(ms){
   if(ms<=0) return '0:00';
+  if(ms>=3600000){ // an hour or more: days / hours / minutes instead of a huge M:SS
+    const t = Math.floor(ms/60000), d = Math.floor(t/1440), h = Math.floor(t%1440/60), mi = t%60;
+    return (d?d+'d ':'')+((d||h)?h+'h ':'')+mi+'m';
+  }
   const s = Math.ceil(ms/1000);
   const m = Math.floor(s/60), r = s%60;
   return m+':'+String(r).padStart(2,'0');
@@ -145,7 +157,7 @@ function buildCombatant(character, isPlayerSide, label){
   const eff = effectiveStats(character);
   const cls = CLASSES[character.class];
   return {
-    label: label || character.username,
+    label: String(label || character.username || '').replace(/[<>&"'`]/g,''),
     isPlayerSide,
     charRef: character,
     class: character.class,
@@ -357,4 +369,3 @@ function chooseAiAction(actor, target){
   }
   return {kind:'attack'};
 }
-
