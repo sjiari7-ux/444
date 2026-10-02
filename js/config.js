@@ -160,10 +160,10 @@ const ZONES = [
   {id:'darkzone', name:'Dark Zone', icon:'zone_dark.jpg', min:70, max:100, monsters:['Shadow Knight','Void Reaver','Nightmare Construct'], resources:['iron','ore'],
     boss:'Kaelthorn, the Hollow King',
     dropTable:[{t:'common',w:10},{t:'uncommon',w:25},{t:'rare',w:35},{t:'epic',w:25},{t:'legendary',w:5}]},
-  {id:'frozen', name:'Frozen Wastes', min:100, max:150, monsters:['Frost Wraith','Ice Golem','Winter Stalker'], resources:['frost','iron'],
+  {id:'frozen', name:'Frozen Wastes', icon:'zone_frozen.jpg', min:100, max:150, monsters:['Frost Wraith','Ice Golem','Winter Stalker'], resources:['frost','iron'],
     boss:'Ysmera, the Everfrost Queen',
     dropTable:[{t:'uncommon',w:10},{t:'rare',w:35},{t:'epic',w:40},{t:'legendary',w:15}]},
-  {id:'abyss', name:'Abyssal Rift', min:150, max:300, uncapped:true, monsters:['Abyssal Horror','Void Sentinel','Nether Devourer'], resources:['voidessence','ore'],
+  {id:'abyss', name:'Abyssal Rift', icon:'zone_abyss.jpg', min:150, max:300, uncapped:true, monsters:['Abyssal Horror','Void Sentinel','Nether Devourer'], resources:['voidessence','ore'],
     boss:'Nyxul, Devourer of Light',
     dropTable:[{t:'rare',w:10},{t:'epic',w:40},{t:'legendary',w:50}]},
 ];
