@@ -748,7 +748,7 @@ function renderKingdom(){
       }
       if(canKick) actions += `<button class="btn btn-sm btn-danger" data-action="kingdom-member" data-id="${m.id}" data-op="kick">Kick</button>`;
     }
-    return `<div class="member-line"><div class="member-avatar">${(m.username||'?').slice(0,2).toUpperCase()}</div><div class="member-main" data-action="view-player" data-id="${m.id}" style="cursor:pointer"><b>${esc(m.username)} ${isMe?'<span class="faint">· You</span>':''}</b><small>Lv.${m.level||1} · ${m.kingdomRole||'Recruit'}</small></div><div class="member-actions">${actions}</div></div>`;
+    return `<div class="member-line"><div class="member-avatar" data-action="view-player" data-id="${m.id}">${(m.username||'?').slice(0,2).toUpperCase()}</div><div class="member-main" data-action="view-player" data-id="${m.id}" style="cursor:pointer"><b>${esc(m.username)} ${isMe?'<span class="faint">· You</span>':''}</b><small>Lv.${m.level||1} · ${m.kingdomRole||'Recruit'}</small></div><div class="member-actions">${actions}</div></div>`;
   }).join('');
   const treasuryRows = KINGDOM_TREASURY_RESOURCES.map(r=>`<div><span>${resourceIcon(r,14)} ${r==='gold'?'Gold':RESOURCE_NAMES[r]||r}</span><b>${fmtNum(treasury[r]||0)}</b></div>`).join('');
   const chat = Array.isArray(k.chat) ? k.chat : [];
@@ -764,7 +764,7 @@ function renderKingdom(){
   const resourceTiles = kdef.resources.map(r=>`<div class="country-resource"><div class="country-resource-icon">${resourceIcon(r,25)}</div><span>${RESOURCE_NAMES[r]||r}</span><b>${fmtNum(st?.resources?.[r]||0)}</b></div>`).join('');
   const readiness = activeWar ? 'WAR ACTIVE' : 'PEACE';
   const readinessClass = activeWar ? 'danger' : 'safe';
-  const avatarHtml=(m,cls)=>m?`<div class="we-gav ${cls||''}"><span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><i>${m.level||1}</i></div>`:'';
+  const avatarHtml=(m,cls)=>m?`<div class="we-gav ${cls||''}" data-action="view-player" data-id="${esc(m.id)}"><span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><i>${m.level||1}</i></div>`:'';
   const byRole=r=>members.filter(m=>m.kingdomRole===r);
   const roleCard=(label,cls,list)=>`<div class="we-role ${cls}"><h4>${label}</h4>${list.length?list.map(m=>`<div class="we-role-p">${avatarHtml(m)}<b>${esc(m.username)}</b></div>`).join(''):'<p>No one nominated yet.</p>'}</div>`;
   const weHome=`
@@ -918,7 +918,7 @@ function renderWar(c, kv){
       const m = w.mine;
       const coolLeft = m ? Math.max(0, m.lastStrikeAt + m.cooldownMs - now) : 0;
       const canStrike = m && coolLeft===0 && m.strikes < m.maxStrikes;
-      const tRow=(t,i)=>{ const mem = kv.members.find(x=>x.id===t.uid); const nm=t.username||(mem?mem.username:'Player'), lvl=t.level||(mem?mem.level:1)||1; return `<div class="we-rank"><i>${i+1}</i><div class="we-gav"><span>${esc(nm.slice(0,2).toUpperCase())}</span><i>${lvl}</i></div><b>${esc(nm)}</b><span class="dm">${fmtNum(t.damage)}</span></div>`; };
+      const tRow=(t,i)=>{ const mem = kv.members.find(x=>x.id===t.uid); const nm=t.username||(mem?mem.username:'Player'), lvl=t.level||(mem?mem.level:1)||1; return `<div class="we-rank" data-action="view-player" data-id="${esc(t.uid)}"><i>${i+1}</i><div class="we-gav"><span>${esc(nm.slice(0,2).toUpperCase())}</span><i>${lvl}</i></div><b>${esc(nm)}</b><span class="dm">${fmtNum(t.damage)}</span></div>`; };
       const sideList=cc=>(lv.top||[]).filter(t=>t.country===cc||(!t.country&&cc===me)).map(tRow).join('')||'<p class="faint">No damage yet.</p>';
       const top = (lv.top&&lv.top.length) ? `<div class="we-two"><div><div class="we-sec">DEFENDERS · ${kingdomFlag(d)}${esc(countryName(d))}</div><div class="we-ranks">${sideList(d)}</div></div><div><div class="we-sec">ATTACKERS · ${kingdomFlag(a)}${esc(countryName(a))}</div><div class="we-ranks">${sideList(a)}</div></div></div>` : '';
       html += `<div class="panel" style="margin-bottom:16px;">
@@ -992,7 +992,7 @@ function renderRankings(c){
       <div class="faint">${r.players} player${r.players===1?'':'s'} &middot; Lv. total ${fmtNum(r.totalLevel)} &middot; Avg rating ${Math.round(r.ratingSum/r.players)}</div>
     </div>`;
   }).join('') || '<p class="faint">No players yet.</p>';
-  const playerRows = rv.topPlayers.map((p,i)=>`<div class="row" style="padding:6px 0;">
+  const playerRows = rv.topPlayers.map((p,i)=>`<div class="row" style="padding:6px 0;" ${p.id?`data-action="view-player" data-id="${esc(p.id)}"`:''}>
       <div><b>#${i+1}</b> &nbsp;${kingdomFlag(p.kingdomId)}${esc(p.username)}</div>
       <div class="faint">Lv. ${p.level||1} &middot; Rating ${Math.round((p.pvp&&p.pvp.rating)||1000)}</div>
     </div>`).join('') || '<p class="faint">No players yet.</p>';
@@ -1031,7 +1031,7 @@ function chatBubbleHtml(m, first, roleOf){
   const txt = `<p>${esc(m.text)}</p>`;
   if(!first) return `<div class="we-msg cont ${mine?'mine':''}"><div class="we-sp"></div><div class="bd">${txt}</div></div>`;
   const ini = esc((m.senderName||'?').slice(0,2).toUpperCase());
-  return `<div class="we-msg ${mine?'mine':''}"><div class="we-av" ${m.senderId&&!mine?`data-action="view-player" data-id="${esc(m.senderId)}" style="cursor:pointer"`:''}><div class="av">${ini}</div><span class="lv">${m.senderLevel||1}</span><span class="fg">${kingdomFlag(m.senderKingdom,16,'margin:0;vertical-align:0')}</span></div>
+  return `<div class="we-msg ${mine?'mine':''}"><div class="we-av" ${m.senderId?`data-action="view-player" data-id="${esc(m.senderId)}"`:''}><div class="av">${ini}</div><span class="lv">${m.senderLevel||1}</span><span class="fg">${kingdomFlag(m.senderKingdom,16,'margin:0;vertical-align:0')}</span></div>
     <div class="bd"><div class="who"><b style="color:${chatNameColor(m.senderName)}">${esc(m.senderName)}</b>${role&&CHAT_ROLE_ICON[role]?`<span class="rl">${icon(CHAT_ROLE_ICON[role])}</span>`:''}<time>${chatClock(m.ts)}</time></div>${txt}</div></div>`;
 }
 function chatListHtml(msgs, roleOf){
@@ -1079,7 +1079,7 @@ function renderChatWidget(){
       body = chatListHtml(msgs, m=>roleMap[m.senderId]) || '<div class="faint" style="padding:12px;">No messages yet. Rally your country!</div>';
     }
   }
-  const strip = ch==='country' && chatMembers() ? `<div class="we-mstrip">${chatMembers().slice(0,8).map(m=>`<div class="we-gav sm ${m.online?'on':''}" title="${esc(m.username)}"><span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><u class="dot ${m.online?'on':''}"></u></div>`).join('')}<button class="we-mmore ${S.chatMembersOpen?'on':''}" data-action="chat-members-toggle">${icon('users')} ${S.chatMembersOpen?'Back to chat':'All citizens'}</button></div>` : '';
+  const strip = ch==='country' && chatMembers() ? `<div class="we-mstrip">${chatMembers().slice(0,8).map(m=>`<div class="we-gav sm ${m.online?'on':''}" title="${esc(m.username)}" data-action="view-player" data-id="${esc(m.id)}"><span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><u class="dot ${m.online?'on':''}"></u></div>`).join('')}<button class="we-mmore ${S.chatMembersOpen?'on':''}" data-action="chat-members-toggle">${icon('users')} ${S.chatMembersOpen?'Back to chat':'All citizens'}</button></div>` : '';
   const title = ch==='country' ? `${kingdomFlag(c.kingdomId,18,'margin:0 8px 0 0;vertical-align:-3px')}${esc(countryName(c.kingdomId))}` : 'World Chat';
   return `
   <div class="chat-widget-panel we-chatpanel">
@@ -1184,7 +1184,7 @@ function renderPvp(){
   if(!S.pvpCandidates) return msg('target','Ready to fight?',`Search for an opponent near your level and rating. Costs ${PVP_ENERGY_COST} Energy.`,'<button class="btn btn-primary" data-action="find-opponents">Find Opponent</button>');
   const cards = S.pvpCandidates.map((o,i)=>{
     const oc = o.class ? CLASSES[o.class] : null, rt=Math.round(o.pvp?.rating||1000), diff=rt-Math.round(c.pvp.rating);
-    return `<div class="we-opp"><div class="we-gav"><span>${esc((o.username||'?').slice(0,2).toUpperCase())}</span><i>${o.level}</i></div>
+    return `<div class="we-opp"><div class="we-gav" ${o.id&&!o.isBot?`data-action="view-player" data-id="${esc(o.id)}"`:''}><span>${esc((o.username||'?').slice(0,2).toUpperCase())}</span><i>${o.level}</i></div>
       <div class="nm"><b>${kingdomFlag(o.kingdomId,16,'margin:0 6px 0 0;vertical-align:-2px')}${esc(o.username)}</b><small>${oc?oc.name+' · ':''}${o.isBot?'Unranked bot':'Rating '+rt}</small></div>
       <span class="we-diff ${diff>=0?'up':'down'}">${diff>=0?'+':''}${diff}</span>
       <button class="btn btn-primary btn-sm" data-action="fight-opponent" data-idx="${i}">Fight</button></div>`;
