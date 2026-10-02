@@ -356,3 +356,8 @@ svg{stroke-width:1.8;}
 .we-card:hover,.we-opp[data-action]:hover,.we-rank[data-action]:hover,.we-rrow[data-action]:hover{border-color:#3b82f6;}
 [data-action="view-player"],[data-action="view-country"]{cursor:pointer;}
 .we-chead small .we-chip{margin-left:8px;font-size:10.5px;}
+
+/* clickable avatars */
+.we-gav[data-action],.member-avatar[data-action],.we-av[data-action],.we-avatar[data-action]{cursor:pointer;transition:transform .12s,box-shadow .12s;}
+.we-gav[data-action]:hover,.member-avatar[data-action]:hover,.we-av[data-action]:hover{transform:scale(1.08);box-shadow:0 0 0 3px rgba(59,130,246,.45);}
+.we-rank[data-action],.we-rrow[data-action],.we-mrow[data-action],.we-opp[data-action],.row[data-action]{cursor:pointer;}
