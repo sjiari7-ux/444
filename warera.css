@@ -404,3 +404,16 @@ svg{stroke-width:1.8;}
 
 .we-range{width:100%;accent-color:#3b82f6;margin-top:6px;}
 .we-range-lim{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);}
+
+/* Page header banners — custom artwork (icons/banner-*.png). The dark fade at the bottom keeps the title readable. */
+.we-banner.home,.we-banner.craft,.we-banner.inventory,.we-banner.market,.we-banner.pve,.we-banner.rankings,.we-banner.war,.we-banner.country,.we-banner.pvp{background-size:cover;background-position:center;background-repeat:no-repeat;}
+.we-banner.home:before,.we-banner.home:after,.we-banner.craft:before,.we-banner.craft:after,.we-banner.inventory:before,.we-banner.inventory:after,.we-banner.rankings:before,.we-banner.rankings:after,.we-banner.country:before,.we-banner.country:after{display:none;}
+.we-banner.home{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-home.png);}
+.we-banner.craft{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-crafting.png);}
+.we-banner.inventory{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-inventory.png);}
+.we-banner.market{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-market.png);}
+.we-banner.pve{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-explorer.png);}
+.we-banner.rankings{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-rankings.png);}
+.we-banner.war{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-battles.png);}
+.we-banner.country{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-country.png);}
+.we-banner.pvp{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-pvp.png);}
