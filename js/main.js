@@ -763,6 +763,13 @@ function migrateCharacter(c){
   if(c.kingdomJoinedAt===undefined) c.kingdomJoinedAt = 0;
   if(c.kingdomCooldownUntil===undefined) c.kingdomCooldownUntil = 0;
   if(c.kingdomId && !KINGDOMS.some(k=>k.id===c.kingdomId)){ c.kingdomId = null; c.kingdomRole = null; c.kingdomJoinedAt = 0; } // old continent kingdoms no longer exist
+  if(typeof c.skillPoints !== 'number' || isNaN(c.skillPoints)) c.skillPoints = 0;
+  // Skill points are only ever earned 1 per level (level-1 total), so anything missing from
+  // (unspent + spent) is points a level-up failed to credit — hand them back.
+  const spentPts = Object.values(c.classSkills||{}).reduce((a,l)=>{ for(let i=0;i<l;i++) a += SKILL_UPGRADE_COST[i]||0; return a; },0)
+                 + Object.values(c.generalSkills||{}).reduce((a,l)=>{ for(let i=0;i<l;i++) a += GENERAL_SKILL_UPGRADE_COST[i]||0; return a; },0);
+  const owedPts = (c.level-1) - spentPts - c.skillPoints;
+  if(owedPts > 0) c.skillPoints += owedPts;
   if(!c.resourceBag) c.resourceBag = {};
   Object.keys({wood:0,stone:0,food:0,coal:0,iron:0,ore:0,herbs:0,leather:0,frost:0,voidessence:0}).forEach(k=>{
     if(typeof c.resourceBag[k] !== 'number') c.resourceBag[k] = 0;
