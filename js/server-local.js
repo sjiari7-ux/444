@@ -423,7 +423,7 @@ function buildCombatant(character, isPlayerSide, label) {
   const eff = effectiveStats(character);
   const cls = CLASSES[character.class];
   return {
-    label: label || character.username, isPlayerSide, class: character.class, level: character.level,
+    label: String(label || character.username || '').replace(/[<>&"'`]/g,''), isPlayerSide, class: character.class, level: character.level,
     resourceName: cls.resource, maxHp: eff.maxHp,
     hp: isPlayerSide ? clamp(character.hpCur, 1, eff.maxHp) : eff.maxHp,
     atk: eff.atk, def: eff.def, spd: eff.spd, crit: eff.crit, eva: eff.eva,
