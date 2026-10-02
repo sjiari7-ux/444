@@ -80,7 +80,8 @@ document.addEventListener('click', async (e)=>{
     if(S.screen==='player-view' && S.viewCountry && S.viewCountryId && S.backCountry){ S.backCountry=false; setScreen('country-view'); return; }
     setScreen(S.backScreen||'world'); return;
   }
-  if(action==='rank-tab'){ S.rankTab=el.dataset.tab; render(); return; }
+  if(action==='rank-tab'){ S.rankTab=el.dataset.tab; S.rankSort=null; render(); return; }
+  if(action==='rank-sort'){ S.rankSort=el.dataset.sort; render(); return; }
   if(action==='battle-tab'){ S.battleTab=el.dataset.tab; render(); return; }
   if(action==='battle-filter'){ S.battleFilter=el.dataset.f; render(); return; }
   if(action==='view-zone'){ S.zoneDetailId = el.dataset.zone; setScreen('zone-detail'); return; }
@@ -106,11 +107,6 @@ document.addEventListener('click', async (e)=>{
   if(action==='leave-kingdom'){ await leaveKingdom(); return; }
   if(action==='claim-leadership'){ await claimLeadership(); return; }
   if(action==='donate-kingdom'){ await donateToKingdom(el.dataset.resource, Number(el.dataset.amount)); return; }
-  if(action==='kingdom-chat-send'){
-    const input = document.getElementById('kingdom-chat-input');
-    await sendKingdomChat(input ? input.value : '');
-    return;
-  }
   if(action==='kingdom-member'){ await kingdomManageMember(el.dataset.id, el.dataset.op); return; }
   if(action==='chat-widget-toggle'){
     S.chatWidgetOpen = !S.chatWidgetOpen;
@@ -138,8 +134,6 @@ document.addEventListener('click', async (e)=>{
 
   if(action==='kingdom-tab'){
     S.kingdomTab = el.dataset.tab;
-    const rv = S.rankingsView;
-    if(S.kingdomTab==='rankings' && (!rv || (!rv.loading && Date.now()-(rv.at||0) > 60000))) loadRankingsView(); // cached for a minute so tab-flipping doesn't re-read every player
     if(S.kingdomTab==='economy' || S.kingdomTab==='war'){ loadCountryState(); return; }
     render(); return;
   }
