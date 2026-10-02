@@ -250,7 +250,7 @@ function renderWorldWarCard(w){
     <div class="we-b-top"><span>${w.status==='preparing'?'PREPARING':'ACTIVE'}</span><span>${round?`ROUND ${round.round}/${w.maxRounds||3}`:'WAR'}</span></div>
     <div class="we-b-mid"><div class="we-b-side">${kingdomFlag(a,34,'margin:0')}<small>${esc(countryName(a))}</small></div><b>${sa}</b><em>${icon('sword','style="width:16px;height:16px"')}</em><b>${sd}</b><div class="we-b-side">${kingdomFlag(d,34,'margin:0')}<small>${esc(countryName(d))}</small></div></div>
     <div class="we-b-time">${round?.endsAt?countdown(round.endsAt):'Awaiting round'}</div>
-    <div class="we-dmgbar"><span class="l">${fmtNum(da)}</span><div><i style="width:${pa}%"></i></div><span class="r">${fmtNum(dd)}</span></div>
+    <div class="we-dmgbar"><span class="l">${fmtDmg(da)}</span><div><i style="width:${pa}%"></i></div><span class="r">${fmtDmg(dd)}</span></div>
   </button>`;
 }
 function warScore(w){
@@ -281,7 +281,7 @@ function renderCountryView(){
   const hero=`<div class="we-chero"><div class="we-banner"></div><div class="we-chead"><div class="we-flag">${kingdomFlag(id,64,'margin:0')}</div><div><small>⚑ Country ${viewOnlyChip()}</small><h2>${esc(kdef.name)}</h2><div class="we-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Online</small><b>${online}</b></span><span><small>Treasury</small><b>${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span></div></div></div></div>`;
   let body='';
   if(tab==='home'){
-    body=`<div class="we-sec">RANKINGS</div><div class="we-tiles">${weTile('Citizens',members.length,'green')}${weTile('Weekly damages',fmtNum(wdmg))}${weTile('Treasury',fmtNum(treasury.gold||0),'gold')}${weTile('National tax',kdef.tax+'%')}</div>
+    body=`<div class="we-sec">RANKINGS</div><div class="we-tiles">${weTile('Citizens',members.length,'green')}${weTile('Weekly damages',fmtDmg(wdmg))}${weTile('Treasury',fmtNum(treasury.gold||0),'gold')}${weTile('National tax',kdef.tax+'%')}</div>
       <div class="we-sec">WARS</div>${wars.length?`<div class="we-battles">${wars.map(renderWorldWarCard).join('')}</div>`:'<p class="faint">At peace. No ongoing wars.</p>'}
       <div class="we-sec">GOVERNMENT</div><div class="we-gov-strip">${['Leader','Co-Leader','Officer'].map(r=>byRole(r).slice(0,4).map(m=>`<div data-action="view-player" data-id="${esc(m.id)}" style="cursor:pointer">${av(m,r==='Leader'?'gold':r==='Co-Leader'?'blue':'red')}</div>`).join('')).join('')||'<p class="faint">No government yet.</p>'}</div>`;
   } else if(tab==='government'){
@@ -304,7 +304,7 @@ function renderPlayerView(){
   const country=kdef?`<div class="we-sec">COUNTRY</div><div class="we-opp" data-action="view-country" data-id="${esc(p.kingdomId)}" style="cursor:pointer"><div class="we-cflag">${kingdomFlag(p.kingdomId,30,'margin:0')}</div><div class="nm"><b>${esc(kdef.name)}</b><small>${esc(p.kingdomRole||'Recruit')}</small></div><span class="faint">View &rsaquo;</span></div>`:'';
   return back+hero+`
     <div class="we-sec">RANKINGS</div>
-    <div class="we-tiles">${weTile('Level',p.level||1)}${weTile('Class',CLASSES[p.class]?CLASSES[p.class].name:'—')}${weTile('PvP rating',Math.round(pv.rating||1000),'gold')}${weTile('Wins / Losses',(pv.wins||0)+' / '+(pv.losses||0),'green')}${weTile('Weekly damages',fmtNum(wd))}${weTile('Total damages',fmtNum(p.totalDmg||0))}</div>
+    <div class="we-tiles">${weTile('Level',p.level||1)}${weTile('Class',CLASSES[p.class]?CLASSES[p.class].name:'—')}${weTile('PvP rating',Math.round(pv.rating||1000),'gold')}${weTile('Wins / Losses',(pv.wins||0)+' / '+(pv.losses||0),'green')}${weTile('Weekly damages',fmtDmg(wd))}${weTile('Total damages',fmtDmg(p.totalDmg||0))}</div>
     ${country}`;
 }
 function renderWarDetail(){
@@ -318,13 +318,13 @@ function renderWarDetail(){
   const finished=w.status==='finished'||w.endedAt;
   if(S.warFighters===undefined || !S.warFighters[w.id]) loadWarFighters(w.id);
   const wf=(S.warFighters&&S.warFighters[w.id])||{list:[],loading:true};
-  const col=cid=>wf.list.filter(f=>f.countryId===cid).slice(0,8).map((f,i)=>`<div class="we-rank" data-action="view-player" data-id="${esc(f.uid)}" style="cursor:pointer"><i>${i+1}</i><div class="we-gav"><span>${esc((f.username||'?').slice(0,2).toUpperCase())}</span><i>${f.level||1}</i></div><b>${esc(f.username)}</b><span class="dm">${fmtNum(f.dmg)}</span></div>`).join('')||'<p class="faint" style="padding:6px 2px">'+(wf.loading?'Loading…':'No fighters yet')+'</p>';
+  const col=cid=>wf.list.filter(f=>f.countryId===cid).slice(0,8).map((f,i)=>`<div class="we-rank" data-action="view-player" data-id="${esc(f.uid)}" style="cursor:pointer"><i>${i+1}</i><div class="we-gav"><span>${esc((f.username||'?').slice(0,2).toUpperCase())}</span><i>${f.level||1}</i></div><b>${esc(f.username)}</b><span class="dm">${fmtDmg(f.dmg)}</span></div>`).join('')||'<p class="faint" style="padding:6px 2px">'+(wf.loading?'Loading…':'No fighters yet')+'</p>';
   const fighters=`<div class="we-sec">TOP FIGHTERS</div><div class="we-fcols"><div><div class="we-fh">${kingdomFlag(a,16,'margin:0 6px 0 0;vertical-align:-2px')}${esc(countryName(a))}</div><div class="we-ranks">${col(a)}</div></div><div><div class="we-fh">${kingdomFlag(d,16,'margin:0 6px 0 0;vertical-align:-2px')}${esc(countryName(d))}</div><div class="we-ranks">${col(d)}</div></div></div>`;
   const rrows=rs.map(r=>{
     const dm=r.damage||{}, da=Number(dm[a]||0), dd=Number(dm[d]||0), t=da+dd, pa=t?Math.round(da/t*100):50;
     const st=r.winner?`Won by ${esc(countryName(r.winner))}`:(round&&round.round===r.round?'In progress':'Pending');
     return `<div class="we-tile" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b style="font-size:14px">Round ${r.round}</b><small style="color:var(--text-dim)">${st}</small></div>
-      <div class="we-dmgbar" style="margin-top:8px"><span class="l">${fmtNum(da)}</span><div><i style="width:${pa}%"></i></div><span class="r">${fmtNum(dd)}</span></div></div>`;
+      <div class="we-dmgbar" style="margin-top:8px"><span class="l">${fmtDmg(da)}</span><div><i style="width:${pa}%"></i></div><span class="r">${fmtDmg(dd)}</span></div></div>`;
   }).join('')||'<p class="faint">No rounds started yet.</p>';
   return back+`
   <div class="we-wd">
@@ -352,8 +352,11 @@ function renderWorld(){
   const tabRow=`<div class="country-module-nav we-ptabs"><button class="country-module ${bt==='active'?'active':''}" data-action="battle-tab" data-tab="active">${icon('sword')}<span>Active</span>${active.length?`<i class="we-dot">${active.length}</i>`:''}</button><button class="country-module ${bt==='history'?'active':''}" data-action="battle-tab" data-tab="history">${icon('chart')}<span>History</span></button></div>`;
   const hist=`<div class="panel world-history">${recent.slice(0,15).map(w=>`<div class="history-war"><span class="history-result ${w.winnerCountryId===w.attackerCountryId?'a':'d'}">${w.winnerCountryId===w.attackerCountryId?'VICTORY':'RESULT'}</span><b>${kingdomFlag(w.attackerCountryId)}${esc(countryName(w.attackerCountryId))}</b><span>vs</span><b>${kingdomFlag(w.defenderCountryId)}${esc(countryName(w.defenderCountryId))}</b><strong>${w.finalScore?.a ?? warScore(w).a} — ${w.finalScore?.d ?? warScore(w).d}</strong><time>${fmtRelative(w.endedAt)}</time></div>`).join('')||'<div class="empty-mini">No finished wars yet.</div>'}</div>`;
   const activeView=`<div class="we-sec">ONGOING BATTLES</div>${active.length?'':'<p class="faint">Nothing in play. Wars declared by countries will show up here.</p>'}<div class="we-filters">${chips}</div>${section('YOUR COUNTRY',mine)}${section('OTHER WARS',others)}`;
-  const countries=`<div class="we-sec">COUNTRIES</div><div class="we-countries">${KINGDOMS.slice(0,40).map(k=>{const atWar=active.some(w=>w.attackerCountryId===k.id||w.defenderCountryId===k.id);return `<button class="we-country ${atWar?'at-war':''}" data-action="view-country" data-id="${k.id}"><span class="fl">${kingdomFlag(k.id)}</span><span><b>${esc(k.name)}</b><small>${atWar?'AT WAR':'Peace'} · tax ${k.tax}%</small></span></button>`}).join('')}</div>`;
-  return `<div class="we-chero"><div class="we-banner war"></div><div class="we-chead"><div><h2>Battles</h2></div></div></div>${tabRow}${bt==='history'?hist:activeView}${countries}`;
+  const myK=S.char&&S.char.kingdomId, warring=k=>active.some(w=>w.attackerCountryId===k.id||w.defenderCountryId===k.id);
+  const ordered=KINGDOMS.slice().sort((x,y)=>((y.id===myK)-(x.id===myK))||(warring(y)-warring(x))||x.name.localeCompare(y.name));
+  const countries=`<div class="we-sec">COUNTRIES — ${KINGDOMS.length}</div><input type="text" id="country-search" class="we-search" placeholder="Search a country…" autocomplete="off"><div class="we-countries" id="we-countries">${ordered.map(k=>{const atWar=warring(k);return `<button class="we-country ${atWar?'at-war':''} ${k.id===myK?'mine':''}" data-name="${esc(k.name.toLowerCase())}" data-action="view-country" data-id="${k.id}"><span class="fl">${kingdomFlag(k.id)}</span><span><b>${esc(k.name)}${k.id===myK?' <em>(you)</em>':''}</b><small>${atWar?'AT WAR':'Peace'} · tax ${k.tax}%</small></span></button>`}).join('')}</div><p class="faint" id="country-none" style="display:none">No country found.</p>`;
+  const shortcuts=`<div class="we-shortcuts"><button class="btn btn-sm" data-action="nav" data-screen="rankings">${icon('chart')} Rankings</button>${myK?`<button class="btn btn-sm" data-action="view-country" data-id="${myK}">${icon('castle')} My country</button>`:''}</div>`;
+  return `<div class="we-chero"><div class="we-banner war"></div><div class="we-chead"><div><h2>Battles</h2></div></div></div>${shortcuts}${tabRow}${bt==='history'?hist:activeView}${countries}`;
 }
 
 /* ---------------- Adventure ---------------- */
@@ -718,7 +721,7 @@ function renderKingdom(){
       <article class="kingdom-discover-card">
         <div class="kingdom-discover-top">
           <div class="kingdom-crest">${flagIcon(k.flag,42)}</div>
-          <div class="kingdom-discover-title"><span class="eyebrow">KINGDOM</span><h3>${k.name}</h3><p>${k.memberCount} citizens · ${k.tax}% tax</p></div>
+          <div class="kingdom-discover-title"><span class="eyebrow">KINGDOM</span><h3>${k.name}</h3><p>${plural(k.memberCount,'citizen')} · ${k.tax}% tax</p></div>
         </div>
         <div class="kingdom-resource-row">${k.resources.map(r=>`<span>${resourceIcon(r,16)} ${RESOURCE_NAMES[r]||titleCase(r)}</span>`).join('')}</div>
         <div class="kingdom-discover-foot"><span>${icon('coins')} Treasury <b>${fmtNum(k.treasury.gold||0)}</b></span><button class="btn btn-primary btn-sm" data-action="join-kingdom" data-kingdom="${k.id}">Join Kingdom</button></div>
@@ -914,12 +917,12 @@ function renderWar(c, kv){
       const m = w.mine;
       const coolLeft = m ? Math.max(0, m.lastStrikeAt + m.cooldownMs - now) : 0;
       const canStrike = m && coolLeft===0 && m.strikes < m.maxStrikes;
-      const tRow=(t,i)=>{ const mem = kv.members.find(x=>x.id===t.uid); const nm=t.username||(mem?mem.username:'Player'), lvl=t.level||(mem?mem.level:1)||1; return `<div class="we-rank" data-action="view-player" data-id="${esc(t.uid)}"><i>${i+1}</i><div class="we-gav"><span>${esc(nm.slice(0,2).toUpperCase())}</span><i>${lvl}</i></div><b>${esc(nm)}</b><span class="dm">${fmtNum(t.damage)}</span></div>`; };
+      const tRow=(t,i)=>{ const mem = kv.members.find(x=>x.id===t.uid); const nm=t.username||(mem?mem.username:'Player'), lvl=t.level||(mem?mem.level:1)||1; return `<div class="we-rank" data-action="view-player" data-id="${esc(t.uid)}"><i>${i+1}</i><div class="we-gav"><span>${esc(nm.slice(0,2).toUpperCase())}</span><i>${lvl}</i></div><b>${esc(nm)}</b><span class="dm">${fmtDmg(t.damage)}</span></div>`; };
       const sideList=cc=>(lv.top||[]).filter(t=>t.country===cc||(!t.country&&cc===me)).map(tRow).join('')||'<p class="faint">No damage yet.</p>';
       const top = (lv.top&&lv.top.length) ? `<div class="we-two"><div><div class="we-sec">DEFENDERS · ${kingdomFlag(d)}${esc(countryName(d))}</div><div class="we-ranks">${sideList(d)}</div></div><div><div class="we-sec">ATTACKERS · ${kingdomFlag(a)}${esc(countryName(a))}</div><div class="we-ranks">${sideList(a)}</div></div></div>` : '';
       html += `<div class="panel" style="margin-bottom:16px;">
         <div class="panel-title">${lv.round===3?'ROUND 3 &mdash; FINAL ROUND':'CURRENT WAR'}</div>${head}
-        <div class="we-dmgbar big" style="margin-top:12px"><span class="l">${kingdomFlag(a)}${fmtNum(lv.damage[a]||0)}</span><div><i style="width:${((lv.damage[a]||0)+(lv.damage[d]||0))?Math.round((lv.damage[a]||0)/((lv.damage[a]||0)+(lv.damage[d]||0))*100):50}%"></i></div><span class="r">${fmtNum(lv.damage[d]||0)}${kingdomFlag(d)}</span></div>
+        <div class="we-dmgbar big" style="margin-top:12px"><span class="l">${kingdomFlag(a)}${fmtDmg(lv.damage[a]||0)}</span><div><i style="width:${((lv.damage[a]||0)+(lv.damage[d]||0))?Math.round((lv.damage[a]||0)/((lv.damage[a]||0)+(lv.damage[d]||0))*100):50}%"></i></div><span class="r">${fmtDmg(lv.damage[d]||0)}${kingdomFlag(d)}</span></div>
         <div class="stat-list" style="margin-top:10px;">
           <div><span>Round</span><b>${lv.round} / 3</b></div>
           <div><span>Round wins</span><b>${countryName(a)} ${w.finalScore[a]||0} &mdash; ${w.finalScore[d]||0} ${countryName(d)}</b></div>
@@ -966,7 +969,6 @@ function renderGlobalRankings(){
   const sort = modes.some(m=>m[0]===S.rankSort) ? S.rankSort : 'level';
   const chips=`<div class="we-filters">${modes.map(m=>`<button class="we-fchip ${sort===m[0]?'on':''}" data-action="rank-sort" data-sort="${m[0]}">${m[1]}</button>`).join('')}</div>`;
   const medal=['gold','silver','bronze'];
-  const resets=Math.max(0,weekResetsAt()-srvNow());
   let rows='', myRank='—', myCoRank='—';
   const pKey = {level:p=>p.level, rating:p=>p.rating, dmg:p=>p.dmg}[sort];
   const cKey = {level:x=>x.totalLevel, rating:x=>x.avgRating, dmg:x=>x.dmg}[sort];
@@ -974,15 +976,15 @@ function renderGlobalRankings(){
   const co=(rv.countries||[]).filter(x=>sort!=='dmg'||x.dmg>0).slice().sort((a,b)=>cKey(b)-cKey(a)||b.totalLevel-a.totalLevel);
   const pIdx=pl.findIndex(p=>p.id===MY_ID); if(pIdx>=0) myRank='#'+(pIdx+1);
   const cIdx=co.findIndex(x=>x.id===my.kingdomId); if(cIdx>=0) myCoRank='#'+(cIdx+1);
-  const metricP=p=> sort==='dmg' ? `${icon('sword','style="width:13px;height:13px"')} ${fmtNum(p.dmg)}` : sort==='rating' ? `${p.rating}` : `Lv ${p.level}`;
+  const metricP=p=> sort==='dmg' ? `${icon('sword','style="width:13px;height:13px"')} ${fmtDmg(p.dmg)}` : sort==='rating' ? `${p.rating}` : `Lv ${p.level}`;
   const subP=p=> sort==='level' ? `Rating ${p.rating}` : sort==='rating' ? `Lv ${p.level}` : `Lv ${p.level} · Rating ${p.rating}`;
-  const metricC=x=> sort==='dmg' ? `${icon('sword','style="width:13px;height:13px"')} ${fmtNum(x.dmg)}` : sort==='rating' ? `${x.avgRating}` : `Lv ${fmtNum(x.totalLevel)}`;
+  const metricC=x=> sort==='dmg' ? `${icon('sword','style="width:13px;height:13px"')} ${fmtDmg(x.dmg)}` : sort==='rating' ? `${x.avgRating}` : `Lv ${fmtNum(x.totalLevel)}`;
   if(tab==='players'){
     rows=pl.slice(0,25).map((p,i)=>`<div class="we-rrow ${medal[i]||''} ${p.id===MY_ID?'me':''}" data-action="view-player" data-id="${esc(p.id)}"><span class="rk">${i+1}</span><div class="we-gav"><span>${esc(p.username.slice(0,2).toUpperCase())}</span><i>${p.level}</i></div><div class="nm"><b>${esc(p.username)}</b><small>${kingdomFlag(p.kingdomId,14,'margin:0 4px 0 0;vertical-align:-2px')}${esc(countryName(p.kingdomId)||'No country')} · ${subP(p)}</small></div><span class="dm">${metricP(p)}</span></div>`).join('');
   } else {
-    rows=co.map((x,i)=>`<div class="we-rrow ${medal[i]||''} ${x.id===my.kingdomId?'me':''}" data-action="view-country" data-id="${esc(x.id)}"><span class="rk">${i+1}</span><div class="we-cflag">${kingdomFlag(x.id,30,'margin:0')}</div><div class="nm"><b>${esc(countryName(x.id))}</b><small>${x.players} player${x.players===1?'':'s'} · Avg rating ${x.avgRating}</small></div><span class="dm">${metricC(x)}</span></div>`).join('');
+    rows=co.map((x,i)=>`<div class="we-rrow ${medal[i]||''} ${x.id===my.kingdomId?'me':''}" data-action="view-country" data-id="${esc(x.id)}"><span class="rk">${i+1}</span><div class="we-cflag">${kingdomFlag(x.id,30,'margin:0')}</div><div class="nm"><b>${esc(countryName(x.id))}</b><small>${plural(x.players,'player')} · Avg rating ${x.avgRating}</small></div><span class="dm">${metricC(x)}</span></div>`).join('');
   }
-  const tiles=`<div class="we-tiles">${sort==='dmg'?`<div class="we-tile gold"><small>Weekly damages reset in</small><b>${fmtMs(resets)}</b></div>`:''}<div class="we-tile"><small>Your player rank</small><b>${myRank}</b></div><div class="we-tile"><small>Your country rank</small><b>${myCoRank}</b></div></div>`;
+  const tiles=`<div class="we-tiles">${sort==='dmg'?`<div class="we-tile gold"><small>Weekly damages reset in</small><b>${countdown(weekResetsAt())}</b></div>`:''}<div class="we-tile"><small>Your player rank</small><b>${myRank}</b></div><div class="we-tile"><small>Your country rank</small><b>${myCoRank}</b></div></div>`;
   const empty = sort==='dmg' ? 'No damage dealt this week yet. Strike in a war to appear here.' : 'No players yet.';
   return head+chips+tiles+`<div class="we-sec">${tab==='players'?'TOP PLAYERS':'TOP COUNTRIES'}</div>${rows||`<p class="faint">${empty}</p>`}`;
 }
@@ -1050,7 +1052,7 @@ function renderChatWidget(){
     if(!kv && !_kvChatFetch){ _kvChatFetch=true; loadKingdomView().finally(()=>{ _kvChatFetch=false; }); }
     const mem=chatMembers();
     const roleMap={}, lvlMap={}; (kv&&kv.members||[]).forEach(m=>{ roleMap[m.id]=m.kingdomRole; lvlMap[m.id]=m.level; });
-    if(mem) sub=`${mem.length} citizens · ${mem.filter(m=>m.online).length} online`; else sub='Loading…';
+    if(mem) sub=`${plural(mem.length,'citizen')} · ${mem.filter(m=>m.online).length} online`; else sub='Loading…';
     if(S.chatMembersOpen) body=chatMembersPanel();
     else if(!kv || kv.loading) body=`<div class="faint" style="padding:12px;">Loading country chat...</div>`;
     else if(kv.mode!=='mine') body=`<div class="faint" style="padding:12px;">Country chat unavailable.</div>`;
@@ -1231,7 +1233,7 @@ function renderCombat(){
     <div class="vs">VS</div>
     ${fighterBlock(foe,'foe')}
   </div>
-  <div class="log" id="combat-log">${cb.log.slice().reverse().map(l=>`<div class="log-line ${l.cls}">${l.text}</div>`).join('')}</div>
+  <div class="log" id="combat-log">${cb.log.slice().reverse().map(l=>`<div class="log-line ${l.cls}">${esc(l.text)}</div>`).join('')}</div>
   ${actionsHtml}
   `;
 }
@@ -1300,6 +1302,16 @@ function render(){
   ${S.toast ? `<div class="toast">${esc(S.toast)}</div>` : ''}
   `;
   if(S.char){ startChatListener(); startKingdomChatListener(); }
+  if(S.screen==='world'){
+    const cs=document.getElementById('country-search');
+    if(cs){
+      cs.value = S.countrySearch || '';
+      const apply=()=>{ const q=cs.value.trim().toLowerCase(); S.countrySearch=cs.value; let n=0;
+        document.querySelectorAll('#we-countries .we-country').forEach(b=>{ const ok=!q||b.dataset.name.includes(q); b.style.display=ok?'':'none'; if(ok) n++; });
+        const none=document.getElementById('country-none'); if(none) none.style.display=n?'none':''; };
+      cs.addEventListener('input', apply); apply();
+    }
+  }
   if(S.chatWidgetOpen){
     const input = document.getElementById('world-chat-input');
     if(input){
