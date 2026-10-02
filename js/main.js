@@ -51,7 +51,7 @@ document.addEventListener('click', async (e)=>{
   if(action==='nav'){
     setScreen(el.dataset.screen);
     S.pvpCandidates = null;
-    if(el.dataset.screen==='kingdom'){ loadKingdomView(); }
+    if(el.dataset.screen==='kingdom'){ loadKingdomView(); loadCountryState(true); }
     if(el.dataset.screen==='market'){ loadMarketListings(); checkMarketSales(); }
     if(el.dataset.screen==='world'){ loadWorldWars(true); }
     if(el.dataset.screen==='rankings'){ loadRankingsView(); }
@@ -135,6 +135,7 @@ document.addEventListener('click', async (e)=>{
   if(action==='kingdom-tab'){
     S.kingdomTab = el.dataset.tab;
     if(S.kingdomTab==='economy' || S.kingdomTab==='war'){ loadCountryState(); return; }
+    if(S.kingdomTab==='overview'){ loadCountryState(true); }
     render(); return;
   }
   if(action==='country-refresh'){ await loadCountryState(); return; }
@@ -142,10 +143,11 @@ document.addEventListener('click', async (e)=>{
   if(action==='reward-confirm'){
     if(!S._rewardPick) return;
     try{
-      await callFn('chooseWarReward', {warId: el.dataset.war, resourceId: S._rewardPick});
-      showToast('War Tax set. It lasts 14 days.');
+      const rEl=document.getElementById('reward-rate'), rate=rEl?Number(rEl.value):(S._rewardRate||undefined);
+      await callFn('chooseWarReward', {warId: el.dataset.war, resourceId: S._rewardPick, rate});
+      showToast('War Tax set at '+(rate||'default ')+'%. It lasts 14 days.');
     }catch(e){ showToast(warErrorMsg(e)); }
-    S._rewardPick = null;
+    S._rewardPick = null; S._rewardRate = null;
     await loadCountryState(true); return;
   }
   if(action==='declare-war'){
@@ -249,7 +251,7 @@ document.addEventListener('click', async (e)=>{
     return;
   }
   if(action==='update-username'){
-    const uname = (S._settingsUsername||'').trim().slice(0,18);
+    const uname = (S._settingsUsername||'').replace(/[<>&"'`\\]/g,'').trim().slice(0,18);
     if(uname.length < 3){ showToast('Username must be at least 3 characters.'); return; }
     if(uname === S.char.username){ showToast('That\'s already your username.'); return; }
     if(await isUsernameTaken(uname)){ showToast('That username is already taken — pick another.'); return; }
@@ -819,6 +821,7 @@ function warErrorMsg(e){
     case 'REWARD_EXPIRED': return 'The time to choose a resource has run out.';
     case 'REWARD_NOT_AVAILABLE': return 'There is no reward to choose right now.';
     case 'INVALID_RESOURCE': return 'That resource cannot be taxed.';
+    case 'INVALID_RATE': return `The tax rate must be a whole number between ${d.min}% and ${d.max}%.`;
     default: return 'That action failed — please try again.';
   }
 }
@@ -836,7 +839,7 @@ setInterval(()=>{
     if(left<=0) expired = true;
   });
   const cs = S.countryState;
-  const onTab = S.screen==='kingdom' && (S.kingdomTab==='war' || S.kingdomTab==='economy');
+  const onTab = S.screen==='kingdom' && (S.kingdomTab==='war' || S.kingdomTab==='economy' || S.kingdomTab==='overview' || !S.kingdomTab);
   if(!onTab || !cs || cs.status==='loading') return;
   const waiting = cs.data && cs.data.activeWar;
   const t = Date.now();
