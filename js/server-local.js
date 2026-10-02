@@ -555,7 +555,9 @@ const WAR_CONFIG = {
   maxRounds: 3,
   cooldownMs: 24 * 60 * 60 * 1000, // post-war protection for BOTH countries
   minMembers: 1,                   // raise this once there are real players
-  warTaxRate: 10,                  // fixed % — the Leader never picks it
+  warTaxRate: 10,                  // default %; the winner's Leader may pick any whole % between Min and Max
+  warTaxRateMin: 1,
+  warTaxRateMax: 25,
   warTaxDays: 14,
   rewardClaimMs: 3 * 24 * 60 * 60 * 1000, // winner's Leader must choose within this
   strikeEnergyCost: 10,
@@ -828,7 +830,7 @@ const kingdomRef = (cid) => db().doc("rc_kingdoms/" + cid);
 /* ---------- config (defaults + optional rc_config/war overrides) ---------- */
 const CFG_LIMITS = {
   prepMs: [0, 7 * W.DAY_MS], roundMs: [1000, 7 * W.DAY_MS], cooldownMs: [0, 30 * W.DAY_MS],
-  minMembers: [1, 500], warTaxRate: [1, 25], warTaxDays: [1, 60], rewardClaimMs: [60 * 1000, 30 * W.DAY_MS],
+  minMembers: [1, 500], warTaxRate: [1, 25], warTaxRateMin: [1, 50], warTaxRateMax: [1, 50], warTaxDays: [1, 60], rewardClaimMs: [60 * 1000, 30 * W.DAY_MS],
   strikeEnergyCost: [0, 100], strikeCooldownMs: [0, 600000], maxStrikesPerPlayerPerRound: [1, 1000],
   maxHitsPerTarget: [1, 50],
 };
@@ -850,7 +852,7 @@ async function loadConfig() {
 function cfgSnapshot(cfg) {
   return {
     roundMs: cfg.roundMs, roundsToWin: cfg.roundsToWin, maxRounds: cfg.maxRounds,
-    warTaxRate: cfg.warTaxRate, warTaxDays: cfg.warTaxDays, cooldownMs: cfg.cooldownMs,
+    warTaxRate: cfg.warTaxRate, warTaxRateMin: cfg.warTaxRateMin, warTaxRateMax: cfg.warTaxRateMax, warTaxDays: cfg.warTaxDays, cooldownMs: cfg.cooldownMs,
     rewardClaimMs: cfg.rewardClaimMs, strikeEnergyCost: cfg.strikeEnergyCost,
     strikeCooldownMs: cfg.strikeCooldownMs, maxStrikesPerPlayerPerRound: cfg.maxStrikesPerPlayerPerRound,
     maxHitsPerTarget: cfg.maxHitsPerTarget, duelMaxRounds: cfg.duelMaxRounds,
@@ -950,7 +952,7 @@ async function advanceWar(warId) {
       w.reward = {
         status: "awaiting_choice",
         winnerCountryId: w.winnerCountryId, loserCountryId: w.loserCountryId,
-        options: loserDef ? loserDef.resources.slice() : [],
+        options: allTaxableResources(), loserResources: loserDef ? loserDef.resources.slice() : [],
         claimExpiresAt: w.endedAt + w.cfg.rewardClaimMs,
         resourceId: null, rate: w.cfg.warTaxRate, startedAt: null, expiresAt: null,
       };
@@ -1083,6 +1085,14 @@ async function warStrike(uid) {
    defeated country's natural resources. Rate and duration are fixed by the
    war's own rules, never by the caller.
    ============================================================ */
+// Every resource a citizen can gather (zones) or a country specialises in. The winner's Leader may tax ANY of them,
+// not only the loser's own specialities (citizens gather zone resources whatever their country is).
+function allTaxableResources() {
+  const set = new Set();
+  G.ZONES.forEach((z) => (z.resources || []).forEach((r) => set.add(r)));
+  Object.values(COUNTRY_BY_ID).forEach((c) => (c.resources || []).forEach((r) => set.add(r)));
+  return Array.from(set).sort();
+}
 async function chooseWarReward(uid, data) {
   const warId = data && data.warId, resourceId = data && data.resourceId;
   if (!warId || !resourceId) fail("invalid-argument", "INVALID_ACTION");
@@ -1097,10 +1107,13 @@ async function chooseWarReward(uid, data) {
     const wid = war.winnerCountryId, lid = war.loserCountryId;
     const [pSnap, kSnap, winner, loser] = await Promise.all([tx.get(playerRef(uid)), tx.get(kingdomRef(wid)), E.readCountry(tx, wid), E.readCountry(tx, lid)]);
     if (!pSnap.exists || pSnap.data().kingdomId !== wid || !kSnap.exists || kSnap.data().leaderId !== uid) fail("permission-denied", "NOT_LEADER");
-    if (!war.reward.options.includes(resourceId)) fail("invalid-argument", "INVALID_RESOURCE", { options: war.reward.options });
+    if (!allTaxableResources().includes(resourceId) && !war.reward.options.includes(resourceId)) fail("invalid-argument", "INVALID_RESOURCE", { options: allTaxableResources() });
     if (W.isWarTaxActive(loser.warTaxOut, t)) fail("failed-precondition", "TARGET_PROTECTED");
 
-    const rate = war.cfg.warTaxRate, days = war.cfg.warTaxDays;
+    // The Leader picks the tax rate, but only inside the limits the war was declared under.
+    const lo = war.cfg.warTaxRateMin != null ? war.cfg.warTaxRateMin : 1, hi = war.cfg.warTaxRateMax != null ? war.cfg.warTaxRateMax : 25;
+    const rate = data.rate == null ? war.cfg.warTaxRate : Number(data.rate), days = war.cfg.warTaxDays;
+    if (!Number.isInteger(rate) || rate < lo || rate > hi) fail("invalid-argument", "INVALID_RATE", { min: lo, max: hi });
     const expiresAt = t + days * W.DAY_MS;
     const tax = { warId, winnerCountryId: wid, loserCountryId: lid, resourceId, rate, startedAt: t, expiresAt };
     const inList = winner.warTaxIn.filter((x) => W.isWarTaxActive(x, t)).concat([tax]);
@@ -1135,6 +1148,7 @@ function summarizeWar(war, cid, t) {
     finalScore: war.finalScore, winnerCountryId: war.winnerCountryId, loserCountryId: war.loserCountryId,
     rounds: (war.rounds || []).map((x) => ({ round: x.round, winner: x.winner, damage: x.damage, startsAt: x.startsAt, endsAt: x.endsAt, status: x.status })),
     selectedResource: war.selectedResource, warTaxRate: war.warTaxRate, warTaxDurationDays: war.warTaxDurationDays,
+    rateMin: war.cfg && war.cfg.warTaxRateMin != null ? war.cfg.warTaxRateMin : 1, rateMax: war.cfg && war.cfg.warTaxRateMax != null ? war.cfg.warTaxRateMax : 25,
     startedAt: war.startedAt, endedAt: war.endedAt, startsAt: war.startsAt,
     result: war.status === "finished" ? (war.winnerCountryId === cid ? "victory" : "defeat") : null,
     rewardState,
@@ -1208,7 +1222,7 @@ async function getCountryState(uid) {
     cooldownUntil: country.warCooldownUntil,
     warTaxOut: publicTax(country.warTaxOut, t),
     warTaxIn: country.warTaxIn.filter((x) => W.isWarTaxActive(x, t)).map((x) => Object.assign(publicTax(x, t), { collected: country.warTaxCollected[x.warId] || 0 })),
-    pendingReward: pending ? { warId: pending.id, loserCountryId: pending.loserCountryId, options: (COUNTRY_BY_ID[pending.loserCountryId] || { resources: [] }).resources, claimExpiresAt: pending.claimExpiresAt } : null,
+    pendingReward: pending ? { warId: pending.id, loserCountryId: pending.loserCountryId, options: allTaxableResources(), loserResources: (COUNTRY_BY_ID[pending.loserCountryId] || { resources: [] }).resources, rateMin: pending.rateMin != null ? pending.rateMin : 1, rateMax: pending.rateMax != null ? pending.rateMax : 25, defaultRate: pending.warTaxRate || 10, claimExpiresAt: pending.claimExpiresAt } : null,
     activeWar, history,
   };
 }
