@@ -758,7 +758,7 @@ function renderKingdom(){
   const activeTab = tabs.includes(S.kingdomTab) ? S.kingdomTab : 'overview';
   const tabRow = `<div class="country-module-nav">${tabs.map(t=>`<button class="country-module ${activeTab===t?'active':''}" data-action="kingdom-tab" data-tab="${t}">${icon(tabIcon[t])}<span>${tabLabel[t]}</span>${t==='war'&&activeWar?'<i>LIVE</i>':''}</button>`).join('')}</div>`;
 
-  const resourceTiles = kdef.resources.map(r=>`<div class="country-resource"><div class="country-resource-icon">${resourceIcon(r,25)}</div><span>${RESOURCE_NAMES[r]||r}</span><b>${fmtNum(st?.resources?.[r]||0)}</b></div>`).join('');
+  const resourceTiles = ((st&&st.naturalResources)||kdef.resources).map(r=>`<div class="country-resource"><div class="country-resource-icon">${resourceIcon(r,25)}</div><span>${RESOURCE_NAMES[r]||r}</span><b>${fmtNum(st?.resources?.[r]||0)}</b></div>`).join('');
   const readiness = activeWar ? 'WAR ACTIVE' : 'PEACE';
   const readinessClass = activeWar ? 'danger' : 'safe';
   const avatarHtml=(m,cls)=>m?`<div class="we-gav ${cls||''}" data-action="view-player" data-id="${esc(m.id)}"><span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><i>${m.level||1}</i></div>`:'';
@@ -858,6 +858,19 @@ function renderEconomy(c, kv){
       <p>${kingdomFlag(st.countryId)}<b>${countryName(st.countryId)}</b> is receiving ${t.rate}% of ${resourceIcon(t.resourceId,14)} <b>${resName(t.resourceId)}</b> newly gathered by ${kingdomFlag(t.loserCountryId)}<b>${countryName(t.loserCountryId)}</b>.</p>
       <div class="stat-list"><div><span>Collected so far</span><b>${fmtNum(t.collected||0)}</b></div><div><span>Remaining</span><b>${countdown(t.expiresAt)}</b></div></div>
     </div>`).join('');
+  let specPanel = '';
+  if(st.isLeader){
+    const pick = S._specPick || st.naturalResources.slice();
+    const locked = st.specialityCooldownUntil > st.serverNow;
+    const changed = pick.slice().sort().join() !== st.naturalResources.slice().sort().join();
+    specPanel = `<div class="panel" style="margin-bottom:16px;">
+      <div class="panel-title">Specialities</div>
+      <p class="faint">Pick exactly 2 resources. The country tax only applies to these two when citizens gather them.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">${st.specialityOptions.map(r=>`<button class="btn ${pick.includes(r)?'btn-primary':''}" data-action="spec-pick" data-resource="${r}" ${locked?'disabled':''}>${resourceIcon(r,14)} ${resName(r)}</button>`).join('')}</div>
+      <button class="btn btn-primary" data-action="spec-confirm" ${(!locked && changed && pick.length===2)?'':'disabled'}>Save specialities</button>
+      <p class="faint" style="margin-top:6px;">${locked ? `You can change them again in ${countdown(st.specialityCooldownUntil)}.` : 'After saving, they can be changed again in 7 days.'}</p>
+    </div>`;
+  }
   return `
     <div class="panel" style="margin-bottom:16px;">
       <div class="panel-title">${kingdomFlag(st.countryId,20)}${countryName(st.countryId)}</div>
@@ -873,7 +886,7 @@ function renderEconomy(c, kv){
       <div class="panel-title">Country Resources</div>
       <div class="stat-list">${resRows}</div>
     </div>
-    ${out}${inn}`;
+    ${specPanel}${out}${inn}`;
 }
 
 function renderWarHistoryRow(h, myId){
