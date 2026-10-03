@@ -1189,6 +1189,27 @@ async function setCountrySpecialities(uid, data) {
   });
 }
 
+/* ============================================================
+   getCountryPublic — what ANY signed-in player may see about ANY country
+   (no character or country needed): war taxes it pays / collects, a pending
+   victory choice, and its specialities. Read-only, never changes anything.
+   ============================================================ */
+async function getCountryPublic(uid, data) {
+  const cid = data && data.countryId;
+  if (!cid || !COUNTRY_BY_ID[cid]) fail("invalid-argument", "INVALID_TARGET");
+  const t = now();
+  const snap = await E.countryRef(cid).get();
+  const c = E.normalizeCountry(cid, snap.exists ? snap.data() : null);
+  const pr = c.pendingReward && c.pendingReward.expiresAt > t ? c.pendingReward : null;
+  return {
+    serverNow: t, countryId: cid,
+    specialities: c.natural,
+    warTaxOut: publicTax(c.warTaxOut, t),
+    warTaxIn: c.warTaxIn.filter((x) => W.isWarTaxActive(x, t)).map((x) => Object.assign(publicTax(x, t), { collected: c.warTaxCollected[x.warId] || 0 })),
+    pendingChoice: pr ? { winnerCountryId: pr.winnerCountryId, expiresAt: pr.expiresAt } : null,
+  };
+}
+
 async function getCountryState(uid) {
   const pSnap = await playerRef(uid).get();
   if (!pSnap.exists) fail("not-found", "NO_CHARACTER");
@@ -1320,7 +1341,7 @@ async function tickWars() {
   return out;
 }
 
-module.exports = { declareWar, advanceWar, warStrike, chooseWarReward, setCountrySpecialities, getCountryState, getWorldWars, tickWars, simulateDuel, loadConfig, _setClock };
+module.exports = { declareWar, advanceWar, warStrike, chooseWarReward, setCountrySpecialities, getCountryPublic, getCountryState, getWorldWars, tickWars, simulateDuel, loadConfig, _setClock };
 
 };
 __defs['index'] = function(module, exports, require){
@@ -1663,6 +1684,7 @@ exports.declareWar = functions.https.onCall((data, context) => wrap(() => War.de
 exports.warStrike = functions.https.onCall((data, context) => wrap(() => War.warStrike(requireAuth(context))));
 exports.chooseWarReward = functions.https.onCall((data, context) => wrap(() => War.chooseWarReward(requireAuth(context), data)));
 exports.setCountrySpecialities = functions.https.onCall((data, context) => wrap(() => War.setCountrySpecialities(requireAuth(context), data)));
+exports.getCountryPublic = functions.https.onCall((data, context) => wrap(() => War.getCountryPublic(requireAuth(context), data)));
 
 // Finishes rounds / expires war taxes even when nobody is online. Needs Cloud Scheduler
 // (Blaze plan). Everything it does is also done lazily by the callables above.
