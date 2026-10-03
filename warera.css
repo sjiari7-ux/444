@@ -417,3 +417,8 @@ svg{stroke-width:1.8;}
 .we-banner.war{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-battles.png);}
 .we-banner.country{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-country.png);}
 .we-banner.pvp{background-image:linear-gradient(180deg,rgba(22,26,29,.1) 0%,rgba(22,26,29,.45) 60%,#161a1d 100%),url(icons/banner-pvp.png);}
+
+/* weapon pictures (icons/weapon_*.png) */
+.we-ibox.has-art{width:68px;height:68px;padding:3px;background:#11151a;}
+.we-ibox .we-art{width:100%;height:100%;object-fit:contain;border-radius:8px;display:block;}
+.we-ibox.has-art .fb svg{width:26px;height:26px;}
