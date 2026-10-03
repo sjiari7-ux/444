@@ -550,7 +550,7 @@ __defs['war-core'] = function(module, exports, require){
 // config never alters a war that is already running.
 const WAR_CONFIG = {
   prepMs: 30 * 60 * 1000,          // declaration -> round 1 starts
-  roundMs: 2 * 60 * 60 * 1000,     // fixed duration of every round
+  roundMs: 5 * 60 * 60 * 1000,     // fixed duration of every round
   roundsToWin: 2,
   maxRounds: 3,
   cooldownMs: 24 * 60 * 60 * 1000, // post-war protection for BOTH countries
@@ -562,7 +562,7 @@ const WAR_CONFIG = {
   rewardClaimMs: 3 * 24 * 60 * 60 * 1000, // winner's Leader must choose within this
   strikeEnergyCost: 10,
   strikeCooldownMs: 10 * 1000,
-  maxStrikesPerPlayerPerRound: 30,
+  maxStrikesPerPlayerPerRound: 10,
   maxHitsPerTarget: 3,             // damage vs the same enemy player counts at most this many times per round
   duelMaxRounds: 14,
   minTaxPct: 5,
@@ -712,12 +712,18 @@ function countryRef(id) { return db().doc("rc_countries/" + id); }
 function normalizeCountry(id, data) {
   const def = COUNTRY_BY_ID[id];
   const d = data || {};
+  // The Leader can replace the built-in specialities (exactly 2); until then the country's defaults apply.
+  const natural = (Array.isArray(d.specialities) && d.specialities.length === 2 && d.specialities.every((r) => typeof r === "string"))
+    ? d.specialities.slice() : (def ? def.resources.slice() : []);
   const resources = {};
   (def ? def.resources : []).forEach((r) => { resources[r] = 0; });
+  natural.forEach((r) => { resources[r] = 0; });
   Object.keys(d.resources || {}).forEach((r) => { resources[r] = d.resources[r]; });
   return {
     id,
     exists: !!data,
+    natural,
+    specialitiesChangedAt: d.specialitiesChangedAt || 0,
     taxRate: d.taxRate != null ? d.taxRate : (def ? def.tax : 10),
     resources,
     activeWarId: d.activeWarId || null,
@@ -754,7 +760,7 @@ function applyTaxToGains(econ, player, gains, now, cfg) {
   Object.keys(gains).forEach((res) => {
     const gross = Math.max(0, Math.floor(gains[res] || 0));
     if (!econ) { out.net[res] = gross; return; }
-    const natural = COUNTRY_BY_ID[econ.countryId].resources.includes(res);
+    const natural = econ.country.natural.includes(res);
     const normalPct = natural ? W.normalTaxPct(econ.country.taxRate, cfg) : 0;
     const wt = econ.country.warTaxOut;
     const warActive = W.isWarTaxActive(wt, now) && wt.resourceId === res;
@@ -828,6 +834,7 @@ const playerRef = (uid) => db().doc("rc_players/" + uid);
 const kingdomRef = (cid) => db().doc("rc_kingdoms/" + cid);
 
 /* ---------- config (defaults + optional rc_config/war overrides) ---------- */
+const SPECIALITY_COOLDOWN_MS = 7 * W.DAY_MS; // how often a Leader may re-pick the country's 2 specialities
 const CFG_LIMITS = {
   prepMs: [0, 7 * W.DAY_MS], roundMs: [1000, 7 * W.DAY_MS], cooldownMs: [0, 30 * W.DAY_MS],
   minMembers: [1, 500], warTaxRate: [1, 25], warTaxRateMin: [1, 50], warTaxRateMax: [1, 50], warTaxDays: [1, 60], rewardClaimMs: [60 * 1000, 30 * W.DAY_MS],
@@ -948,11 +955,11 @@ async function advanceWar(warId) {
     }
     const w = res.war;
     if (res.finished) {
-      const loserDef = COUNTRY_BY_ID[w.loserCountryId];
+      const loserC = w.loserCountryId === A.id ? A : D;
       w.reward = {
         status: "awaiting_choice",
         winnerCountryId: w.winnerCountryId, loserCountryId: w.loserCountryId,
-        options: allTaxableResources(), loserResources: loserDef ? loserDef.resources.slice() : [],
+        options: allTaxableResources(), loserResources: loserC.natural.slice(),
         claimExpiresAt: w.endedAt + w.cfg.rewardClaimMs,
         resourceId: null, rate: w.cfg.warTaxRate, startedAt: null, expiresAt: null,
       };
@@ -1157,6 +1164,31 @@ function summarizeWar(war, cid, t) {
   };
 }
 
+/* ============================================================
+   setCountrySpecialities — the country's CURRENT Leader picks exactly 2
+   resources as its specialities (the only resources the normal country tax
+   applies to). Limited by a cooldown so it can't be flipped back and forth.
+   ============================================================ */
+async function setCountrySpecialities(uid, data) {
+  const list = data && Array.isArray(data.resources) ? Array.from(new Set(data.resources.map(String))) : [];
+  const allowed = new Set(allTaxableResources());
+  if (list.length !== 2 || !list.every((r) => allowed.has(r))) fail("invalid-argument", "INVALID_SPECIALITIES");
+  return db().runTransaction(async (tx) => {
+    const t = now();
+    const pSnap = await tx.get(playerRef(uid));
+    if (!pSnap.exists) fail("not-found", "NO_CHARACTER");
+    const cid = pSnap.data().kingdomId;
+    if (!cid || !COUNTRY_BY_ID[cid]) fail("failed-precondition", "NO_COUNTRY");
+    const [kSnap, C] = await Promise.all([tx.get(kingdomRef(cid)), E.readCountry(tx, cid)]);
+    if (!kSnap.exists || kSnap.data().leaderId !== uid) fail("permission-denied", "NOT_LEADER");
+    const until = C.specialitiesChangedAt ? C.specialitiesChangedAt + SPECIALITY_COOLDOWN_MS : 0;
+    if (until > t) fail("failed-precondition", "SPECIALITY_COOLDOWN", { msRemaining: until - t });
+    if (list.slice().sort().join() === C.natural.slice().sort().join()) fail("invalid-argument", "SPECIALITIES_UNCHANGED");
+    tx.set(E.countryRef(cid), { specialities: list, specialitiesChangedAt: t }, { merge: true });
+    return { countryId: cid, specialities: list, cooldownUntil: t + SPECIALITY_COOLDOWN_MS };
+  });
+}
+
 async function getCountryState(uid) {
   const pSnap = await playerRef(uid).get();
   if (!pSnap.exists) fail("not-found", "NO_CHARACTER");
@@ -1212,17 +1244,23 @@ async function getCountryState(uid) {
 
   const leaderId = kd.leaderId || null;
   const pending = history.find((h) => h.rewardState === "awaiting_choice" && h.winnerCountryId === cid && h.claimExpiresAt > t) || null;
-  const def = COUNTRY_BY_ID[cid];
+  let pendingLoserNatural = [];
+  if (pending) {
+    const ls = await E.countryRef(pending.loserCountryId).get();
+    pendingLoserNatural = E.normalizeCountry(pending.loserCountryId, ls.exists ? ls.data() : null).natural;
+  }
   return {
     serverNow: t, countryId: cid,
     isLeader: leaderId === uid, leaderId,
     taxRate: W.normalTaxPct(country.taxRate),
     resources: country.resources,
-    naturalResources: def.resources,
+    naturalResources: country.natural,
+    specialityOptions: allTaxableResources(),
+    specialityCooldownUntil: country.specialitiesChangedAt ? country.specialitiesChangedAt + SPECIALITY_COOLDOWN_MS : 0,
     cooldownUntil: country.warCooldownUntil,
     warTaxOut: publicTax(country.warTaxOut, t),
     warTaxIn: country.warTaxIn.filter((x) => W.isWarTaxActive(x, t)).map((x) => Object.assign(publicTax(x, t), { collected: country.warTaxCollected[x.warId] || 0 })),
-    pendingReward: pending ? { warId: pending.id, loserCountryId: pending.loserCountryId, options: allTaxableResources(), loserResources: (COUNTRY_BY_ID[pending.loserCountryId] || { resources: [] }).resources, rateMin: pending.rateMin != null ? pending.rateMin : 1, rateMax: pending.rateMax != null ? pending.rateMax : 25, defaultRate: pending.warTaxRate || 10, claimExpiresAt: pending.claimExpiresAt } : null,
+    pendingReward: pending ? { warId: pending.id, loserCountryId: pending.loserCountryId, options: allTaxableResources(), loserResources: pendingLoserNatural, rateMin: pending.rateMin != null ? pending.rateMin : 1, rateMax: pending.rateMax != null ? pending.rateMax : 25, defaultRate: pending.warTaxRate || 10, claimExpiresAt: pending.claimExpiresAt } : null,
     activeWar, history,
   };
 }
@@ -1282,7 +1320,7 @@ async function tickWars() {
   return out;
 }
 
-module.exports = { declareWar, advanceWar, warStrike, chooseWarReward, getCountryState, getWorldWars, tickWars, simulateDuel, loadConfig, _setClock };
+module.exports = { declareWar, advanceWar, warStrike, chooseWarReward, setCountrySpecialities, getCountryState, getWorldWars, tickWars, simulateDuel, loadConfig, _setClock };
 
 };
 __defs['index'] = function(module, exports, require){
@@ -1624,6 +1662,7 @@ exports.getWorldWars = functions.https.onCall((data, context) => wrap(() => War.
 exports.declareWar = functions.https.onCall((data, context) => wrap(() => War.declareWar(requireAuth(context), data)));
 exports.warStrike = functions.https.onCall((data, context) => wrap(() => War.warStrike(requireAuth(context))));
 exports.chooseWarReward = functions.https.onCall((data, context) => wrap(() => War.chooseWarReward(requireAuth(context), data)));
+exports.setCountrySpecialities = functions.https.onCall((data, context) => wrap(() => War.setCountrySpecialities(requireAuth(context), data)));
 
 // Finishes rounds / expires war taxes even when nobody is online. Needs Cloud Scheduler
 // (Blaze plan). Everything it does is also done lazily by the callables above.
