@@ -861,14 +861,15 @@ async function loadCountryProfile(id){
   render();
   if(!HAS_DB){ S.viewCountry = {id, unavailable:true}; render(); return; }
   try{
-    const [kSnap, mSnap] = await Promise.all([
+    const [kSnap, mSnap, econ] = await Promise.all([
       withTimeout(DB.doc('rc_kingdoms/'+id).get(), 6000),
       withTimeout(DB.collection('rc_players').where('kingdomId','==',id).limit(80).get(), 6000),
+      withTimeout(callFn('getCountryPublic', {countryId:id}), 6000).catch(()=>null), // war taxes: visible to everyone, even without a country
     ]);
     const kingdom = kSnap.exists ? kSnap.data() : {treasury:{}, leaderId:null};
     const members = mSnap.docs.map(d=>Object.assign({id:d.id}, d.data())).filter(m=>m.username)
       .sort((a,b)=>kingdomRank(b.kingdomRole)-kingdomRank(a.kingdomRole)||(b.level||1)-(a.level||1));
-    S.viewCountry = {id, at:Date.now(), kingdom, members};
+    S.viewCountry = {id, at:Date.now(), kingdom, members, econ};
   }catch(e){ console.error('loadCountryProfile', e); S.viewCountry = {id, error:true}; }
   render();
 }
