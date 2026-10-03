@@ -1,0 +1,22 @@
+REALMCLASH - source kamla
+=========================
+
+Had l-zip howa l-SOURCE (bach t3dl). Bach tdir upload l-GitHub:
+
+   node tools/pack.js
+   -> kay-3mr folder dist/ fih ghir 3 fichiers: index.html, app.css, game.js
+
+7ett l-3 fichiers f RACINE dyal repo GitHub (b-dlhom l-9dim). Ma tms7ch folder icons/.
+(kaynin tani "realmclash-upload.zip" li fih dist/ jahz.)
+
+Structure:
+   index.html, style.css, theme.css   -> l-design
+   js/*.js                            -> l-game (js/server-local.js GENERATED: ma t3dlhch b l-yd)
+   functions/                         -> l-9awa3id dyal l-server (source dyal server-local.js)
+   tools/                             -> check.js (fa7s), pack.js (upload), build-local.js
+   firebase-deploy/firestore.rules    -> firebase deploy --only firestore:rules
+
+Commandes (Node 18+):
+   node tools/check.js          fa7s 9bl l-upload
+   node tools/build-local.js    mnin t3dl f functions/
+   node tools/pack.js           bach tsayb dist/
