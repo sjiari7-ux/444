@@ -46,6 +46,24 @@ const RESOURCE_ICONS = {
 };
 function resourceIcon(key, size){ return itemIcon(RESOURCE_ICONS[key], size); }
 
+/* ---- Weapon art: icons/weapon_<name>.png  (png / jpg / jpeg / webp are tried in that order) ----
+   Class starter weapons have their own picture; every other weapon uses its rarity picture. */
+const WEAPON_ART = {'Iron Sword':'weapon_iron_sword', 'Longbow':'weapon_longbow', 'Magic Staff':'weapon_magic_staff', 'Officer Blade':'weapon_officer_blade', 'Golden Dagger':'weapon_golden_dagger'};
+const WEAPON_TIER_ART = ['common','uncommon','rare','epic','legendary'];
+function weaponArtKey(it){
+  if(!it || it.slot!=='weapon') return null;
+  if(WEAPON_ART[it.name]) return WEAPON_ART[it.name];
+  return 'weapon_' + (WEAPON_TIER_ART.includes(it.tier) ? it.tier : 'common');
+}
+const ART_EXTS = ['png','jpg','jpeg','webp'];
+function artFallback(img){
+  const i = Number(img.dataset.try||0) + 1;
+  if(i < ART_EXTS.length){ img.dataset.try = i; img.src = 'icons/' + img.dataset.base + '.' + ART_EXTS[i]; return; }
+  img.onerror = null; img.style.display = 'none';
+  const fb = img.parentNode && img.parentNode.querySelector('.fb'); if(fb) fb.style.display = ''; // no picture found: show the drawn icon instead
+}
+function artImg(base){ return `<img class="we-art" src="icons/${base}.png" alt="" data-base="${base}" data-try="0" onerror="artFallback(this)">`; }
+
 /* ============================================================
    GAME CONFIG
    ============================================================ */
