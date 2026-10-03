@@ -139,6 +139,22 @@ document.addEventListener('click', async (e)=>{
     render(); return;
   }
   if(action==='country-refresh'){ await loadCountryState(); return; }
+  if(action==='spec-pick'){
+    const r = el.dataset.resource, st = S.countryState && S.countryState.data;
+    const cur = (S._specPick || (st && st.naturalResources) || []).slice();
+    const i = cur.indexOf(r);
+    if(i >= 0) cur.splice(i,1); else { cur.push(r); if(cur.length > 2) cur.shift(); }
+    S._specPick = cur; render(); return;
+  }
+  if(action==='spec-confirm'){
+    if(!S._specPick || S._specPick.length !== 2) return;
+    try{
+      await callFn('setCountrySpecialities', {resources: S._specPick});
+      showToast('Country specialities updated.');
+    }catch(e){ showToast(warErrorMsg(e)); }
+    S._specPick = null;
+    await loadCountryState(true); return;
+  }
   if(action==='reward-pick'){ S._rewardPick = el.dataset.resource; render(); return; }
   if(action==='reward-confirm'){
     if(!S._rewardPick) return;
@@ -828,6 +844,9 @@ function warErrorMsg(e){
     case 'REWARD_EXPIRED': return 'The time to choose a resource has run out.';
     case 'REWARD_NOT_AVAILABLE': return 'There is no reward to choose right now.';
     case 'INVALID_RESOURCE': return 'That resource cannot be taxed.';
+    case 'INVALID_SPECIALITIES': return 'Pick exactly 2 different resources.';
+    case 'SPECIALITIES_UNCHANGED': return 'Those are already your specialities.';
+    case 'SPECIALITY_COOLDOWN': return d.msRemaining ? `You can change specialities again in ${Math.ceil(d.msRemaining/3600000)}h.` : 'You changed specialities recently.';
     case 'INVALID_RATE': return `The tax rate must be a whole number between ${d.min}% and ${d.max}%.`;
     default: return 'That action failed — please try again.';
   }
