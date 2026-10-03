@@ -499,12 +499,12 @@ function renderInventory(){
   const TIERN={common:0,uncommon:1,rare:2,epic:3,legendary:4};
   const SLOT_ICO={weapon:'sword',armor:'shield',helmet:'crown',boots:'arrow',gloves:'hammer',accessory:'star'};
   const statChips=st=>Object.entries(st||{}).map(([k,v])=>`<span class="we-st s-${k}">+${v} ${k.toUpperCase()}</span>`).join('');
-  const tile=(it,actions,ico)=>`<div class="we-item" style="--rar:${RAR[it.tier]||'#475569'}">
-      <div class="we-ibox">${icon(ico)}${it.qty>1?`<b class="q">x${it.qty}</b>`:''}${it.level?`<i class="lv">${it.level}</i>`:''}</div>
+  const tile=(it,actions,ico)=>{ const art=weaponArtKey(it); return `<div class="we-item" style="--rar:${RAR[it.tier]||'#475569'}">
+      <div class="we-ibox ${art?'has-art':''}">${art?artImg(art)+`<span class="fb" style="display:none">${icon(ico)}</span>`:icon(ico)}${it.qty>1?`<b class="q">x${it.qty}</b>`:''}${it.level?`<i class="lv">${it.level}</i>`:''}</div>
       <div class="we-iname">${esc(it.name)}</div>
       ${it.tier?`<span class="we-tier">${it.tier}</span>`:''}
       ${it.stats?`<div class="we-chips2">${statChips(it.stats)}</div>`:''}
-      <div class="we-iact">${actions}</div></div>`;
+      <div class="we-iact">${actions}</div></div>`; };
   const slots = EQUIP_SLOTS.map(slot=>{
     const it = c.equipment[slot];
     return it
