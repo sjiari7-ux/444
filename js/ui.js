@@ -381,7 +381,7 @@ const ZONE_BANNERS = {
 function pageHero(title, sub, cls){
   return `<div class="rc-chero"><div class="rc-banner ${cls||''}"></div><div class="rc-chead"><div><h2>${title}</h2>${sub?`<small>${sub}</small>`:''}</div></div></div>`;
 }
-function leagueBadge(rating,size){ const L=leagueOf(rating); size=size||18; return `<span class="lg-badge" style="--lg:${L.color};width:${size}px;height:${size}px;font-size:${Math.round(size*0.55)}px" title="${L.name}">${L.name[0]}</span>`; }
+function leagueBadge(rating,size){ const L=leagueOf(rating); size=size||18; return `<img src="${iconUrl('league_'+L.id+'.webp')}" alt="${L.name}" title="${L.name}" class="lg-badge-img" style="width:${size}px;height:${size}px;flex:none;vertical-align:middle;object-fit:contain">`; }
 function leaguePanel(rating){
   const p=leagueProgress(rating);
   return `<div class="lg-panel">${leagueBadge(rating,38)}<div class="lg-main"><b style="color:${p.league.color}">${p.league.name} League</b>
