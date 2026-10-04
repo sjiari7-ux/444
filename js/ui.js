@@ -165,7 +165,7 @@ function renderStatusBar(){
         <div class="bar-track"><div class="bar-fill bar-mana" style="width:${clamp(c.manaCur/eff.maxMana*100,0,100)}%"></div></div>
       </div>
     </div>
-    <div class="sb-stat">${icon('crown','style="width:12px;height:12px;vertical-align:-1px; stroke:var(--brass-bright)"')} <b>${fmtNum(c.gold)}</b></div>
+    <div class="sb-stat">${resourceIcon('gold',14)} <b>${fmtNum(c.gold)}</b></div>
     <div class="sb-rating">${icon('shield','style="width:13px;height:13px"')} ${Math.round(c.pvp.rating)}</div>
     <button class="world-alert ${S.worldWars?.active?.length?'live':''}" data-action="nav" data-screen="world">${icon('sword','style="width:13px;height:13px"')} ${S.worldWars?.active?.length||0} WARS</button>
   </div>`;
@@ -201,7 +201,7 @@ function renderHome(){
     <div class="metric"><span>ACTIVE WARS</span><b>${wars.length}</b></div>
     <div class="metric"><span>YOUR RATING</span><b>${Math.round(c.pvp.rating)}</b></div>
     <div class="metric"><span>LEVEL</span><b>${c.level}</b></div>
-    <div class="metric"><span>GOLD</span><b>${fmtNum(c.gold)}</b></div>
+    <div class="metric"><span>${resourceIcon('gold',14)} GOLD</span><b>${fmtNum(c.gold)}</b></div>
   </div>
   ${dailyPanel(c)}
   <div class="world-home-grid">
@@ -285,10 +285,10 @@ function renderCountryView(){
   const specHtml=(ec&&ec.specialities&&ec.specialities.length)?`<div class="rc-sec">SPECIALITIES</div><div class="kingdom-resource-row">${ec.specialities.map(r=>`<span>${resourceIcon(r,16)} ${resName(r)}</span>`).join('')}</div>`:'';
   const tabs=[['home','Home','castle'],['government','Government','crown'],['citizens','Citizens','users']];
   const tabRow=`<div class="country-module-nav rc-ptabs">${tabs.map(x=>`<button class="country-module ${tab===x[0]?'active':''}" data-action="view-ctab" data-tab="${x[0]}">${icon(x[2])}<span>${x[1]}</span></button>`).join('')}</div>`;
-  const hero=`<div class="rc-chero"><div class="rc-banner country"></div><div class="rc-chead"><div class="rc-flag">${kingdomFlag(id,64,'margin:0')}</div><div><small>⚑ Country ${viewOnlyChip()}</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Online</small><b>${online}</b></span><span><small>Treasury</small><b>${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span></div></div></div></div>`;
+  const hero=`<div class="rc-chero"><div class="rc-banner country"></div><div class="rc-chead"><div class="rc-flag">${kingdomFlag(id,64,'margin:0')}</div><div><small>⚑ Country ${viewOnlyChip()}</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Online</small><b>${online}</b></span><span><small>Treasury</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span></div></div></div></div>`;
   let body='';
   if(tab==='home'){
-    body=`<div class="rc-sec">RANKINGS</div><div class="rc-tiles">${statTile('Citizens',members.length,'green')}${statTile('Weekly damages',fmtDmg(wdmg))}${statTile('Treasury',fmtNum(treasury.gold||0),'gold')}${statTile('National tax',kdef.tax+'%')}</div>
+    body=`<div class="rc-sec">RANKINGS</div><div class="rc-tiles">${statTile('Citizens',members.length,'green')}${statTile('Weekly damages',fmtDmg(wdmg))}${statTile('Treasury',`${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}`,'gold')}${statTile('National tax',kdef.tax+'%')}</div>
       <div class="rc-sec">WARS</div>${wars.length?`<div class="rc-battles">${wars.map(renderWorldWarCard).join('')}</div>`:'<p class="faint">At peace. No ongoing wars.</p>'}
       ${wtHtml?`<div class="rc-sec">WAR TAX</div>${wtHtml}`:''}${specHtml}
       <div class="rc-sec">GOVERNMENT</div><div class="rc-gov-strip">${['Leader','Co-Leader','Officer'].map(r=>byRole(r).slice(0,4).map(m=>`<div data-action="view-player" data-id="${esc(m.id)}" style="cursor:pointer">${av(m,r==='Leader'?'gold':r==='Co-Leader'?'blue':'red')}</div>`).join('')).join('')||'<p class="faint">No government yet.</p>'}</div>`;
@@ -453,7 +453,7 @@ function renderRoad(){
     <div class="panel-title">This walk so far</div>
     <div class="stat-list">
       <div><span>XP</span><b>+${g.xp}</b></div>
-      <div><span>Gold</span><b>+${g.gold}</b></div>
+      <div><span>${resourceIcon('gold',14)} Gold</span><b>+${g.gold}</b></div>
       <div style="grid-column:1/-1;"><span>Resources</span><b>${resSummary||'&mdash;'}</b></div>
     </div>
   </div>
@@ -531,7 +531,7 @@ function renderInventory(){
   const gear = c.inventory.filter(i=>i.kind==='equipment').sort(sortFn);
   const consumables = c.inventory.filter(i=>i.kind==='consumable');
   const materials = c.inventory.filter(i=>i.kind==='material');
-  const sell=it=>`<button class="btn btn-sm" data-action="sell" data-uid="${it.uid}">Sell &middot; ${sellPrice(it)}g</button>`;
+  const sell=it=>`<button class="btn btn-sm" data-action="sell" data-uid="${it.uid}">Sell &middot; ${sellPrice(it)} ${resourceIcon('gold',13)}</button>`;
   const gearCards = gear.map(it=>tile(it, `<button class="btn btn-sm btn-primary" data-action="equip" data-uid="${it.uid}">Equip</button>${sell(it)}${upgradeButtonHtml(it, c)}`, SLOT_ICO[it.slot]||'shield')).join('') || '<p class="faint">No gear in your bag.</p>';
   const consCards = consumables.map(it=>tile(it, `<button class="btn btn-sm btn-primary" data-action="use-item" data-uid="${it.uid}">Use</button>`, 'bolt')).join('') || '<p class="faint">No consumables.</p>';
   const matCards = materials.map(it=>tile(it, sell(it), 'hammer')).join('') || '<p class="faint">No materials.</p>';
@@ -540,7 +540,7 @@ function renderInventory(){
   ${pageHero('Inventory','Equip your gear, use items and sell what you do not need','inventory')}
   <div class="rc-tiles" style="margin-top:12px">
     <div class="rc-tile"><small>Bag</small><b>${bagCount(c)}/${BAG_CAPACITY}</b><div class="rc-bagbar"><i style="width:${pct}%"></i></div></div>
-    ${statTile('Gold',fmtNum(c.gold),'gold')}
+    ${statTile('Gold',`${resourceIcon('gold',16)} ${fmtNum(c.gold)}`,'gold')}
     ${statTile('Gear',gear.length)}
   </div>
   <div class="rc-sec">EQUIPMENT</div><div class="rc-items">${slots}</div>
@@ -639,7 +639,7 @@ function renderProfileStats(tab){
   </div>
   <div class="rc-sec">WEALTH</div>
   <div class="rc-tiles">
-    ${tile('Gold',fmtNum(c.gold),'gold')}
+    ${tile('Gold',`${resourceIcon('gold',16)} ${fmtNum(c.gold)}`,'gold')}
     ${tile('Items',(c.inventory||[]).length)}
     ${tile('Skill points',c.skillPoints)}
   </div>
@@ -736,7 +736,7 @@ function renderKingdom(){
           <div class="kingdom-discover-title"><span class="eyebrow">KINGDOM</span><h3>${k.name}</h3><p>${plural(k.memberCount,'citizen')} · ${k.tax}% tax</p></div>
         </div>
         <div class="kingdom-resource-row">${k.resources.map(r=>`<span>${resourceIcon(r,16)} ${RESOURCE_NAMES[r]||titleCase(r)}</span>`).join('')}</div>
-        <div class="kingdom-discover-foot"><span>${icon('coins')} Treasury <b>${fmtNum(k.treasury.gold||0)}</b></span><button class="btn btn-primary btn-sm" data-action="join-kingdom" data-kingdom="${k.id}">Join Kingdom</button></div>
+        <div class="kingdom-discover-foot"><span>${resourceIcon('gold',14)} Treasury <b>${fmtNum(k.treasury.gold||0)}</b></span><button class="btn btn-primary btn-sm" data-action="join-kingdom" data-kingdom="${k.id}">Join Kingdom</button></div>
       </article>`).join('');
     function titleCase(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
     return `
@@ -795,7 +795,7 @@ function renderKingdom(){
     <div class="rc-sec">RANKINGS</div>
     <div class="rc-tiles">
       <div class="rc-tile green"><small>Active population</small><b>${members.length}</b></div>
-      <div class="rc-tile gold"><small>Treasury</small><b>${fmtNum(treasury.gold||0)}</b></div>
+      <div class="rc-tile gold"><small>Treasury</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></div>
       <div class="rc-tile"><small>National tax</small><b>${kdef.tax}%</b></div>
       <div class="rc-tile"><small>Total power</small><b>${fmtNum(members.reduce((n,m)=>n+(m.level||1),0))}</b></div>
     </div>
@@ -819,14 +819,14 @@ function renderKingdom(){
   if(activeTab==='overview') tabBody=homeBody;
   else if(activeTab==='citizens') tabBody=citBody;
   else if(activeTab==='government') tabBody=govBody;
-  else if(activeTab==='treasury') tabBody=`<div class="country-card wide"><div class="country-card-head"><span>ROYAL TREASURY</span><b>${fmtNum(treasury.gold||0)} GOLD</b></div><div class="treasury-big"><div class="treasury-emblem">${icon('coins')}</div><div><small>AVAILABLE GOLD</small><strong>${fmtNum(treasury.gold||0)}</strong><p>Funds contributed by the citizens of ${kdef.name}.</p></div></div><div class="stat-list treasury-list">${treasuryRows}</div><div class="country-actions"><button class="btn btn-primary" data-action="donate-kingdom" data-resource="gold" data-amount="50">Donate 50 Gold</button><button class="btn" data-action="donate-kingdom" data-resource="gold" data-amount="200">Donate 200 Gold</button></div></div>`;
+  else if(activeTab==='treasury') tabBody=`<div class="country-card wide"><div class="country-card-head"><span>ROYAL TREASURY</span><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)} GOLD</b></div><div class="treasury-big"><div class="treasury-emblem">${icon('coins')}</div><div><small>AVAILABLE GOLD</small><strong>${fmtNum(treasury.gold||0)}</strong><p>Funds contributed by the citizens of ${kdef.name}.</p></div></div><div class="stat-list treasury-list">${treasuryRows}</div><div class="country-actions"><button class="btn btn-primary" data-action="donate-kingdom" data-resource="gold" data-amount="50">Donate 50 Gold</button><button class="btn" data-action="donate-kingdom" data-resource="gold" data-amount="200">Donate 200 Gold</button></div></div>`;
   else if(activeTab==='economy') tabBody=renderEconomy(c,kv);
   else if(activeTab==='war') tabBody=renderWar(c,kv);
 
   return `
     <div class="rc-chero">
       <div class="rc-banner country"></div>
-      <div class="rc-chead"><div class="rc-flag">${flagIcon(kdef.flag,64)}</div><div><small>⚑ Country</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Treasury</small><b>${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span><span><small>Status</small><b class="${readinessClass}">${readiness}</b></span></div></div></div>
+      <div class="rc-chead"><div class="rc-flag">${flagIcon(kdef.flag,64)}</div><div><small>⚑ Country</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Treasury</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span><span><small>Status</small><b class="${readinessClass}">${readiness}</b></span></div></div></div>
     </div>
     ${leaderMissing ? `<div class="country-alert"><span>${icon('crown')}</span><div><b>Leadership is vacant</b><p>${govMembers.length?'An Officer or above can claim leadership.':'No Officer exists yet, so any citizen can claim leadership.'}</p></div>${(myRank>=2||!govMembers.length)?'<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>':''}</div>`:''}
     ${tabRow}
@@ -842,7 +842,7 @@ function dailyPanel(c){
   const streak = claimed ? d.streak : (d.day===today-1 ? Math.min((d.streak||0)+1,7) : 1);
   const days = Array.from({length:7},(_,i)=>`<span class="daily-dot ${i<streak-(claimed?0:1)?'done':(i===streak-1&&!claimed?'next':'')}">${i+1}</span>`).join('');
   return `<section class="panel daily-panel"><div class="section-head"><div><span class="eyebrow">DAILY REWARD</span><h3>${claimed?'Claimed today':'Your reward is ready'}</h3></div>
-    ${claimed?`<span class="faint">Next in ${countdown((today+1)*DAY)}</span>`:`<button class="btn btn-primary" data-action="claim-daily">Claim +${20*streak} gold &amp; +20 energy</button>`}</div>
+    ${claimed?`<span class="faint">Next in ${countdown((today+1)*DAY)}</span>`:`<button class="btn btn-primary" data-action="claim-daily">Claim +${20*streak} ${resourceIcon('gold',14)} &amp; +20 energy</button>`}</div>
     <div class="daily-streak">${days}</div><p class="faint" style="margin:6px 0 0;">Come back every day: the streak raises the reward up to day 7.</p></section>`;
 }
 function fmtClock(ms){
@@ -904,7 +904,7 @@ function renderEconomy(c, kv){
         <div><span>Leader</span><b>${leader ? esc(leader.username) : (st.leaderId ? 'Unknown' : 'None')}</b></div>
         <div><span>Citizens</span><b>${kv.members.length}</b></div>
         <div><span>Country tax</span><b>${st.taxRate}%</b></div>
-        <div><span>Treasury</span><b>${fmtNum((k.treasury||{}).gold||0)} Gold</b></div>
+        <div><span>Treasury</span><b>${resourceIcon('gold',14)} ${fmtNum((k.treasury||{}).gold||0)} Gold</b></div>
       </div>
       <p class="faint" style="margin-top:8px;">When a citizen gathers ${st.naturalResources.map(resName).join(' or ')} (PvE, Road), ${st.taxRate}% of that NEW amount goes to the country. Resources already in inventories are never taxed.</p>
     </div>
@@ -1167,7 +1167,7 @@ function renderMarket(){
       return `<div class="zone-card">
         <div>
           <h4 style="font-size:14px;">${marketItemLabel(l)}</h4>
-          <div class="lvl">Seller: ${kingdomFlag(l.sellerKingdom)}${esc(l.sellerName)} &middot; ${l.pricePerUnit}g${l.qty>1?' each':''} &middot; Total: ${fmtNum(l.totalPrice)}g</div>
+          <div class="lvl">Seller: ${kingdomFlag(l.sellerKingdom)}${esc(l.sellerName)} &middot; ${l.pricePerUnit} ${resourceIcon('gold',13)}${l.qty>1?' each':''} &middot; Total: ${fmtNum(l.totalPrice)} ${resourceIcon('gold',13)}</div>
         </div>
         <button class="btn btn-sm ${isMine?'':'btn-primary'}" data-action="buy-listing" data-id="${l.id}" ${isMine?'disabled title="This is your own listing"':''}>${isMine?'Yours':'Buy'}</button>
       </div>`;
@@ -1196,7 +1196,7 @@ function renderMarket(){
     body = mine.map(l=>`<div class="zone-card">
       <div>
         <h4 style="font-size:14px;">${marketItemLabel(l)}</h4>
-        <div class="lvl">${l.pricePerUnit}g${l.qty>1?' each':''} &middot; Total: ${fmtNum(l.totalPrice)}g</div>
+        <div class="lvl">${l.pricePerUnit} ${resourceIcon('gold',13)}${l.qty>1?' each':''} &middot; Total: ${fmtNum(l.totalPrice)} ${resourceIcon('gold',13)}</div>
       </div>
       <button class="btn btn-sm btn-danger" data-action="cancel-listing" data-id="${l.id}">Cancel</button>
     </div>`).join('') || '<div class="panel empty"><h3>No active listings</h3><p class="faint">Anything you list will show up here.</p></div>';
