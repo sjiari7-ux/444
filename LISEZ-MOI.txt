@@ -1,0 +1,8 @@
+
+ICONS (jdid)
+   icons/ m9asma l subfolders, kolchi WebP:
+   flags/ gear/ resources/ monsters/ zones/ banners/ classes/ ui/
+   L-code kay9ra ghir smiyat l-fichiers (b .png wla .jpg), w iconUrl() f js/config.js kayl9a l-folder w kaybddel l-extension l .webp.
+   Icon jdida: 7ett-ha f l-folder l-monasib b smiya li katbda b: weapon_ armor_ helmet_ gloves_ boots_ accessory_ (gear),
+   resource_, monster_, zone, banner-, class_  (wla f ui/ ila ma bdat b hadchi).
+   Flags: icons/flags/<id dyal l-dawla>.webp
