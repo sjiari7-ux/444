@@ -1478,7 +1478,11 @@ function renderCombat(){
 /* ============================================================
    MAIN RENDER
    ============================================================ */
+let _mapRenderT = 0;
 function render(){
+  // render() rebuilds #app = the map canvas is pulled out of the page. Chat messages and the 20s regen tick call render() all the time,
+  // so wait until the finger / mouse is off the map, otherwise the drag or pinch dies in the middle.
+  if(S.screen==='map' && typeof WorldMap!=='undefined' && WorldMap.busy && WorldMap.busy()){ clearTimeout(_mapRenderT); _mapRenderT = setTimeout(render, 250); return; }
   applyColorScheme(S.char ? S.char.colorScheme : 'brass');
   const app = document.getElementById('app');
   if(S.screen==='loading'){
