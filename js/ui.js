@@ -417,7 +417,7 @@ function renderCountryView(){
   const specHtml=(ec&&ec.specialities&&ec.specialities.length)?`<div class="rc-sec">SPECIALITIES</div><div class="kingdom-resource-row">${ec.specialities.map(r=>`<span>${resourceIcon(r,16)} ${resName(r)}</span>`).join('')}</div>`:'';
   const tabs=[['home','Home','castle'],['government','Government','crown'],['citizens','Citizens','users']];
   const tabRow=`<div class="country-module-nav rc-ptabs">${tabs.map(x=>`<button class="country-module ${tab===x[0]?'active':''}" data-action="view-ctab" data-tab="${x[0]}">${icon(x[2])}<span>${x[1]}</span></button>`).join('')}</div>`;
-  const hero=`<div class="rc-chero"><div class="rc-banner country"></div><div class="rc-chead"><div class="rc-flag">${kingdomFlag(id,64,'margin:0')}</div><div><small>⚑ Country ${viewOnlyChip()}</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Online</small><b>${online}</b></span><span><small>Treasury</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span></div></div></div></div>`;
+  const hero=`<div class="rc-chero"><div class="rc-banner country"></div><div class="rc-chead"><div class="rc-flag">${kingdomFlag(id,92,'margin:0')}</div><div><small>⚑ Country ${viewOnlyChip()}</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Online</small><b>${online}</b></span><span><small>Treasury</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span></div></div></div></div>`;
   let body='';
   if(tab==='home'){
     body=`<div class="rc-sec">RANKINGS</div><div class="rc-tiles">${statTile('Citizens',members.length,'green')}${statTile('Weekly damages',fmtDmg(wdmg))}${statTile('Treasury',`${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}`,'gold')}${statTile('National tax',kdef.tax+'%')}</div>
@@ -1054,7 +1054,7 @@ function renderKingdom(){
   return `
     <div class="rc-chero">
       <div class="rc-banner country"></div>
-      <div class="rc-chead"><div class="rc-flag">${flagIcon(kdef.flag,64)}</div><div><small>⚑ Country</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Treasury</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span><span><small>Status</small><b class="${readinessClass}">${readiness}</b></span></div></div></div>
+      <div class="rc-chead"><div class="rc-flag">${flagIcon(kdef.flag,92)}</div><div><small>⚑ Country</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Treasury</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span><span><small>Status</small><b class="${readinessClass}">${readiness}</b></span></div></div></div>
     </div>
     ${leaderMissing ? `<div class="country-alert"><span>${icon('crown')}</span><div><b>Leadership is vacant</b><p>${govMembers.length?'An Officer or above can claim leadership.':'No Officer exists yet, so any citizen can claim leadership.'}</p></div>${(myRank>=2||!govMembers.length)?'<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>':''}</div>`:''}
     ${tabRow}
