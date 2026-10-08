@@ -2562,3 +2562,24 @@ html[data-theme="crimson"] .rc-bagbar{background:#070303}
 html[data-theme="crimson"] .rc-bagbar i{background:linear-gradient(90deg,#89362b,var(--gold))}
 html[data-theme="crimson"] .color-swatch{background:linear-gradient(180deg,#211211,#140b0b)}
 html[data-theme="crimson"] .color-swatch.selected{box-shadow:inset 0 0 0 1px var(--gold),0 0 14px rgba(214,89,68,.18)}
+
+/* ===== FLAGS: one shape everywhere (banner 240:350), see flagIcon() in js/config.js ===== */
+.fl{display:inline-block;flex:none;position:relative;aspect-ratio:240/350;vertical-align:-2px;line-height:0;}
+.fl-crop{aspect-ratio:1;vertical-align:-3px;}
+.fl-img{display:block;width:100%;height:100%;object-fit:contain;border-radius:0!important;-webkit-user-drag:none;user-select:none;}
+.fl-crop .fl-img{object-fit:cover;object-position:top;}
+.fl-fb::before{content:"";position:absolute;left:12.5%;right:12.5%;top:4%;bottom:14%;background:var(--fb) center/cover #3a3228;clip-path:polygon(0 0,100% 0,100% 92%,88% 100%,76% 90%,64% 100%,52% 91%,40% 100%,28% 90%,16% 99%,0 92%);}
+.fl-fb::after{content:"";position:absolute;left:3%;right:3%;top:0;height:4%;min-height:2px;border-radius:99px;background:linear-gradient(#e8b93a,#a9772c);}
+.fl-fb.fl-crop::before{inset:0;clip-path:none;border-radius:2px;background-size:cover;}
+.fl-fb.fl-crop::after{display:none;}
+
+/* ===== COUNTRY HERO: free-standing flag with glow (no frame) + minimal stat chips ===== */
+.rc-flag{width:auto;height:auto;background:none;border:0;border-radius:0;padding:0;display:block;}
+.rc-flag .fl-img{width:100%;height:100%;margin:0!important;}
+.rc-flag .fl{filter:drop-shadow(0 0 12px color-mix(in srgb,var(--brass-bright,#e5ab60) 50%,transparent)) drop-shadow(0 10px 8px rgba(0,0,0,.75));}
+.rc-chero:not(.rc-phero) .rc-chead{margin-top:-64px;}
+.rc-chero:not(.rc-phero) .rc-cstats{gap:0;}
+.rc-chero:not(.rc-phero) .rc-cstats span{background:none;border:0;border-bottom:2px solid color-mix(in srgb,var(--brass-bright,#e5ab60) 45%,transparent);border-radius:0;padding:2px 14px 4px 0;margin-right:14px;}
+.rc-chero:not(.rc-phero) .rc-cstats span:last-child{margin-right:0;}
+.rc-chero:not(.rc-phero) .rc-cstats small{color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;}
+@media(max-width:720px){.rc-flag{width:auto;height:auto;}.rc-flag .fl{width:76px!important;}.rc-chero:not(.rc-phero) .rc-chead{margin-top:-52px;}}
