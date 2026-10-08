@@ -1,0 +1,13 @@
+// ADD this next to the existing `match /rc_wars/{warId}` block in your firestore.rules.
+// rc_regionWars/{regionId} = which war currently reserves a region (written by declareWar / captureRegionForWar).
+// IMPORTANT: give it EXACTLY the same write permission rc_wars has today.
+//  - Spark / js/server-local.js (server logic runs in the browser): clients must be allowed to write it, like rc_wars.
+//  - Blaze / Cloud Functions (admin SDK bypasses rules): make it read-only for clients, i.e. the `allow write: if false;` version.
+
+match /rc_regionWars/{regionId} {
+  allow read: if request.auth != null;
+  // Blaze / Cloud Functions:
+  allow write: if false;
+  // Spark / local server: replace the line above with the same condition used by rc_wars, e.g.
+  // allow write: if request.auth != null;
+}
