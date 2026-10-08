@@ -447,9 +447,12 @@ function kingdomFlag(kingdomId, size, extra){ const k = KINGDOMS.find(x=>x.id===
 function flagIcon(code, size, extra){
   if(!code) return '';
   const k = KINGDOMS.find(x=>x.flag===code);
-  const fb = `https://flagcdn.com/w40/${code}.png`;
+  const fb = `https://flagcdn.com/w320/${code}.png`;
   const first = k ? `icons/flags/${k.id}.webp` : fb;
-  return `<img src="${first}" alt="${code.toUpperCase()}" class="item-icon" style="width:${size||16}px;height:auto;${extra||''}" onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${fb}';}">`;
+  const w = size||16;
+  const crop = w<=20; /* xs: square crop of the cloth (hides the torn edge, keeps colour + emblem readable) */
+  /* every flag lives in a fixed-ratio box (240:350) -> same shape at every size; if the .webp is missing the flagcdn flag is drawn inside the same banner shape (.fl-fb) */
+  return `<span class="fl${crop?' fl-crop':''}" style="width:${w}px;${extra||''}"><img src="${first}" alt="${code.toUpperCase()}" class="fl-img" draggable="false" onerror="if(!this.dataset.fb){this.dataset.fb=1;var p=this.parentNode;p.classList.add('fl-fb');p.style.setProperty('--fb','url(${fb})');this.remove();}"></span>`;
 }
 const KINGDOM_ROLES = ['Recruit','Member','Officer','Co-Leader','Leader'];
 const KINGDOM_JOIN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
