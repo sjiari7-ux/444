@@ -1,0 +1,348 @@
+"use strict";
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+const G = require("./lib/game-core");
+const E = require("./lib/economy");
+const W = require("./lib/war-core");
+const War = require("./lib/war");
+const Community = require("./lib/community");
+const RD = require("./lib/resource-distribution");
+const { ApiError } = require("./lib/errors");
+
+admin.initializeApp();
+const db = admin.firestore();
+
+function fail(code, message, details) {
+  throw new functions.https.HttpsError(code, message, details || {});
+}
+
+function requireAuth(context) {
+  if (!context.auth) fail("unauthenticated", "UNAUTHORIZED");
+  return context.auth.uid;
+}
+
+// Builds a PvE fight (monster + combatants + session doc). Shared by
+// startAdventure and by the Road's "monster" step event.
+function spawnPveSession(c, zone, kind, now, ownerUid) {
+  const isBoss = kind === "boss", isElite = kind === "elite";
+  const topLevel = zone.uncapped ? zone.min + 80 : zone.max;
+  const monsterLevel = isBoss
+    ? G.clamp(c.level, zone.min, topLevel)
+    : G.clamp(c.level + G.rndInt(-2, 2) + (isElite ? 3 : 0), zone.min, topLevel);
+  const monster = isBoss
+    ? G.buildMonster(zone, monsterLevel, zone.boss, "boss")
+    : G.buildMonster(zone, monsterLevel, G.pick(zone.monsters), isElite ? "elite" : null);
+  const me = G.buildCombatant(Object.assign({}, c, { hpCur: c.hpCur }), true, c.username);
+  const sessionId = G.uid();
+  const session = {
+    sessionId, uid: ownerUid || null, mode: "pve", zoneId: zone.id, boss: isBoss, elite: isElite,
+    me, foe: monster, round: 1, maxRounds: G.PVE_MAX_ROUNDS, ended: false, createdAt: now,
+  };
+  const payload = {
+    sessionId, me, foe: monster, round: 1, maxRounds: G.PVE_MAX_ROUNDS,
+    log: [{ text: isBoss ? `${monster.label} rises to meet you!` : `A ${monster.label} (Lv.${monster.level}) blocks your path!`, cls: "" }],
+  };
+  return { session, payload };
+}
+
+/* ============================================================
+   startAdventure — validates + spends Energy, spawns the monster.
+   Covers Normal / Elite / Boss (kind: null | 'elite' | 'boss').
+   Only ONE active session per player: starting a new one overwrites
+   the old one, matching the existing single-fight-at-a-time UX.
+   ============================================================ */
+exports.startAdventure = functions.https.onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const zoneId = data && data.zoneId;
+  const kind = data && data.kind; // null | 'elite' | 'boss'
+  const zone = G.ZONES.find((z) => z.id === zoneId);
+  if (!zone) fail("invalid-argument", "INVALID_ACTION", { reason: "unknown zone" });
+  const isBoss = kind === "boss", isElite = kind === "elite";
+
+  const playerRef = db.doc("rc_players/" + uid);
+  const sessionRef = db.doc(`rc_players/${uid}/combat/session`);
+
+  return db.runTransaction(async (tx) => {
+    const pSnap = await tx.get(playerRef);
+    if (!pSnap.exists) fail("not-found", "ITEM_NOT_FOUND", { reason: "no character" });
+    const c = pSnap.data();
+
+    const { energyCur, maxEnergy, now } = G.applyEnergyRegen(c);
+    const energyCost = isBoss ? G.BOSS_ENERGY_COST : isElite ? 20 : 10;
+    if (energyCur < energyCost) {
+      fail("failed-precondition", "NOT_ENOUGH_ENERGY", {
+        required: energyCost, available: Math.floor(energyCur), perHour: G.energyRegenPerHour(maxEnergy),
+      });
+    }
+    const bossCooldowns = c.bossCooldowns || {};
+    if (isBoss) {
+      const cd = (bossCooldowns[zoneId] || 0) - now;
+      if (cd > 0) fail("failed-precondition", "COOLDOWN_ACTIVE", { msRemaining: cd });
+    }
+
+    const newEnergy = G.clamp(energyCur - energyCost, 0, maxEnergy);
+    const update = { energyCur: newEnergy, lastEnergyAt: now };
+    if (isBoss) update.bossCooldowns = Object.assign({}, bossCooldowns, { [zoneId]: now + G.BOSS_COOLDOWN_MS });
+
+    const { session, payload } = spawnPveSession(c, zone, kind, now, uid);
+
+    tx.update(playerRef, update);
+    tx.set(sessionRef, session);
+
+    return Object.assign({}, payload, { energyCur: newEnergy, maxEnergy, lastEnergyAt: now });
+  });
+});
+
+/* ============================================================
+   resolveCombatRound — the ONLY place PvE/Elite/Boss rewards are
+   granted. Player-chosen action is validated (skill known + owned +
+   affordable, item owned + correct effect) then resolved with the
+   same formulas as the client used to run locally. Ending the
+   session (ended:true + rewards applied) happens inside the same
+   transaction that reads it, so a retried/duplicated call on an
+   already-ended session is rejected before anything is re-granted.
+   ============================================================ */
+exports.resolveCombatRound = functions.https.onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const { sessionId, action } = data || {};
+  if (!action || !action.kind) fail("invalid-argument", "INVALID_ACTION");
+
+  const playerRef = db.doc("rc_players/" + uid);
+  const sessionRef = db.doc(`rc_players/${uid}/combat/session`);
+
+  return db.runTransaction(async (tx) => {
+    const [pSnap, sSnap] = await Promise.all([tx.get(playerRef), tx.get(sessionRef)]);
+    if (!pSnap.exists) fail("not-found", "ITEM_NOT_FOUND");
+    if (!sSnap.exists || sSnap.data().sessionId !== sessionId || sSnap.data().ended) {
+      fail("failed-precondition", "DUPLICATE_REQUEST", { reason: "no matching active session" });
+    }
+    const c = pSnap.data();
+    const sess = sSnap.data();
+    const me = sess.me, foe = sess.foe;
+    const cls = G.CLASSES[c.class];
+
+    // ---- validate + resolve the player's chosen action server-side ----
+    let playerAction;
+    if (action.kind === "attack" || action.kind === "defend" || action.kind === "flee") {
+      playerAction = { kind: action.kind };
+    } else if (action.kind === "skill") {
+      const skill = cls.skills.find((s) => s.id === action.skillId);
+      if (!skill) fail("invalid-argument", "INVALID_ACTION", { reason: "unknown skill" });
+      const skillLevel = (c.classSkills && c.classSkills[skill.id]) || 0;
+      if (me.resource < skill.cost) fail("failed-precondition", "NOT_ENOUGH_RESOURCE");
+      playerAction = { kind: "skill", skill, skillLevel };
+    } else if (action.kind === "item") {
+      const idx = (c.inventory || []).findIndex((i) => i.uid === action.itemUid);
+      if (idx < 0) fail("failed-precondition", "ITEM_NOT_FOUND");
+      const item = c.inventory[idx];
+      if (item.kind !== "consumable") fail("invalid-argument", "INVALID_ACTION");
+      playerAction = { kind: "item", item };
+      // consume it now — committed even if the fight continues, so abandoning the
+      // session afterwards can't un-spend a potion that was already used.
+      item.qty = (item.qty || 1) - 1;
+      const inventory = item.qty > 0 ? c.inventory : c.inventory.filter((i) => i.uid !== action.itemUid);
+      c.inventory = inventory;
+      if (item.effect && item.effect.energy) {
+        const regen = G.applyEnergyRegen(c);
+        c.energyCur = G.clamp(regen.energyCur + item.effect.energy, 0, regen.maxEnergy);
+        c.lastEnergyAt = regen.now;
+      }
+    } else {
+      fail("invalid-argument", "INVALID_ACTION");
+    }
+
+    if (sess.ended) fail("failed-precondition", "DUPLICATE_REQUEST");
+
+    const logs = [];
+    let fleeSucceeded = false;
+    if (playerAction.kind === "flee") {
+      const chance = G.clamp(50 + (G.liveStat(me, "spd") - G.liveStat(foe, "spd")) * 2, 15, 90);
+      fleeSucceeded = Math.random() * 100 < chance;
+      logs.push({ text: fleeSucceeded ? "You escape the fight." : "You failed to escape!", cls: fleeSucceeded ? "good" : "hit" });
+      if (!fleeSucceeded) {
+        const foeAct = G.chooseAiAction(foe, me);
+        const foeLvl = (foeAct.skill && foe.skillLevels) ? (foe.skillLevels[foeAct.skill.id] || 0) : 0;
+        logs.push(...G.performAction(foe, me, foeAct, foeLvl));
+        sess.round += 1;
+      }
+    } else {
+      const meFirst = G.liveStat(me, "spd") >= G.liveStat(foe, "spd");
+      const order = meFirst
+        ? [{ who: me, other: foe, act: playerAction, sk: (playerAction.skillLevel || 0) },
+          { who: foe, other: me, act: null, sk: 0 }]
+        : [{ who: foe, other: me, act: null, sk: 0 },
+          { who: me, other: foe, act: playerAction, sk: (playerAction.skillLevel || 0) }];
+      for (const turn of order) {
+        if (me.hp <= 0 || foe.hp <= 0) break;
+        const act = turn.act || G.chooseAiAction(turn.who, turn.other);
+        const skLvl = turn.act ? turn.sk : ((act.skill && turn.who.skillLevels) ? (turn.who.skillLevels[act.skill.id] || 0) : 0);
+        logs.push(...G.performAction(turn.who, turn.other, act, skLvl));
+      }
+      G.tickBuffs(me); G.tickBuffs(foe);
+      sess.round += 1;
+    }
+
+    let result = null;
+    if (playerAction.kind === "flee" && fleeSucceeded) result = "flee";
+    else if (foe.hp <= 0) result = "win";
+    else if (me.hp <= 0) result = "lose";
+    else if (sess.round > sess.maxRounds) result = "flee";
+
+    if (!result) {
+      tx.update(sessionRef, { me, foe, round: sess.round });
+      tx.update(playerRef, { inventory: c.inventory, energyCur: c.energyCur, lastEnergyAt: c.lastEnergyAt });
+      return { ended: false, logs, me, foe, round: sess.round };
+    }
+    // Reads must precede writes in a transaction: load the country economy (tax rate + any
+    // active war tax) now; finishSession then splits the freshly generated resources.
+    const econ = result === "win" ? await E.readEconomyForPlayer(tx, c) : null;
+    return finishSession({ tx, playerRef, sessionRef, c, me, foe, sess, result, logs, econ });
+  });
+});
+
+function finishSession({ tx, playerRef, sessionRef, c, me, foe, sess, result, logs, econ }) {
+  const rewardLines = [];
+  const eff = G.effectiveStats(c);
+  c.hpCur = result === "lose" ? Math.max(1, Math.round(eff.maxHp * 0.15)) : G.clamp(me.hp, 1, eff.maxHp);
+  if (c.class === "mage") c.manaCur = G.clamp(me.resource, 0, eff.maxMana);
+  else c.resourceCur = 0;
+
+  const zone = G.ZONES.find((z) => z.id === sess.zoneId);
+  if (result === "win") {
+    const rewardMult = sess.boss ? 3.2 : sess.elite ? 1.9 : 1;
+    const xpGain = Math.round(G.rnd(8, 14) * foe.level * rewardMult);
+    const goldGain = Math.round(G.rnd(6, 12) * foe.level * rewardMult);
+    c.xp = (c.xp || 0) + xpGain; c.gold = (c.gold || 0) + goldGain;
+    const resGain = {};
+    zone.resources.forEach((r) => { resGain[r] = W.round3(G.rndInt(2, 6) * rewardMult); });
+    // The National PvE Tax (3 decimals) is taken from the NEW gain only, never from what the player already holds.
+    const taxed = E.applyTaxToGains(econ, c, resGain, Date.now());
+    zone.resources.forEach((r) => { c.resourceBag[r] = W.round3((c.resourceBag[r] || 0) + taxed.net[r]); });
+    E.commitEconomy(tx, econ, taxed);
+    rewardLines.push({ label: "XP gained", value: "+" + xpGain }, { label: "Gold gained", value: "+" + goldGain });
+    rewardLines.push({ label: "Resources", value: zone.resources.map((r) => `+${taxed.net[r]} ${r}`).join(", ") + taxLabel(taxed) });
+    checkLevelUps(c, rewardLines);
+  } else if (result === "lose") {
+    rewardLines.push({ label: "Result", value: "Defeated — no rewards." });
+  } else {
+    rewardLines.push({ label: "Result", value: "You retreated safely." });
+  }
+
+  tx.update(playerRef, {
+    hpCur: c.hpCur, manaCur: c.manaCur, resourceCur: c.resourceCur,
+    xp: c.xp, level: c.level, skillPoints: c.skillPoints, gold: c.gold,
+    resourceBag: c.resourceBag, inventory: c.inventory,
+    energyCur: c.energyCur, lastEnergyAt: c.lastEnergyAt,
+    ...(econ && !c.nationality ? { nationality: econ.countryId } : {}),   // legacy players: citizenship becomes their stored nationality
+  });
+  tx.delete(sessionRef);
+  return { ended: true, result, logs, rewardLines, me, foe };
+}
+
+function taxLabel(taxed) {
+  const parts = taxed.lines.filter((l) => l.tax).map((l) => `${l.resource}: -${l.tax.toFixed(3)}`);
+  return parts.length ? ` (national tax ${parts.join(", ")})` : "";
+}
+
+function checkLevelUps(c, rewardLines) {
+  let leveled = 0;
+  while (c.xp >= G.xpNeeded(c.level)) { c.xp -= G.xpNeeded(c.level); c.level += 1; c.skillPoints = (c.skillPoints || 0) + 1; leveled++; }
+  if (leveled > 0) {
+    const eff = G.effectiveStats(c);
+    c.hpCur = eff.maxHp; c.manaCur = eff.maxMana;
+    // Energy is deliberately NOT refilled on level-up (spec §7).
+    rewardLines.push({ label: "Level up!", value: `Reached level ${c.level} (+${leveled} skill point${leveled > 1 ? "s" : ""})` });
+  }
+}
+
+/* ============================================================
+   takeRoadStep — the Road ("Take a Step") moved server-side so the resources
+   it generates can be taxed by the same code as PvE. Same odds and amounts as
+   the old client version. A "monster" step returns a ready PvE session (no
+   extra Energy) that the client plays through resolveCombatRound.
+   ============================================================ */
+exports.takeRoadStep = functions.https.onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const zone = G.ZONES.find((z) => z.id === (data && data.zoneId));
+  if (!zone) fail("invalid-argument", "INVALID_ACTION", { reason: "unknown zone" });
+  const playerRef = db.doc("rc_players/" + uid);
+  const sessionRef = db.doc(`rc_players/${uid}/combat/session`);
+
+  return wrap(() => db.runTransaction(async (tx) => {
+    const pSnap = await tx.get(playerRef);
+    if (!pSnap.exists) fail("not-found", "ITEM_NOT_FOUND", { reason: "no character" });
+    const c = pSnap.data();
+    if (c.level < zone.min - 5) fail("failed-precondition", "INVALID_ACTION", { reason: "zone locked" });
+
+    const { energyCur, maxEnergy, now } = G.applyEnergyRegen(c);
+    if (energyCur < G.STEP_ENERGY_COST) {
+      fail("failed-precondition", "NOT_ENOUGH_ENERGY", { required: G.STEP_ENERGY_COST, available: Math.floor(energyCur), perHour: G.energyRegenPerHour(maxEnergy) });
+    }
+    const ev = G.pickStepEvent();
+    const econ = ev === "resource" ? await E.readEconomyForPlayer(tx, c) : null; // all reads first
+    c.energyCur = G.clamp(energyCur - G.STEP_ENERGY_COST, 0, maxEnergy);
+    c.lastEnergyAt = now;
+    const res = { event: ev };
+    const update = { energyCur: c.energyCur, lastEnergyAt: now };
+
+    if (ev === "gold") {
+      res.gold = G.rndInt(2, 7); update.gold = (c.gold || 0) + res.gold;
+    } else if (ev === "resource") {
+      const r = G.pick(zone.resources);
+      const taxed = E.applyTaxToGains(econ, c, { [r]: G.rndInt(1, 3) }, now);
+      c.resourceBag[r] = W.round3((c.resourceBag[r] || 0) + taxed.net[r]);
+      E.commitEconomy(tx, econ, taxed);
+      res.resource = r; res.amount = taxed.net[r]; res.gross = taxed.lines[0] ? taxed.lines[0].gross : taxed.net[r];
+      update.resourceBag = c.resourceBag;
+      if (econ && !c.nationality) update.nationality = econ.countryId;
+    } else if (ev === "xp") {
+      res.xp = G.rndInt(2, 5); c.xp = (c.xp || 0) + res.xp;
+      const lines = []; checkLevelUps(c, lines); res.levelLines = lines.map((l) => l.value);
+      Object.assign(update, { xp: c.xp, level: c.level, skillPoints: c.skillPoints, hpCur: c.hpCur, manaCur: c.manaCur });
+    } else if (ev === "item") {
+      if ((c.inventory || []).length < G.BAG_CAPACITY) {
+        const item = G.makeEquipment(G.pick(G.EQUIP_SLOTS), G.TIERS[0].id, c.level);
+        c.inventory.push(item); update.inventory = c.inventory; res.item = { name: item.name };
+      } else res.bagFull = true;
+    } else if (ev === "monster") {
+      const { session, payload } = spawnPveSession(c, zone, null, now, uid);
+      tx.set(sessionRef, session);
+      res.monster = payload;
+    }
+    tx.update(playerRef, update);
+    res.energyCur = c.energyCur; res.lastEnergyAt = now;
+    return res;
+  }));
+});
+
+/* ============================================================
+   Country economy & war callables (logic in lib/war.js).
+   ============================================================ */
+function wrap(fn) {
+  return Promise.resolve().then(fn).catch((e) => {
+    if (e instanceof ApiError) throw new functions.https.HttpsError(e.code, e.message, e.details || {});
+    throw e;
+  });
+}
+exports.getCountryState = functions.https.onCall((data, context) => wrap(() => War.getCountryState(requireAuth(context))));
+exports.getWorldWars = functions.https.onCall((data, context) => wrap(() => War.getWorldWars(requireAuth(context))));
+exports.declareWar = functions.https.onCall((data, context) => wrap(() => War.declareWar(requireAuth(context), data)));
+exports.warStrike = functions.https.onCall((data, context) => wrap(() => War.warStrike(requireAuth(context))));
+exports.setCountrySpecialities = functions.https.onCall((data, context) => wrap(() => War.setCountrySpecialities(requireAuth(context), data)));
+exports.getCountryPublic = functions.https.onCall((data, context) => wrap(() => War.getCountryPublic(requireAuth(context), data)));
+exports.transferLeadership = functions.https.onCall((data, context) => wrap(() => Community.transferLeadership(requireAuth(context), data)));
+exports.getRegionResources = functions.https.onCall((data, context) => wrap(async () => {
+  const uid = requireAuth(context);
+  let cid = data && data.countryId;
+  if (!cid) { const p = await db.collection("rc_players").doc(uid).get(); cid = p.exists ? p.data().kingdomId : null; }
+  return RD.getRegionResources(cid);   // read-only; generating the month happens server-side, never on a client request's say-so
+}));
+exports.adminResourceDistribution = functions.https.onCall((data, context) => wrap(() => RD.adminResourceDistribution(requireAuth(context), data || {})));
+exports.claimDailyReward = functions.https.onCall((data, context) => wrap(() => Community.claimDailyReward(requireAuth(context))));
+
+// Finishes rounds / expires war taxes even when nobody is online. Needs Cloud Scheduler
+// (Blaze plan). Everything it does is also done lazily by the callables above.
+if (functions.pubsub && functions.pubsub.schedule) {
+  exports.warTick = functions.pubsub.schedule("every 1 minutes").onRun(() => War.tickWars());
+}
+
