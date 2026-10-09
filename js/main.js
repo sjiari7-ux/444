@@ -134,7 +134,10 @@ async function onActionClick(e){
   if(action==='fight-opponent'){ await startPvp(S.pvpCandidates[Number(el.dataset.idx)]); return; }
 
   if(action==='join-kingdom'){ await joinKingdom(el.dataset.kingdom); return; }
-  if(action==='leave-kingdom'){ await leaveKingdom(); return; }
+  if(action==='citizen-pick'){ S.citizenPick = !S.citizenPick; render(); return; }
+  if(action==='citizen-request'){ await requestCitizenship(el.dataset.kingdom); return; }
+  if(action==='citizen-cancel'){ await cancelCitizenshipRequest(); return; }
+  if(action==='citizen-decide'){ await decideCitizenshipRequest(el.dataset.id, el.dataset.op); return; }
   if(action==='claim-leadership'){ await claimLeadership(); return; }
   if(action==='donate-kingdom'){ await donateToKingdom(el.dataset.resource, Number(el.dataset.amount)); return; }
   if(action==='kingdom-member'){ await kingdomManageMember(el.dataset.id, el.dataset.op); return; }
