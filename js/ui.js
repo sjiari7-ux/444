@@ -1063,7 +1063,8 @@ function renderKingdom(){
   const tabLabel = {overview:'Home',government:'Government',treasury:'Account',war:'Wars',citizens:'Citizens',economy:'Economy'};
   const tabIcon = {overview:'castle',citizens:'users',government:'scroll',treasury:'bag',economy:'chart',war:'shield'};
   const activeTab = tabs.includes(S.kingdomTab) ? S.kingdomTab : 'overview';
-  const tabRow = `<div class="country-module-nav">${tabs.map(t=>`<button class="country-module ${activeTab===t?'active':''}" data-action="kingdom-tab" data-tab="${t}">${icon(tabIcon[t])}<span>${tabLabel[t]}</span>${t==='war'&&activeWar?'<i>LIVE</i>':''}</button>`).join('')}</div>`;
+  const reqCount = myRank>=2 ? (kv.requests||[]).length : 0;
+  const tabRow = `<div class="country-module-nav">${tabs.map(t=>`<button class="country-module ${activeTab===t?'active':''}" data-action="kingdom-tab" data-tab="${t}">${icon(tabIcon[t])}<span>${tabLabel[t]}</span>${t==='war'&&activeWar?'<i>LIVE</i>':''}${t==='citizens'&&reqCount?`<i class="rc-dot">${reqCount}</i>`:''}</button>`).join('')}</div>`;
 
   const resourceTiles = ((st&&st.naturalResources)||kdef.resources).map(r=>`<div class="country-resource"><div class="country-resource-icon">${resourceIcon(r,25)}</div><span>${RESOURCE_NAMES[r]||r}</span><b>${fmtNum(st?.resources?.[r]||0)}</b></div>`).join('');
   const readiness = activeWar ? 'WAR ACTIVE' : 'PEACE';
@@ -1104,6 +1105,7 @@ function renderKingdom(){
       <div class="rc-banner country"></div>
       <div class="rc-chead"><div class="rc-flag">${flagIcon(kdef.flag,92)}</div><div><small>${icon('flag','class="ic-inline" aria-hidden="true"')} Country</small><h2>${esc(kdef.name)}</h2><div class="rc-cstats"><span><small>Citizens</small><b>${members.length}</b></span><span><small>Donation fund</small><b>${resourceIcon('gold',16)} ${fmtNum(treasury.gold||0)}</b></span><span><small>Tax</small><b>${kdef.tax}%</b></span><span><small>Status</small><b class="${readinessClass}">${readiness}</b></span></div></div></div>
     </div>
+    ${reqCount?`<div class="country-alert"><span>${icon('scroll')}</span><div><b>Citizenship requests</b><p>${plural(reqCount,'player')} waiting to become citizens.</p></div><button class="btn btn-sm btn-primary" data-action="kingdom-tab" data-tab="citizens">Review</button></div>`:''}
     ${leaderMissing ? `<div class="country-alert"><span>${icon('crown')}</span><div><b>Leadership is vacant</b><p>${govMembers.length?'An Officer or above can claim leadership.':'No Officer exists yet, so any citizen can claim leadership.'}</p></div>${(myRank>=2||!govMembers.length)?'<button class="btn btn-primary btn-sm" data-action="claim-leadership">Claim Leadership</button>':''}</div>`:''}
     ${tabRow}
     ${tabBody}`;
