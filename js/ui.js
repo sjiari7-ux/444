@@ -489,25 +489,25 @@ function renderWarDetail(){
   const finished=w.status==='finished'||w.endedAt;
   if(S.warFighters===undefined || !S.warFighters[w.id]) loadWarFighters(w.id);
   const wf=(S.warFighters&&S.warFighters[w.id])||{list:[],loading:true};
-  const col=cid=>wf.list.filter(f=>f.countryId===cid).slice(0,6).map((f,i)=>`<div class="wa-fr" data-action="view-player" data-id="${esc(f.uid)}"><i>${i+1}</i>${f.nat?kingdomFlag(f.nat,14,'margin:0'):''}<b>${esc(f.username)}</b><span>${fmtDmg(f.dmg)}</span></div>`).join('')||'<p class="faint" style="padding:6px 0">'+(wf.loading?'Loading…':'No fighters yet')+'</p>';
+  const row=(f,i,cls)=>{ const lv=f.level||1, nm=f.nat?countryName(f.nat):''; return `<div class="wa-fr ${cls}" data-action="view-player" data-id="${esc(f.uid)}"><i>${i+1}</i><span class="wa-av">${esc((f.username||'?').slice(0,2).toUpperCase())}<b>${lv}</b></span><div class="wa-nm"><b>${esc(f.username)}</b><small>${f.nat?kingdomFlag(f.nat,14,'margin:0'):''}${nm?esc(nm)+' · ':''}Lv ${lv}</small></div><em>${fmtDmg(f.dmg)}</em></div>`; };
+  const col=(cid,cls)=>wf.list.filter(f=>f.countryId===cid).slice(0,6).map((f,i)=>row(f,i,cls)).join('')||'<div class="wa-empty">'+(wf.loading?'Loading…':'No fighters yet')+'</div>';
   const sel=S.warRoundSel&&S.warRoundSel.id===w.id?S.warRoundSel.n:null;
   const shown=rs.find(r=>r.round===sel)||round||rs[rs.length-1]||null;
   const tabs=rs.map(r=>`<button class="wa-tab${shown&&shown.round===r.round?' on':''}${r.winner===a?' wa-wa':r.winner===d?' wa-wd':''}" data-action="war-round" data-id="${esc(w.id)}" data-n="${r.round}">Round ${r.round}</button>`).join('');
   const dm=(shown&&shown.damage)||{}, da=Number(dm[a]||0), dd=Number(dm[d]||0), t=da+dd, pa=t?Math.round(da/t*1000)/10:50, pd=Math.round((100-pa)*10)/10;
-  const status=finished?'Finished':(w.status==='preparing'?'Preparing':'Live');
-  return back+`
-  <div class="wa">
+    return back+`
+  <div class="wa"><i class="wa-rv r1"></i><i class="wa-rv r2"></i><i class="wa-rv r3"></i><i class="wa-rv r4"></i>
     <div class="wa-head"><small>Region war</small><b>${esc(w.targetRegionName||'War')}</b><div class="wa-tabs">${tabs}</div></div>
     <div class="wa-vs">
-      <div class="wa-side" data-action="view-country" data-id="${esc(a)}">${kingdomFlag(a,52,'margin:0 auto 5px;display:block')}<b>${esc(countryName(a))}</b><small class="a">Attacker</small></div>
-      <div class="wa-mid"><strong>${sa} : ${sd}</strong><small>${status}</small>${round?.endsAt&&!finished?`<small>${countdown(round.endsAt)}</small>`:''}</div>
-      <div class="wa-side" data-action="view-country" data-id="${esc(d)}">${kingdomFlag(d,52,'margin:0 auto 5px;display:block')}<b>${esc(countryName(d))}</b><small class="d">Defender</small></div>
+      <div class="wa-side" data-action="view-country" data-id="${esc(a)}">${kingdomFlag(a,56,'margin:0 auto 5px;display:block')}<b>${esc(countryName(a))}</b><small class="a">Attacker</small></div>
+      <div class="wa-mid"><strong>${sa} : ${sd}</strong><div class="wa-tm"><small>${finished?'Finished':w.status==='preparing'?'Starts in':'<i></i>Live · round ends in'}</small>${finished?'':`<b>${w.status==='preparing'?countdown(w.startsAt):(round?.endsAt?countdown(round.endsAt):'')}</b>`}</div></div>
+      <div class="wa-side" data-action="view-country" data-id="${esc(d)}">${kingdomFlag(d,56,'margin:0 auto 5px;display:block')}<b>${esc(countryName(d))}</b><small class="d">Defender</small></div>
     </div>
-    <div class="wa-bar"><div class="wa-a" style="width:${pa}%">${fmtDmg(da)}</div><div class="wa-d" style="width:${pd}%">${fmtDmg(dd)}</div></div>
-    <div class="wa-pct"><span>${pa}%</span><span>${pd}%</span></div>
+    <div class="wa-bar"><i class="wa-a" style="width:${pa}%"></i><i class="wa-d" style="width:${pd}%"></i><s class="wa-pin" style="left:${pa}%"></s></div>
+    <div class="wa-pct"><span>${fmtDmg(da)} &middot; ${pa}%</span><span>${pd}% &middot; ${fmtDmg(dd)}</span></div>
     ${warStrikeBlock(w)}
     ${finished&&w.targetRegionName&&w.territory?`<p class="wa-note">${warTerritoryText(w.territory,w.targetRegionName)}</p>`:''}
-    <div class="wa-cols"><div><div class="wa-fh">Top attackers</div>${col(a)}</div><div><div class="wa-fh d">Top defenders</div>${col(d)}</div></div>
+    <div class="wa-cols"><div class="wa-fh">Top attackers</div>${col(a,'a')}<div class="wa-fh d">Top defenders</div>${col(d,'d')}</div>
   </div>`;
 }
 function renderWorld(){
