@@ -1605,7 +1605,7 @@ function render(){
   // 'settings' no longer has its own nav slot — it lives under Profile's Settings tab.
 
   app.innerHTML = `
-  <div class="app-shell">
+  <div class="app-shell${S.screen==='map'?' map-mode':''}">
     <div class="sidebar">
       <div class="brand">
         <div class="brand-mark">${icon('sword','style="width:100%;height:100%;stroke:#e0983a"')}</div>
@@ -1616,7 +1616,7 @@ function render(){
     </div>
     <div class="main">
       ${renderStatusBar()}
-      <div class="view">${body}</div>
+      <div class="view${S.screen==='map'?' view-map':''}">${body}</div>
     </div>
   </div>
   ${renderDrawer(navActive)}
