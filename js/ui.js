@@ -1085,9 +1085,11 @@ function renderKingdom(){
     <div class="rc-res">${resourceTiles||'<span class="faint">None</span>'}</div>
     <div class="rc-sec">${icon('castle','style="width:12px;height:12px"')} YOUR POSITION</div>
     ${statTile('Role',c.kingdomRole||'Recruit')}
-    <div class="country-footer-action"><button class="btn btn-danger" data-action="leave-kingdom">Leave Kingdom</button></div>`;
+    ${citizenshipBox(c,kv)}`;
   const govBody=govLayout(byRole('Leader'),byRole('Co-Leader'),byRole('Officer'),(m,cls)=>`<div class="rc-role-p">${avatarHtml(m,cls)}<b>${esc(m.username)}</b></div>`);
-  const citBody=`<div class="country-card"><div class="country-card-head"><span>CITIZENS</span><b>${members.length}</b></div><div class="member-list">${memberRows}</div></div>`;
+  const reqRows=(kv.requests||[]).map(r=>`<div class="member-line"><div class="member-avatar" data-action="view-player" data-id="${esc(r.playerId||r.id)}">${esc((r.username||'?').slice(0,2).toUpperCase())}</div><div class="member-main"><b>${esc(r.username||'?')}</b><small>Lv.${r.level||1} · from ${esc(countryName(r.fromId))}</small></div><div class="member-actions"><button class="btn btn-sm btn-primary" data-action="citizen-decide" data-id="${esc(r.id)}" data-op="accept">Accept</button><button class="btn btn-sm btn-danger" data-action="citizen-decide" data-id="${esc(r.id)}" data-op="reject">Decline</button></div></div>`).join('');
+  const reqCard=(myRank>=2&&reqRows)?`<div class="country-card"><div class="country-card-head"><span>CITIZENSHIP REQUESTS</span><b>${(kv.requests||[]).length}</b></div><div class="member-list">${reqRows}</div></div>`:'';
+  const citBody=`${reqCard}<div class="country-card"><div class="country-card-head"><span>CITIZENS</span><b>${members.length}</b></div><div class="member-list">${memberRows}</div></div>`;
 
   let tabBody='';
   if(activeTab==='overview') tabBody=homeBody;
@@ -1109,6 +1111,16 @@ function renderKingdom(){
 
 /* ---------------- Country economy & war (all numbers come from the server) ---------------- */
 function countryName(id){ const k = KINGDOMS.find(x=>x.id===id); return k ? k.name : id; }
+/* Citizenship box (Home tab): nobody can leave a country and stay stateless — you apply to another country and keep your current citizenship until it accepts. */
+function citizenshipBox(c,kv){
+  const req=kv.myRequest, cd=(c.kingdomCooldownUntil||0)-Date.now();
+  let inner;
+  if(req && req.status==='pending') inner=`<p class="faint">Request sent to <b>${esc(countryName(req.toId))}</b>. You stay a citizen of ${esc(countryName(c.kingdomId))} until it is accepted.</p><button class="btn btn-sm" data-action="citizen-cancel">Cancel request</button>`;
+  else if(req && req.status==='rejected') inner=`<p class="faint">${esc(countryName(req.toId))} declined your request.</p><button class="btn btn-sm" data-action="citizen-cancel">OK</button>`;
+  else if(cd>0) inner=`<p class="faint">You can change citizenship again in <b>${fmtMs(cd)}</b>.</p>`;
+  else inner=`<button class="btn" data-action="citizen-pick">${S.citizenPick?'Close':'Change citizenship'}</button>`+(S.citizenPick?`<div class="cz-list">${KINGDOMS.filter(k=>k.id!==c.kingdomId).map(k=>`<button class="cz-opt" data-action="citizen-request" data-kingdom="${esc(k.id)}">${flagIcon(k.flag,14)}<span>${esc(k.name)}</span></button>`).join('')}</div>`:'');
+  return `<div class="country-footer-action cz-box">${inner}</div>`;
+}
 function srvNow(){ return Date.now() + (S.serverOffset||0); }
 function dailyPanel(c){
   const DAY=86400000, today=Math.floor(srvNow()/DAY), d=c.daily||{};
@@ -1625,7 +1637,7 @@ function render(){
   ${S.toast ? `<div class="toast">${esc(S.toast)}</div>` : ''}
   ${renderDialog()}
   `;
-  if(S.char){ startChatListener(); startKingdomChatListener(); }
+  if(S.char){ startChatListener(); startKingdomChatListener(); resolveCitizenshipRequestOnce(); }
   if(S.screen==='map') mountMapScreen();
   if(S.screen==='world'){
     const cs=document.getElementById('country-search');
