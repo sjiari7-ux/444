@@ -301,11 +301,8 @@ async function loadKingdomView(){
       try{
         const rq = await withTimeout(DB.doc('rc_citizenship_requests/'+MY_ID).get(), 6000);
         if(rq.exists) myRequest = rq.data();
-        if(kingdomRank(c.kingdomRole) >= 2){
-          const qs = await withTimeout(DB.collection('rc_citizenship_requests').where('toId','==',c.kingdomId).where('status','==','pending').limit(20).get(), 6000);
-          requests = qs.docs.map(d=>Object.assign({id:d.id}, d.data()));
-        }
-      }catch(e){ /* the rest of the view still works without it */ }
+      }catch(e){ console.error('citizenship request (own) failed:', e && e.code, e && e.message); }
+      requests = (await loadCitizenshipRequests()) || [];
       if(myRequest && myRequest.toId && myRequest.toId !== c.kingdomId){
         let go = myRequest.status === 'accepted';
         if(!go && myRequest.status === 'pending'){ try{ go = !(await countryHasGovernment(myRequest.toId)); }catch(e){} }   // the country lost its government meanwhile -> automatic
@@ -450,6 +447,23 @@ async function countryHasGovernment(kingdomId){
   return !q.empty;
 }
 
+// Pending requests waiting for MY country (Officer+ only). Returns null if the read failed (the error is logged, never swallowed silently).
+async function loadCitizenshipRequests(){
+  const c = S.char;
+  if(!HAS_DB || !c || !c.kingdomId || kingdomRank(c.kingdomRole) < 2) return [];
+  try{
+    const qs = await withTimeout(DB.collection('rc_citizenship_requests').where('toId','==',c.kingdomId).where('status','==','pending').limit(20).get(), 6000);
+    return qs.docs.map(d=>Object.assign({id:d.id}, d.data()));
+  }catch(e){ console.error('citizenship requests read failed:', e && e.code, e && e.message, e); return null; }
+}
+// Light refresh (no full reload of the Kingdom screen): called when the Home / Citizens tab is opened, so a request sent after the screen was first loaded still shows up.
+async function refreshCitizenshipRequests(){
+  const kv = S.kingdomView;
+  if(!kv || kv.mode!=='mine') return;
+  const list = await loadCitizenshipRequests();
+  if(list && S.kingdomView===kv){ kv.requests = list; render(); }
+}
+
 async function applyCitizenshipChange(toId){
   const c = S.char, fromId = c.kingdomId;
   if(HAS_DB && fromId && c.kingdomRole==='Leader'){
@@ -481,7 +495,10 @@ async function requestCitizenship(toId){
       showToast(`Request sent to ${k.name}.`);
     }
     loadKingdomView();
-  }catch(e){ showToast('Could not send the request — try again.'); }
+  }catch(e){
+    console.error('requestCitizenship failed:', e && e.code, e && e.message, e);
+    showToast(e && e.code==='permission-denied' ? 'The database refused the request — publish the new firestore.rules.' : 'Could not send the request — try again.'+(e&&e.code?' ('+e.code+')':''));
+  }
 }
 
 async function cancelCitizenshipRequest(){
