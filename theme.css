@@ -2715,3 +2715,11 @@ details.rc-more>p{margin:4px 0 0!important}
 .wa-fr em{font-style:normal;font-weight:700;font-size:13px}.wa-fr.a em{color:var(--wa-red)}.wa-fr.d em{color:var(--wa-blue)}
 .wa-empty{padding:9px 12px;border:1px dashed var(--border,#3a2a1a);border-radius:10px;color:var(--text-faint,#7d7263);font-style:italic;font-size:12px}
 @media (max-width:560px){.wa{padding:0}.wa-mid strong{font-size:22px;padding:5px 12px}.wa-btns{gap:8px}.wa-btn{font-size:15px}.wa-cols{grid-template-columns:1fr;gap:0}}
+
+/* ---- Citizenship change (Home tab of a country) ---- */
+.country-footer-action.cz-box{display:block;text-align:left;padding:12px 14px}
+.cz-box p{margin:0 0 8px}
+.cz-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px;max-height:260px;overflow:auto;padding:2px}
+.cz-opt{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--ink-1,#0c0805);border:1px solid var(--border-soft,#2a1d12);border-radius:8px;color:var(--parchment,#f3ead9);font:600 12.5px Inter,sans-serif;text-align:left;cursor:pointer}
+.cz-opt:hover{border-color:var(--gold,#e0983a)}
+.cz-opt .fl{flex:none;margin:0}
