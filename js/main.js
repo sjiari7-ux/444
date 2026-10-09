@@ -186,6 +186,7 @@ async function onActionClick(e){
     S.kingdomTab = el.dataset.tab;
     if(S.kingdomTab==='economy' || S.kingdomTab==='war'){ loadCountryState(); return; }
     if(S.kingdomTab==='overview'){ loadCountryState(true); }
+    if(S.kingdomTab==='overview' || S.kingdomTab==='citizens'){ refreshCitizenshipRequests(); }
     render(); return;
   }
   if(action==='country-refresh'){ await loadCountryState(); return; }
