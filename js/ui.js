@@ -471,10 +471,10 @@ function warStrikeBlock(w){
   const btn=(sd,cid,label,ic)=>{
     const busy=prep||coolLeft>0||full;
     const why=prep?'Fighting opens when the war starts':full?'Strike limit reached for this round':coolLeft>0?'Ready in '+Math.ceil(coolLeft/1000)+'s':'';
-    return `<button class="wa-btn ${sd==='attack'?'wa-att':'wa-def'}" data-action="war-strike" data-war="${esc(w.id)}" data-side="${sd}" ${busy?'disabled':''} title="${esc(why)}"><b>${label}</b><small>${sd==='attack'?'for ':''}${esc(countryName(cid))}${me&&me.energyCost!=null?' &middot; '+me.energyCost+' energy':''}</small></button>`;
+    return `<button class="wa-btn ${sd==='attack'?'wa-att':'wa-def'}" data-action="war-strike" data-war="${esc(w.id)}" data-side="${sd}" ${busy?'disabled':''} title="${esc(why)}">${icon(ic,'class="ic-inline" aria-hidden="true"')} ${label}<small>${sd==='attack'?'for ':''}${esc(countryName(cid))}${me&&me.energyCost!=null?' &middot; '+me.energyCost+' energy':''}</small></button>`;
   };
   const line=prep?`Fighting opens in ${countdown(w.startsAt)}`:`You can strike for either side.`;
-  const stats=me&&!prep?`<div class="wa-stats"><span><small>Your damage</small><b>${fmtNum(me.damage)}</b></span><span><small>Strikes</small><b>${me.strikes}/${me.maxStrikes}</b></span><span><small>Cost</small><b>${me.energyCost} energy</b></span></div>`:'';
+  const stats=me&&!prep?`<div class="wa-stats"><span>Your damage <b>${fmtNum(me.damage)}</b></span><span>Strikes <b>${me.strikes}/${me.maxStrikes}</b></span><span>Cost <b>${me.energyCost} energy</b></span></div>`:'';
   return `<div class="wa-btns">${btn('attack',a,'Attack','sword')}${btn('defend',d,'Defend','shield')}</div><p class="wa-note">${line}</p>${stats}`;
 }
 function renderWarDetail(){
@@ -488,7 +488,7 @@ function renderWarDetail(){
   const finished=w.status==='finished'||w.endedAt;
   if(S.warFighters===undefined || !S.warFighters[w.id]) loadWarFighters(w.id);
   const wf=(S.warFighters&&S.warFighters[w.id])||{list:[],loading:true};
-  const row=(f,i,cls)=>{ const lv=f.level||1, nm=f.nat?countryName(f.nat):''; return `<div class="wa-fr ${cls}" data-action="view-player" data-id="${esc(f.uid)}"><i>${i+1}</i><span class="wa-av">${esc((f.username||'?').slice(0,2).toUpperCase())}<b>${lv}</b></span><div class="wa-nm"><b>${esc(f.username)}</b><small>${nm?esc(nm)+' · ':''}Lv ${lv}</small></div><em>${fmtDmg(f.dmg)}</em></div>`; };
+  const row=(f,i,cls)=>{ const lv=f.level||1, nm=f.nat?countryName(f.nat):''; return `<div class="wa-fr ${cls}" data-action="view-player" data-id="${esc(f.uid)}"><i>${i+1}</i><span class="wa-av">${esc((f.username||'?').slice(0,2).toUpperCase())}</span><div class="wa-nm"><b>${esc(f.username)}</b><small>${f.nat?kingdomFlag(f.nat,14,'margin:0'):''}${nm?esc(nm)+' · ':''}Lv ${lv}</small></div><em>${fmtDmg(f.dmg)}</em></div>`; };
   const col=(cid,cls)=>wf.list.filter(f=>f.countryId===cid).slice(0,6).map((f,i)=>row(f,i,cls)).join('')||'<div class="wa-empty">'+(wf.loading?'Loading…':'No fighters yet')+'</div>';
   const sel=S.warRoundSel&&S.warRoundSel.id===w.id?S.warRoundSel.n:null;
   const shown=rs.find(r=>r.round===sel)||round||rs[rs.length-1]||null;
@@ -498,12 +498,12 @@ function renderWarDetail(){
   <div class="wa"><i class="wa-rv r1"></i><i class="wa-rv r2"></i><i class="wa-rv r3"></i><i class="wa-rv r4"></i>
     <div class="wa-head"><small>Region war</small><b>${esc(w.targetRegionName||'War')}</b><div class="wa-tabs">${tabs}</div></div>
     <div class="wa-vs">
-      <div class="wa-side" data-action="view-country" data-id="${esc(a)}"><div class="wa-flag a">${kingdomFlag(a,64,'margin:0;display:block')}</div><b>${esc(countryName(a))}</b><small class="a">Attacker</small></div>
+      <div class="wa-side wa-sa" data-action="view-country" data-id="${esc(a)}">${kingdomFlag(a,56,'margin:0 auto 5px;display:block')}<b>${esc(countryName(a))}</b><small class="a">Attacker</small></div>
       <div class="wa-mid"><strong>${sa} : ${sd}</strong><div class="wa-tm"><small>${finished?'Finished':w.status==='preparing'?'Starts in':'<i></i>Live · round ends in'}</small>${finished?'':`<b>${w.status==='preparing'?countdown(w.startsAt):(round?.endsAt?countdown(round.endsAt):'')}</b>`}</div></div>
-      <div class="wa-side" data-action="view-country" data-id="${esc(d)}"><div class="wa-flag d">${kingdomFlag(d,64,'margin:0;display:block')}</div><b>${esc(countryName(d))}</b><small class="d">Defender</small></div>
+      <div class="wa-side wa-sd" data-action="view-country" data-id="${esc(d)}">${kingdomFlag(d,56,'margin:0 auto 5px;display:block')}<b>${esc(countryName(d))}</b><small class="d">Defender</small></div>
     </div>
     <div class="wa-bar"><i class="wa-a" style="width:${pa}%"></i><i class="wa-d" style="width:${pd}%"></i><s class="wa-pin" style="left:${pa}%"></s></div>
-    <div class="wa-pct"><span>${fmtDmg(da)}</span><span>${fmtDmg(dd)}</span></div>
+    <div class="wa-pct"><span>${fmtDmg(da)} &middot; ${pa}%</span><span>${pd}% &middot; ${fmtDmg(dd)}</span></div>
     ${warStrikeBlock(w)}
     ${finished&&w.targetRegionName&&w.territory?`<p class="wa-note">${warTerritoryText(w.territory,w.targetRegionName)}</p>`:''}
     <div class="wa-cols"><div class="wa-col"><div class="wa-fh">Top attackers</div>${col(a,'a')}</div><div class="wa-col"><div class="wa-fh d">Top defenders</div>${col(d,'d')}</div></div>
