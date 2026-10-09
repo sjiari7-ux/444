@@ -296,7 +296,26 @@ async function loadKingdomView(){
       const members = memSnap.docs.map(d=>Object.assign({id:d.id}, d.data()))
         .filter(m=>m.username)
         .sort((a,b)=> kingdomRank(b.kingdomRole)-kingdomRank(a.kingdomRole) || (b.level||1)-(a.level||1));
-      S.kingdomView = { mode:'mine', kingdom: Object.assign({id:c.kingdomId}, kdoc), members };
+      // Citizenship change: my own request (pending / accepted / declined) and, for Officers+, the requests waiting for this country.
+      let myRequest = null, requests = [];
+      try{
+        const rq = await withTimeout(DB.doc('rc_citizenship_requests/'+MY_ID).get(), 6000);
+        if(rq.exists) myRequest = rq.data();
+        if(kingdomRank(c.kingdomRole) >= 2){
+          const qs = await withTimeout(DB.collection('rc_citizenship_requests').where('toId','==',c.kingdomId).where('status','==','pending').limit(20).get(), 6000);
+          requests = qs.docs.map(d=>Object.assign({id:d.id}, d.data()));
+        }
+      }catch(e){ /* the rest of the view still works without it */ }
+      if(myRequest && myRequest.toId && myRequest.toId !== c.kingdomId){
+        let go = myRequest.status === 'accepted';
+        if(!go && myRequest.status === 'pending'){ try{ go = !(await countryHasGovernment(myRequest.toId)); }catch(e){} }   // the country lost its government meanwhile -> automatic
+        if(go){
+          let moved = false;
+          try{ await applyCitizenshipChange(myRequest.toId); moved = true; showToast(`You are now a citizen of ${countryName(myRequest.toId)}.`); }catch(e){ showToast('Could not finish the citizenship change — try again.'); }
+          if(moved) return loadKingdomView();
+        }
+      }
+      S.kingdomView = { mode:'mine', kingdom: Object.assign({id:c.kingdomId}, kdoc), members, myRequest, requests };
     } else {
       const [kSnap, pSnap] = await Promise.all([
         withTimeout(DB.collection('rc_kingdoms').get(), 8000).catch(()=>null),
@@ -423,24 +442,81 @@ async function joinKingdom(kingdomId){
   }catch(e){ showToast('Could not join right now — try again.'); }
 }
 
-async function leaveKingdom(){
-  const c = S.char;
-  if(!c.kingdomId) return;
-  if(!(await askConfirm({title:'Leave Kingdom', body:'You will need to wait 24 hours before joining another.', confirmLabel:'Leave', cancelLabel:'Stay', danger:true}))) return;
-  const kingdomId = c.kingdomId;
-  showToast('Leaving kingdom…'); // immediate feedback so the button doesn't feel frozen while we talk to the server
-  try{
-    if(HAS_DB && c.kingdomRole==='Leader'){
-      const kRef = DB.doc('rc_kingdoms/'+kingdomId);
-      try{ await withTimeout(kRef.update({leaderId:null}), 6000); }catch(e){}
-    }
-  }catch(e){}
-  c.kingdomId = null; c.kingdomRole = null; c.kingdomJoinedAt = 0;
+/* Citizenship change. A player can no longer walk out of a country and stay stateless: he applies to another country and
+   keeps his current citizenship until it is accepted. A country without any Leader / Co-Leader / Officer accepts at once. */
+const CITIZEN_GOV_ROLES = ['Leader','Co-Leader','Officer'];
+async function countryHasGovernment(kingdomId){
+  const q = await withTimeout(DB.collection('rc_players').where('kingdomId','==',kingdomId).where('kingdomRole','in',CITIZEN_GOV_ROLES).limit(1).get(), 6000);
+  return !q.empty;
+}
+
+async function applyCitizenshipChange(toId){
+  const c = S.char, fromId = c.kingdomId;
+  if(HAS_DB && fromId && c.kingdomRole==='Leader'){
+    try{ await withTimeout(DB.doc('rc_kingdoms/'+fromId).update({leaderId:null}), 6000); }catch(e){}
+  }
+  const role = await claimKingdomSeat(toId);
+  c.kingdomId = toId; c.nationality = toId; c.kingdomRole = role; c.kingdomJoinedAt = Date.now();
   c.kingdomCooldownUntil = Date.now() + KINGDOM_JOIN_COOLDOWN_MS;
   saveCharacter(c); // fire-and-forget
+  try{ await withTimeout(DB.doc('rc_citizenship_requests/'+MY_ID).delete(), 6000); }catch(e){}
   S.kingdomView = null;
-  showToast('You have left the kingdom.');
-  loadKingdomView(); // don't block — it renders its own loading/final state
+}
+
+async function requestCitizenship(toId){
+  const c = S.char, k = KINGDOMS.find(x=>x.id===toId);
+  if(!HAS_DB){ showToast('Kingdoms need shared storage, which is unavailable in this view.'); return; }
+  if(!k || !c.kingdomId || toId===c.kingdomId) return;
+  const cd = (c.kingdomCooldownUntil||0) - Date.now();
+  if(cd > 0){ showToast(`You can change citizenship again in ${fmtMs(cd)}.`); return; }
+  if(!(await askConfirm({title:'Change citizenship', body:`Apply for ${k.name} citizenship? You stay a citizen of ${countryName(c.kingdomId)} until ${k.name} accepts. After the change you must wait 24 hours before changing again.`, confirmLabel:'Apply', cancelLabel:'Cancel'}))) return;
+  S.citizenPick = false;
+  showToast('Sending request…');
+  try{
+    if(!(await countryHasGovernment(toId))){
+      await applyCitizenshipChange(toId);
+      showToast(`You are now a citizen of ${k.name}.`);
+    } else {
+      await withTimeout(DB.doc('rc_citizenship_requests/'+MY_ID).set({playerId:MY_ID, username:c.username||'', level:c.level||1, fromId:c.kingdomId, toId, status:'pending', createdAt:Date.now()}), 6000);
+      showToast(`Request sent to ${k.name}.`);
+    }
+    loadKingdomView();
+  }catch(e){ showToast('Could not send the request — try again.'); }
+}
+
+async function cancelCitizenshipRequest(){
+  if(!HAS_DB) return;
+  try{ await withTimeout(DB.doc('rc_citizenship_requests/'+MY_ID).delete(), 6000); }catch(e){ showToast('Action failed — try again.'); return; }
+  loadKingdomView();
+}
+
+async function decideCitizenshipRequest(playerId, op){
+  const c = S.char, kv = S.kingdomView;
+  if(!HAS_DB || !kv || kv.mode!=='mine' || kingdomRank(c.kingdomRole) < 2){ showToast('You do not have permission to do that.'); return; }
+  const req = (kv.requests||[]).find(r=>r.id===playerId);
+  if(!req) return;
+  try{
+    await withTimeout(DB.doc('rc_citizenship_requests/'+playerId).update({status: op==='accept'?'accepted':'rejected', decidedBy:MY_ID, decidedAt:Date.now()}), 6000);
+    showToast(op==='accept' ? `${req.username} was accepted as a citizen.` : `${req.username}'s request was declined.`);
+    loadKingdomView();
+  }catch(e){ showToast('Action failed — try again.'); }
+}
+
+// Once per session: if the country we applied to accepted us while we were away, move now (not only when the Kingdom screen is opened).
+let _citizenshipChecked = false;
+async function resolveCitizenshipRequestOnce(){
+  const c = S.char;
+  if(_citizenshipChecked || !HAS_DB || !c || !c.kingdomId) return;
+  _citizenshipChecked = true;
+  try{
+    const rq = await withTimeout(DB.doc('rc_citizenship_requests/'+MY_ID).get(), 6000);
+    const r = rq.exists ? rq.data() : null;
+    if(r && r.status==='accepted' && r.toId && r.toId!==c.kingdomId){
+      await applyCitizenshipChange(r.toId);
+      showToast(`Your request was accepted: you are now a citizen of ${countryName(r.toId)}.`);
+      render();
+    }
+  }catch(e){}
 }
 
 async function claimLeadership(){
