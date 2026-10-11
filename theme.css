@@ -2868,6 +2868,8 @@ html[data-theme="crimson"]{--sheet-accent:#ec5723;}
 
 /* class picture inside the small fighter avatar of the war page */
 .wa-av{position:relative;overflow:hidden}
+/* shop avatar frame on the small war fighter avatar (it has no border of its own: the frame needs one) */
+.wa-av[class*="cos-avatar_"]{border:2px solid #6d5843;box-sizing:border-box}
 
 /* ===== ARCH AVATAR (design 4 "Bab m9ous"): arched portrait + vertical XP gauge on the right + level ribbon at the bottom =====
    Same markup as before (class picture via cav(), --p = XP %), so it applies in chat, members, government, profile, inventory and the status bar. */
@@ -3289,4 +3291,3 @@ svg.ico-c .l{fill:none;stroke:var(--c);stroke-width:2}
 .cit-invite b{display:block;font-size:14px;margin-bottom:2px;}
 .cit-invite p{margin:0;font-size:12px;}
 @media(max-width:600px){.rg-stats,.cit-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.rg-grid{grid-template-columns:1fr;}}
-
