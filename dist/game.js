@@ -5026,7 +5026,11 @@ async function getCountryState(uid) {
    ============================================================ */
 async function getWorldWars(uid) {
   const t=now();
-  const snap=await db().collection("rc_wars").limit(100).get();
+  let snap=await db().collection("rc_wars").limit(100).get();
+  // Lazy advance: a war whose prep time / round has run out moves forward HERE too (the war page polls only this call, and the
+  // scheduled tick does not run in SPARK mode), otherwise "Starts in 00:00" would never turn into a live war.
+  const dueIds=snap.docs.map(d=>d.data()).filter(w=>{ if(w.status==="preparing") return t>=w.startsAt; if(w.status!=="active") return false; const c=W.currentRound(w); return !!(c && t>=c.endsAt); }).map(w=>w.id);
+  if (dueIds.length) { for (const id of dueIds) { try { await advanceWar(id); } catch (e) { console.error("getWorldWars advance", id, e); } } snap=await db().collection("rc_wars").limit(100).get(); }
   const all=snap.docs.map(d=>d.data());
   const live=all.filter(w=>w.status==="active" || w.status==="preparing");
   const mineWp={};
@@ -9867,6 +9871,8 @@ setInterval(()=>{
     const end = nowSrv < eg.nominationEndsAt ? eg.nominationEndsAt : eg.votingEndsAt;
     if(nowSrv >= end){ _countryPoll.gov = Date.now(); refreshGovernance(); }
   }
+  // war page: the countdown (prep -> round 1, or round end) just hit zero: ask the server right away instead of waiting for the 8s poll
+  if(expired && S.char && S.screen==='war-detail' && Date.now()-(_countryPoll.wd||0) > 3000){ _countryPoll.wd = Date.now(); loadWorldWars(true).catch(()=>{}); }
   const cs = S.countryState;
   const onTab = S.screen==='kingdom' && (S.kingdomTab==='war' || S.kingdomTab==='economy' || S.kingdomTab==='overview' || !S.kingdomTab);
   if(!onTab || !cs || cs.status==='loading') return;
