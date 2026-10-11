@@ -473,7 +473,7 @@ function renderCountryView(){
   const t=Date.now(), online=members.filter(m=>(t-Number(m.updatedAt||0))<5*60*1000).length;
   const wars=(S.worldWars&&S.worldWars.active||[]).filter(w=>w.attackerCountryId===id||w.defenderCountryId===id);
   const byRole=r=>members.filter(m=>m.kingdomRole===r);
-  const av=(m,cls)=>`<div class="rc-gav ${cls||''}">${cav(m)}<span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><i>${m.level||1}</i></div>`;
+  const av=(m,cls)=>`<div class="rc-gav ${cls||''}${cosAv(m.id)}">${cav(m)}<span>${esc((m.username||'?').slice(0,2).toUpperCase())}</span><i>${m.level||1}</i></div>`;
   const person=(m,cls)=>`<div class="rc-role-p" data-action="view-player" data-id="${esc(m.id)}" style="cursor:pointer">${av(m,cls)}<b>${esc(m.username)}</b></div>`;
   const roleCard=(label,cls,list)=>`<div class="rc-role ${cls}"><h4>${label}</h4>${list.length?list.map(m=>person(m)).join(''):'<p>No one nominated yet.</p>'}</div>`;
   const ec=v.econ||null;
@@ -549,7 +549,7 @@ function renderWarDetail(){
   const finished=w.status==='finished'||w.endedAt;
   if(S.warFighters===undefined || !S.warFighters[w.id]) loadWarFighters(w.id);
   const wf=(S.warFighters&&S.warFighters[w.id])||{list:[],loading:true};
-  const row=(f,i,cls)=>{ const lv=f.level||1, nm=f.nat?countryName(f.nat):''; return `<div class="wa-fr ${cls}" data-action="view-player" data-id="${esc(f.uid)}"><i>${i+1}</i><span class="wa-av">${cav({id:f.uid,class:f.class||f.cls})}${esc((f.username||'?').slice(0,2).toUpperCase())}</span><div class="wa-nm"><b>${esc(f.username)}</b><small>${f.nat?kingdomFlag(f.nat,14,'margin:0'):''}${nm?`<span class="wa-cn">${esc(nm)} · </span>`:''}Lv ${lv}</small></div><em>${fmtDmg(f.dmg)}</em></div>`; };
+  const row=(f,i,cls)=>{ const lv=f.level||1, nm=f.nat?countryName(f.nat):''; return `<div class="wa-fr ${cls}" data-action="view-player" data-id="${esc(f.uid)}"><i>${i+1}</i><span class="wa-av${cosAv(f.uid)}">${cav({id:f.uid,class:f.class||f.cls})}${esc((f.username||'?').slice(0,2).toUpperCase())}</span><div class="wa-nm"><b>${esc(f.username)}</b><small>${f.nat?kingdomFlag(f.nat,14,'margin:0'):''}${nm?`<span class="wa-cn">${esc(nm)} · </span>`:''}Lv ${lv}</small></div><em>${fmtDmg(f.dmg)}</em></div>`; };
   const col=(cid,cls)=>wf.list.filter(f=>f.countryId===cid).slice(0,6).map((f,i)=>row(f,i,cls)).join('')||'<div class="wa-empty">'+(wf.loading?'Loading…':'No fighters yet')+'</div>';
   const sel=S.warRoundSel&&S.warRoundSel.id===w.id?S.warRoundSel.n:null;
   const shown=rs.find(r=>r.round===sel)||round||rs[rs.length-1]||null;
@@ -1175,7 +1175,7 @@ function renderKingdom(){
     ${statTile('Role',c.kingdomRole||'Recruit')}
     ${citizenshipBox(c,kv)}`;
   const govBody=govLayout(byRole('Leader'),byRole('Co-Leader'),byRole('Officer'),(m,cls)=>`<div class="rc-role-p">${avatarHtml(m,cls)}<b>${esc(m.username)}</b></div>`);
-  const reqRows=(kv.requests||[]).map(r=>`<div class="member-line"><div class="member-avatar" data-action="view-player" data-id="${esc(r.playerId||r.id)}">${cav({id:r.playerId||r.id,class:r.class})}${esc((r.username||'?').slice(0,2).toUpperCase())}</div><div class="member-main"><b>${esc(r.username||'?')}</b><small>Lv.${r.level||1} · from ${esc(countryName(r.fromId))}</small></div><div class="member-actions"><button class="btn btn-sm btn-primary" data-action="citizen-decide" data-id="${esc(r.id)}" data-op="accept">Accept</button><button class="btn btn-sm btn-danger" data-action="citizen-decide" data-id="${esc(r.id)}" data-op="reject">Decline</button></div></div>`).join('');
+  const reqRows=(kv.requests||[]).map(r=>`<div class="member-line"><div class="member-avatar${cosAv(r.playerId||r.id)}" data-action="view-player" data-id="${esc(r.playerId||r.id)}">${cav({id:r.playerId||r.id,class:r.class})}${esc((r.username||'?').slice(0,2).toUpperCase())}</div><div class="member-main"><b>${esc(r.username||'?')}</b><small>Lv.${r.level||1} · from ${esc(countryName(r.fromId))}</small></div><div class="member-actions"><button class="btn btn-sm btn-primary" data-action="citizen-decide" data-id="${esc(r.id)}" data-op="accept">Accept</button><button class="btn btn-sm btn-danger" data-action="citizen-decide" data-id="${esc(r.id)}" data-op="reject">Decline</button></div></div>`).join('');
   const reqCard=(myRank>=2&&reqRows)?`<div class="country-card"><div class="country-card-head"><span>CITIZENSHIP REQUESTS</span><b>${(kv.requests||[]).length}</b></div><div class="member-list">${reqRows}</div></div>`:'';
   const citTotal = memberRows.length, citOnline = memberRows.filter(r=>r.online).length;
   const citAvg = citTotal ? Math.round(members.reduce((n,m)=>n+(m.level||1),0)/citTotal) : 0;
