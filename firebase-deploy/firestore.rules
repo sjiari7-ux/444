@@ -226,6 +226,10 @@ service cloud.firestore {
         allow read, write: if request.auth != null;
       }
     }
+    // One doc per region: which war currently reserves it (declareWar writes it). Was missing -> declareWar failed with permission-denied.
+    match /rc_regionWars/{regionId} {
+      allow read, write: if request.auth != null;
+    }
     match /rc_warPlayers/{docId} {
       allow read, write: if request.auth != null && docId.matches('.*_' + request.auth.uid);
     }
