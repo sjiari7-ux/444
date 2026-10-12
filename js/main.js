@@ -55,7 +55,18 @@ async function onActionClick(e){
     const ch = newCharacter(MY_ID, uname, st.classId);
     try{
       ch.kingdomRole = await claimKingdomSeat(st.countryId);
-    }catch(e){ showToast('Could not join your country right now — try again.'); return; }
+    }catch(e){
+      // A country that exists but has no Leader: taking the seat needs the player's own doc (with kingdomId) to exist already,
+      // and a brand-new player has none yet. Save the character once, then try the seat again.
+      let retried = false;
+      if(HAS_DB){
+        ch.kingdomId = st.countryId; ch.kingdomJoinedAt = Date.now();
+        try{
+          if(await saveCharacter(ch)){ ch.kingdomRole = await claimKingdomSeat(st.countryId); retried = true; }
+        }catch(e2){}
+      }
+      if(!retried){ ch.kingdomId = null; ch.kingdomJoinedAt = 0; showToast('Could not join your country right now — try again.'); return; }
+    }
     ch.kingdomId = st.countryId; ch.kingdomJoinedAt = Date.now();
     S.char = ch; // no onboarding step — player lands straight on Home
     setScreen('world');
