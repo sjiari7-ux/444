@@ -1303,14 +1303,14 @@ function renderRegionsTab(){
   if(T.status==='error' || !T.data) return `<div class="panel"><p class="faint">The regions are not available right now.</p><button class="btn" data-action="territory-refresh">Try again</button></div>`;
   const d = T.data;
   const hasFront = d.own.some(g=>g.frontline) || d.conquered.some(g=>g.frontline);
-  const flt = ['all','own','conquered','lost','frontline'].includes(S.regionsFilter) && (S.regionsFilter!=='frontline' || hasFront) ? S.regionsFilter : 'all';
+  const flt = ['all','own','conquered','lost','frontline'].includes(S.regionsFilter) && (S.regionsFilter!=='frontline' || hasFront) ? S.regionsFilter : 'own';
   const held = d.own.length + d.conquered.length;
   const card = (g, kind) => {
     const since = (kind==='conquered' && g.since) ? `<small class="rg-since">Held for ${Math.max(1, Math.floor((Date.now()-Number(g.since))/86400000))} day(s)</small>` : '';
     const where = kind==='conquered' ? `<span class="rg-from">originally ${kingdomFlag(g.origin,14)}${esc(countryName(g.origin))}</span>` : kind==='lost' ? `<span class="rg-from">held by ${kingdomFlag(g.owner,14)}${esc(countryName(g.owner))}</span>` : '';
-    return `<div class="member-line rg-card ${kind}"><div class="rg-top"><span class="rg-ic">${g.resource ? resourceIcon(g.resource,22) : icon('map','style="width:20px;height:20px"')}</span>${g.frontline?`<span class="rg-front">${icon('swords','style="width:12px;height:12px"')} Frontline</span>`:''}</div><div class="member-main"><b>${esc(g.name)}</b><small>${g.resource ? esc(resName(g.resource)) : 'No resource'}${g.tier ? ' &middot; <em class="rg-tier t-'+esc(g.tier)+'">'+esc(MAP_TIER[g.tier]||'')+'</em>' : ''}</small>${where}${since}</div></div>`;
+    return `<div class="member-line rg-card ${kind}"><div class="rg-top"><span class="rg-ic r-${esc(g.resource||'none')}">${g.resource ? resourceIcon(g.resource,22) : icon('map','style="width:20px;height:20px"')}</span><span class="rg-badges">${kind==='conquered'?'<span class="rg-badge">Conquered</span>':''}${g.frontline?`<span class="rg-front">${icon('swords','style="width:12px;height:12px"')} Frontline</span>`:''}</span></div><div class="member-main"><b>${esc(g.name)}</b><small>${g.resource ? esc(resName(g.resource)) : 'No resource'}${g.tier ? ' &middot; <em class="rg-tier t-'+esc(g.tier)+'">'+esc(MAP_TIER[g.tier]||'')+'</em>' : ''}</small>${where}${since}</div></div>`;
   };
-  const sec = (title, list, kind, empty, show) => !show ? '' : `<div class="country-card"><div class="country-card-head"><span>${title}</span><b>${list.length}</b></div>${list.length ? `<div class="rg-grid">${list.map(g=>card(g, kind)).join('')}</div>` : `<div class="${kind==='lost'?'rg-safe':'faint rg-empty'}">${kind==='lost'?icon('shield','style="width:18px;height:18px"')+' ':''}${empty}</div>`}</div>`;
+  const sec = (title, list, kind, empty, show) => !show ? '' : `<div class="country-card">${flt==='all' ? `<div class="country-card-head"><span>${title}</span><b>${list.length}</b></div>` : ''}${list.length ? `<div class="rg-grid">${list.map(g=>card(g, kind)).join('')}</div>` : `<div class="${kind==='lost'?'rg-safe':'faint rg-empty'}">${kind==='lost'?icon('shield','style="width:18px;height:18px"')+' ':''}${empty}</div>`}</div>`;
   const prod = {}; d.own.concat(d.conquered).forEach(g=>{ if(g.resource) prod[g.resource]=(prod[g.resource]||0)+1; });
   const prodChips = Object.keys(prod).sort((x,y)=>prod[y]-prod[x]).map(r=>`<span class="rg-chip">${resourceIcon(r,14)} ${esc(resName(r))} &times;${prod[r]}</span>`).join('');
   const chip = (id, label) => `<button class="rg-filter ${flt===id?'on':''}" data-action="regions-filter" data-f="${id}">${label}</button>`;
@@ -1321,7 +1321,7 @@ function renderRegionsTab(){
       <p class="faint">Your country holds <b>${held}</b> region${held===1?'':'s'}: ${d.own.length} of its own and ${d.conquered.length} taken from other countries. ${d.lost.length ? `<b>${d.lost.length}</b> of its own ${d.lost.length===1?'is':'are'} held by someone else.` : 'None of its own regions is held by someone else.'}</p>
       <div class="rg-stats"><div><small>Total</small><b>${held}</b></div><div><small>Own</small><b>${d.own.length}</b></div><div class="cq"><small>Conquered</small><b>${d.conquered.length}</b></div><div class="ls"><small>Lost</small><b>${d.lost.length}</b></div></div>
       ${prodChips?`<div class="rg-prod"><small>Production</small>${prodChips}</div>`:''}
-      <div class="rg-filters">${chip('all','All')}${chip('own','Own')}${chip('conquered','Conquered')}${chip('lost','Lost')}${hasFront?chip('frontline','Frontline'):''}</div></div>
+      <div class="rg-tabs">${chip('own',`Ours <span>${d.own.length}</span>`)}${chip('conquered',`Conquered <span>${d.conquered.length}</span>`)}${chip('lost',`Lost <span>${d.lost.length}</span>`)}${hasFront?chip('frontline','Frontline'):''}</div></div>
     ${sec('OUR OWN REGIONS', ownList, 'own', 'You hold none of your original regions.', showOwn)}
     ${sec('CONQUERED REGIONS', cqList, 'conquered', 'No region taken from another country yet.', showCq)}
     ${sec('LOST REGIONS', d.lost, 'lost', 'No original region has been lost. Your borders hold.', showLost)}
