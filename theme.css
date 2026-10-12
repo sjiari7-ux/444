@@ -3273,6 +3273,26 @@ svg.ico-c .l{fill:none;stroke:var(--c);stroke-width:2}
 .rg-tier.t-COMMON{color:#b9a98a;}.rg-tier.t-UNCOMMON{color:#6fd29a;}.rg-tier.t-RARE{color:#5aa9ff;}.rg-tier.t-VERY_RARE{color:#c9a0ff;}
 .rg-safe,.rg-empty{display:flex;align-items:center;gap:8px;margin:8px;padding:12px;border:1px dashed var(--border,#3a2f24);border-radius:8px;font-size:13px;color:#9d8f80;}
 .rg-safe svg{stroke:#3fae6b;flex:none;}
+/* Regions tab: one tab at a time, resource-coloured icons, rarity pills */
+.rg-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border:1px solid var(--border,#3a2f24);border-radius:12px;background:rgba(255,255,255,.03);}
+.rg-tabs .rg-filter{min-height:44px;padding:0 18px;border:0;border-radius:9px;font-size:14px;color:#b9a99a;}
+.rg-tabs .rg-filter span{margin-left:6px;opacity:.8;}
+.rg-tabs .rg-filter.on{background:rgba(224,154,58,.16);color:#ffc35c;}
+.rg-badges{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.rg-badge{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;color:#9fd0f2;background:rgba(79,163,217,.16);}
+.rg-card .rg-ic{width:44px;height:44px;border-radius:50%;}
+.rg-card .rg-ic.r-wood{border-color:#d9954f66;}.rg-card .rg-ic.r-wood svg{stroke:#d9954f;}
+.rg-card .rg-ic.r-stone{border-color:#b9c0c866;}.rg-card .rg-ic.r-stone svg{stroke:#b9c0c8;}
+.rg-card .rg-ic.r-food{border-color:#ef6b6466;}.rg-card .rg-ic.r-food svg{stroke:#ef6b64;}
+.rg-card .rg-ic.r-iron{border-color:#a9b6c866;}.rg-card .rg-ic.r-iron svg{stroke:#a9b6c8;}
+.rg-card .rg-ic.r-coal{border-color:#9aa3b566;}.rg-card .rg-ic.r-coal svg{stroke:#9aa3b5;}
+.rg-card .rg-ic.r-leather{border-color:#dc956566;}.rg-card .rg-ic.r-leather svg{stroke:#dc9565;}
+.rg-card .rg-ic.r-herbs{border-color:#7ac98466;}.rg-card .rg-ic.r-herbs svg{stroke:#7ac984;}
+.rg-card .rg-ic.r-ore{border-color:#c9a86a66;}.rg-card .rg-ic.r-ore svg{stroke:#c9a86a;}
+.rg-card .rg-ic.r-frost{border-color:#8fd3f066;}.rg-card .rg-ic.r-frost svg{stroke:#8fd3f0;}
+.rg-card .rg-ic.r-voidessence{border-color:#b07de866;}.rg-card .rg-ic.r-voidessence svg{stroke:#b07de8;}
+.rg-tier{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;background:rgba(185,169,138,.14);}
+.rg-tier.t-UNCOMMON{background:rgba(111,210,154,.15);}.rg-tier.t-RARE{background:rgba(90,169,255,.15);}.rg-tier.t-VERY_RARE{background:rgba(201,160,255,.15);}
 
 /* ===== Country > Citizens: cards with arched avatars, groups, invite ===== */
 .cit-list{padding:8px;}
@@ -3290,7 +3310,7 @@ svg.ico-c .l{fill:none;stroke:var(--c);stroke-width:2}
 .cit-invite{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;padding:14px;border:1px dashed #6f4925;border-radius:10px;}
 .cit-invite b{display:block;font-size:14px;margin-bottom:2px;}
 .cit-invite p{margin:0;font-size:12px;}
-@media(max-width:600px){.rg-stats,.cit-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.rg-grid{grid-template-columns:1fr;}}
+@media(max-width:600px){.rg-stats,.cit-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.rg-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.rg-tabs .rg-filter{flex:1;padding:0 8px;}}
 
 
 /* login screen notices (in-app browser / no connection) */
