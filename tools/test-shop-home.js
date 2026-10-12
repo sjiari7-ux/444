@@ -1,0 +1,133 @@
+#!/usr/bin/env node
+"use strict";
+/* Tests Shop > Home: the daily gift (free gems), the newest skins + "what is different" table, and the daily picks.
+   Server part: functions/lib/shop.js against a tiny in-memory Firestore. Client part: the REAL code cut out of js/ui.js / main.js / storage.js.
+   Usage: node tools/test-shop-home.js */
+const Module = require("module"), fs = require("fs"), vm = require("vm"), path = require("path");
+const root = path.join(__dirname, "..");
+const R = (f) => fs.readFileSync(path.join(root, f), "utf8");
+const between = (s, a, b) => { const i = s.indexOf(a), j = s.indexOf(b, i); if (i < 0 || j < 0) throw new Error("anchor missing: " + a); return s.slice(i, j); };
+let pass = 0, failn = 0;
+const check = (n, c, x) => { c ? pass++ : failn++; console.log((c ? "  ok   " : "  FAIL ") + n + (c ? "" : "  -> " + JSON.stringify(x))); };
+
+const store = {}, clone = (o) => JSON.parse(JSON.stringify(o));
+const ref = (p) => ({ path: p, get: async () => ({ exists: p in store, data: () => clone(store[p]) }) });
+const fake = { doc: ref, runTransaction: async (fn) => { const w = []; const tx = { get: async (r) => r.get(), set: (r, d) => w.push([r.path, clone(d)]) }; const out = await fn(tx); w.forEach(([p, d]) => { store[p] = d; }); return out; } };
+const origLoad = Module._load;
+Module._load = function (req, parent, ...rest) { if (req === "firebase-admin") return { firestore: () => fake }; return origLoad.call(this, req, parent, ...rest); };
+const Shop = require(path.join(root, "functions/lib/shop.js"));
+const DAY = 86400000; let clock = Date.UTC(2026, 9, 11, 12, 0, 0);
+Shop._setClock(() => clock);
+const failsWith = async (fn) => { try { await fn(); return null; } catch (e) { return e.message; } };
+
+(async () => {
+  console.log("daily reward state shown in the Shop (server)");
+  const D0 = Math.floor(clock / DAY);
+  let s = await Shop.getShop("a");
+  check("new player: reward ready, nothing collected, 7 days of gold + gems", s.daily && !s.daily.claimedToday && s.daily.filled === 0 && s.daily.nextIdx === 0 && s.daily.gems.length === 7 && s.daily.gold.length === 7 && s.daily.energy > 0, s.daily);
+  check("1 gem a day, the big gift on day 7", s.daily.gems.slice(0, 6).every((g) => g === 1) && s.daily.gems[6] > 1 && Math.max(...s.daily.gems) === s.daily.gems[6], s.daily.gems);
+  check("gold grows with the day (20 x day)", s.daily.gold.every((g, i) => g === 20 * (i + 1)), s.daily.gold);
+  store["rc_players/a"] = { daily: { day: D0, streak: 3 } };
+  s = await Shop.getShop("a");
+  check("claimed today with streak 3: 3 cells done, countdown to next UTC midnight", s.daily.claimedToday && s.daily.filled === 3 && s.daily.nextAt === (D0 + 1) * DAY, s.daily);
+  store["rc_players/a"] = { daily: { day: D0 - 1, streak: 3 } };
+  s = await Shop.getShop("a");
+  check("claimed yesterday (streak 3): 3 done, day 4 is the next one", !s.daily.claimedToday && s.daily.filled === 3 && s.daily.nextIdx === 3, s.daily);
+  store["rc_players/a"] = { daily: { day: D0 - 1, streak: 7 } };
+  s = await Shop.getShop("a");
+  check("after day 7 the loop restarts: 0 done, day 1 next", s.daily.filled === 0 && s.daily.nextIdx === 0, s.daily);
+  store["rc_players/a"] = { daily: { day: D0 - 3, streak: 5 } };
+  s = await Shop.getShop("a");
+  check("missed days: streak broken, day 1 next", s.daily.filled === 0 && s.daily.nextIdx === 0, s.daily);
+  check("getShop never writes (reading the shop does not claim anything)", !("rc_wallets/a" in store));
+  check("one daily only: the shop has no claim function of its own", !/claimShopDaily/.test(R("functions/index.js")) && !("claimShopDaily" in Shop));
+  check("creditGems stays webhook-only", !/exports\.creditGems/.test(R("functions/index.js")));
+
+  console.log("daily picks + new arrivals (server)");
+  const p1 = Shop.dailyPicks("a", [], clock), p2 = Shop.dailyPicks("a", [], clock), pB = Shop.dailyPicks("b", [], clock), pNext = Shop.dailyPicks("a", [], clock + DAY);
+  check("3 picks, all different, all real items", p1.length === 3 && new Set(p1).size === 3 && p1.every((id) => Shop.BY_ID[id]), p1);
+  check("same player + same day = same picks (stable all day)", JSON.stringify(p1) === JSON.stringify(p2));
+  check("a new day brings new picks", JSON.stringify(p1) !== JSON.stringify(pNext), [p1, pNext]);
+  check("two players do not always see the same picks", JSON.stringify(p1) !== JSON.stringify(pB) || JSON.stringify(Shop.dailyPicks("c", [], clock)) !== JSON.stringify(p1));
+  check("owned items are never picked", !Shop.dailyPicks("a", p1, clock).some((id) => p1.includes(id)));
+  check("everything owned -> no picks", Shop.dailyPicks("a", Shop.CATALOG.map((i) => i.id), clock).length === 0);
+  const na = Shop.newArrivals(), skins = Shop.CATALOG.filter((i) => i.slot === "skin");
+  check("every skin has an arrival date (YYYY-MM-DD) and a theme", skins.every((i) => /^\d{4}-\d\d-\d\d$/.test(i.added) && i.theme));
+  check("new arrivals = the 3 newest skins, newest first", na.length === 3 && na.every((id) => Shop.BY_ID[id].slot === "skin") && na.every((id, i) => !i || Shop.BY_ID[na[i - 1]].added >= Shop.BY_ID[id].added), na);
+  s = await Shop.getShop("zz");
+  check("getShop sends daily, picks, picksUntil, newArrivals", s.daily && s.picks.length === 3 && s.picksUntil === (Math.floor(clock / DAY) + 1) * DAY && s.newArrivals.length === 3 && s.newDays === Shop.NEW_DAYS);
+
+  console.log("wiring");
+  const idx = R("functions/index.js"), main = R("js/main.js"), sto = R("js/storage.js"), ui = R("js/ui.js"), css = R("theme.css");
+  check("the Home panel claims with the game's own claim-daily action (guarded)", /'claim-daily'/.test(main.slice(0, main.indexOf("const GUARDED_ACTIONS") + 400)) && /action==='claim-daily'/.test(main));
+  check("after a claim the shop gems are reloaded", /if\(S\.shop && S\.shop\.status==='ready'\) loadShop\(true\)/.test(main));
+  check("the toast tells the gems too", /\+\$\{r\.gems\} gem/.test(main));
+  check("community.js adds the gems in the same transaction as gold", /Shop\.readWallet\(tx, uid\)/.test(R("functions/lib/community.js")) && /Shop\.writeWallet\(tx, uid, wallet\)/.test(R("functions/lib/community.js")));
+  ["shop-daily", "shop-days", "shop-day", "shop-new", "shop-cmp", "shop-sw", "shop-sec"].forEach((c) => check("css: ." + c, new RegExp("\\." + c + "[\\s{,.:]").test(css)));
+
+  console.log("Home tab (client)");
+  const cfg = R("js/config.js");
+  const ctx = { countdown: (t) => `<span data-countdown="${t}">00:00</span>`, S: { char: { username: "Aziz" } }, icon: (n) => `<i:${n}>`, esc: (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"), fmtNum: (n) => String(n), cav: () => "", iconUrl: (f) => "icons/ui/" + f, pageHero: (t) => `<hero>${t}</hero>`, queueCosLookup: () => {}, askConfirm: async () => true, render: () => {}, shopBuy: async () => {}, shopBuyBundle: async () => {} };
+  vm.createContext(ctx);
+  vm.runInContext(cfg.slice(cfg.indexOf("const RARITY")) + "\n" + between(ui, "function dailyReady", "function dailyChip") + "\n" + between(ui, "function cosOf", "function renderStatusBar") + "\n" + between(ui, "/* ---------------- Shop:", "function renderMarket"), ctx);
+  const run = (e) => vm.runInContext(e, ctx);
+  const dayNow = Date.UTC(2026, 9, 11, 12); ctx.srvNow = () => dayNow;
+  const RealDate = Date; ctx.Date = class extends RealDate { constructor(...a) { super(...(a.length ? a : [dayNow])); } static now() { return dayNow; } static parse(x) { return RealDate.parse(x); } static UTC(...a) { return RealDate.UTC(...a); } };
+  const dly = (filled, claimed) => ({ claimedToday: claimed, filled, nextIdx: claimed ? filled % 7 : filled, gems: [1, 1, 1, 1, 1, 1, 10], gold: [20, 40, 60, 80, 100, 120, 140], energy: 20, nextAt: dayNow + DAY, serverNow: dayNow });
+  const sh = (o) => Object.assign({ status: "ready", gems: 50, owned: [], equipped: { avatar: null, cover: null, style: null, skin: null }, catalog: Shop.CATALOG, bundles: Shop.BUNDLES, bundleDiscount: 0.25, newDays: 14,
+    daily: dly(0, false), picks: ["avatar_gold", "cover_royal", "skin_idol"], picksUntil: dayNow + DAY, newArrivals: na }, o);
+  ctx.S.shopTab = undefined; ctx.S.shop = sh();
+  let h = run("renderShop()");
+  check("Home is the first tab and the default one", /data-tab="home"/.test(h) && h.indexOf('data-tab="home"') < h.indexOf('data-tab="avatar"') && /country-module active" data-action="shop-tab" data-tab="home"/.test(h));
+  check("unknown tab falls back to Home", (ctx.S.shopTab = "bogus", /country-module active" data-action="shop-tab" data-tab="home"/.test(run("renderShop()"))));
+  ctx.S.shopTab = "home";
+  check("daily reward: ONE claim button with gold, energy and gems", /data-action="claim-daily"/.test(h) && /Claim \+20 gold, \+20 energy, \+1 gem</.test(h), h.match(/claim-daily[\s\S]{0,120}/));
+  check("7 cells show gold and gems, the first one is 'next', day 7 is marked big", (h.match(/class="shop-day /g) || []).length === 7 && /shop-day next/.test(h) && /shop-day\s+big/.test(h) && />\+140</.test(h) && /\+10</.test(h));
+  ctx.S.shop = sh({ daily: dly(2, true) }); h = run("renderShop()");
+  check("claimed: no claim button, countdown, 2 cells done", !/claim-daily/.test(h) && /Next reward in <span data-countdown/.test(h) && (h.match(/shop-day done/g) || []).length === 2 && !/shop-day next/.test(h));
+  ctx.S.shop = sh({ daily: dly(3, false) }); h = run("renderShop()");
+  check("3 collected, not claimed: day 4 is next and the button shows day 4", (h.match(/shop-day done/g) || []).length === 3 && /shop-day next"><small>Day 4/.test(h) && /Claim \+80 gold, \+20 energy, \+1 gem</.test(h));
+  ctx.S.shop = sh({ daily: dly(6, false) }); h = run("renderShop()");
+  check("day 7: the button says +10 gems (plural)", /Claim \+140 gold, \+20 energy, \+10 gems</.test(h));
+  ctx.S.shop = sh(); h = run("renderShop()");
+  check("newest skins section lists the 3 newest, each with its picture grid", /Newest skins/.test(h) && na.every((id) => h.includes("cos-" + id)) && (h.match(/class="shop-skin-grid"/g) || []).length >= 4);
+  check("comparison table: 3 columns with rarity, price, theme, colours, date, pieces", /class="shop-cmp"/.test(h) && (h.match(/class="shop-cmp-h /g) || []).length === 3 && ["Rarity", "Price", "Theme", "Colours", "Arrived", "Includes"].every((l) => h.includes(">" + l + "<")));
+  check("table shows each skin's real theme and price", na.every((id) => h.includes(Shop.BY_ID[id].theme) && h.includes("<b>" + Shop.BY_ID[id].price + "</b>")));
+  check("table has 6 piece pictures per skin", (h.match(/class="shop-cmp-pcs"/g) || []).length === 3 && (h.slice(h.indexOf('class="shop-cmp-pcs"')).match(/icons\/skins\//g) || []).length >= 18);
+  check("recent skins carry a NEW badge", /class="shop-new">NEW</.test(h));
+  ctx.S.shop = sh({ newArrivals: na.slice(0, 1) }); h = run("renderShop()");
+  check("only 1 new skin: no comparison table (nothing to compare)", !/class="shop-cmp"/.test(h));
+  ctx.S.shop = sh({ catalog: Shop.CATALOG.map((i) => i.id === "skin_vampire" ? Object.assign({}, i, { added: "2025-01-01" }) : i) }); h = run("renderShop()");
+  check("an old skin has no NEW badge", !/cos-skin_vampire[\s\S]{0,400}shop-new/.test(h.split("shop-cmp-wrap")[0].split("class=\"shop-card")[1] || ""));
+  ctx.S.shop = sh(); h = run("renderShop()");
+  check("today's picks: 3 cards + countdown to new picks", /New for you every day/.test(h) && /New picks in <span data-countdown/.test(h) && h.includes("cos-avatar_gold") && h.includes("cos-cover_royal"));
+  ctx.S.shop = sh({ owned: ["avatar_gold"] }); h = run("renderShop()");
+  check("a pick the player bought meanwhile disappears", !h.slice(h.indexOf("TODAY'S PICKS")).includes("cos-avatar_gold"));
+  ctx.S.shop = sh({ picks: [], newArrivals: [] }); h = run("renderShop()");
+  check("nothing new, no picks: only the daily reward is shown, no crash", /DAILY REWARD/.test(h) && !/shop-card/.test(h));
+  ctx.S.shop = sh({ daily: undefined, picks: undefined, newArrivals: undefined }); check("old server answer without the new fields does not crash", (() => { try { run("renderShop()"); return true; } catch (e) { return false; } })());
+  ctx.S.shop = sh(); ctx.S.shopTab = "avatar"; h = run("renderShop()");
+  check("other tabs have no gift panel", !/shop-daily/.test(h));
+
+  console.log("red dot");
+  const todayN = Math.floor(dayNow / DAY);
+  ctx.S.char = { username: "Aziz", daily: { day: todayN - 1, streak: 2 } };
+  check("reward not claimed -> dailyReady() is true", run("dailyReady()") === true);
+  ctx.S.char = { username: "Aziz" };
+  check("new player (never claimed) -> true", run("dailyReady()") === true);
+  ctx.S.char = { username: "Aziz", daily: { day: todayN, streak: 2 } };
+  check("claimed today -> false (the dot disappears)", run("dailyReady()") === false);
+  ctx.S.char = null;
+  check("no character yet -> false (no dot on the login screens)", run("dailyReady()") === false);
+  ctx.S.char = { username: "Aziz", daily: { day: todayN - 1, streak: 2 } }; ctx.S.shopTab = "avatar"; ctx.S.shop = sh(); h = run("renderShop()");
+  const tabRow = (x) => x.slice(x.indexOf("rc-ptabs"), x.indexOf("shop-bal"));
+  check("Shop > Home tab has the red dot while the reward is waiting, other tabs do not", /data-tab="home"[^]*?nav-dot[^]*?<\/button>/.test(tabRow(h)) && (tabRow(h).match(/nav-dot/g) || []).length === 1);
+  ctx.S.char = { username: "Aziz", daily: { day: todayN, streak: 2 } }; h = run("renderShop()");
+  check("claimed: no dot on the tabs", !/nav-dot/.test(tabRow(h)));
+  check("menu (sidebar) puts the dot on Shop ONLY", /n\.id==='shop'&&dailyReady\(\)\?NAV_DOT/.test(ui) && (ui.match(/n\.id==='shop'&&dailyReady\(\)\?NAV_DOT/g) || []).length === 2);
+  check("mobile drawer handle shows the dot while the drawer is closed", /dailyReady\(\)&&!S\.navOpen\?NAV_DOT/.test(ui));
+  check("the status-bar Daily chip uses the same rule", /function dailyChip\(c\)\{\s*if\(!dailyReady\(\)\) return ''/.test(ui));
+  check("css: .nav-dot (pulse, menu, drawer, handle, tab)", [".nav-dot{", ".navbtn .nav-dot", ".md-btn .nav-dot", ".md-handle .nav-dot", ".country-module .nav-dot", "@keyframes nav-dot-pulse"].every((x) => css.includes(x)));
+  console.log(`\n${pass} passed, ${failn} failed`);
+  process.exit(failn ? 1 : 0);
+})();
